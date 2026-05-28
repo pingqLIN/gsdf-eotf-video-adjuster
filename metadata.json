@@ -1,0 +1,6 @@
+{
+  "name": "GSDF EOTF Video Adjuster",
+  "description": "Chrome extension-like UI for adjusting video EOTF to match GSDF display standards based on luminance.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

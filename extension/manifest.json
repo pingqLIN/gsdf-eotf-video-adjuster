@@ -1,0 +1,26 @@
+{
+  "manifest_version": 3,
+  "name": "GSDF Visual Corrector",
+  "version": "1.0",
+  "description": "Adjust video EOTF to match GSDF display standards based on luminance.",
+  "permissions": ["activeTab", "scripting"],
+  "host_permissions": ["<all_urls>"],
+  "action": {
+    "default_title": "Toggle GSDF Control Panel"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"]
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["ui/*"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}

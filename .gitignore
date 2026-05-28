@@ -1,0 +1,12 @@
+node_modules/
+build/
+dist/
+coverage/
+output/
+.clean/
+.playwright-mcp/
+.vite/
+.DS_Store
+*.log
+.env*
+!.env.example
