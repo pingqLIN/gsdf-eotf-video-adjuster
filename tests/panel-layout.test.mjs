@@ -13,6 +13,9 @@ test('control panel is split into basic and advanced tabs', () => {
   assert.match(panelSource, /GSDFStripeTest/);
   assert.match(panelSource, /輸出預覽/);
   assert.match(panelSource, /亮度校準/);
+  assert.match(panelSource, /完整多頻率條紋圖/);
+  assert.match(panelSource, /Grid3X3/);
+  assert.match(panelSource, /GSDF_PATTERN_VIEW_CHANGED/);
   assert.match(panelSource, /曲線模式/);
   assert.match(panelSource, /純 GSDF/);
   assert.match(panelSource, /色彩模型/);
@@ -43,6 +46,11 @@ test('standalone video preview uses the shared GSDF table model', () => {
 test('basic tab stripe test follows the active transfer table', () => {
   assert.match(panelSource, /buildGsdfStripeRows\(settings\)/);
   assert.match(panelSource, /buildGsdfCalibrationStripeRows\(\)/);
+  assert.match(panelSource, /renderFrequencyMatrix/);
+  assert.match(panelSource, /compactStripeWidth = 14/);
+  assert.match(panelSource, /minmax\(72px,1fr\)/);
+  assert.match(panelSource, /stripeWidth: 40/);
+  assert.match(panelSource, /frequency\.stripeWidth \* 2/);
   assert.match(typesSource, /const transferTable = buildGsdfTableValues\(normalized\)/);
   assert.match(typesSource, /sampleTableValue\(transferTable, baseRatio\)/);
   assert.match(typesSource, /sampleTableValue\(transferTable, nextRatio\)/);

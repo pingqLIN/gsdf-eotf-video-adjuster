@@ -21,6 +21,7 @@ function createContentContext() {
     },
     createElement() {
       return {
+        contentWindow: {},
         dataset: {},
         style: {},
         setAttribute() {},
@@ -178,6 +179,39 @@ test('content script exposes a direct toggle API for fallback activation', () =>
 
   assert.equal(context.__testState.bodyChildren.length, 1);
   assert.equal(context.__testState.bodyChildren[0].id, 'gsdf-eotf-ui-iframe');
+});
+
+test('content script widens the iframe for the full GSDF pattern view', () => {
+  const context = createContentContext();
+
+  vm.runInContext(contentSource, context, { filename: 'extension/content.js' });
+  context.window.__GSDF_EOTF_CONTENT__.toggleUI();
+
+  const iframe = context.__testState.bodyChildren[0];
+  const messageListener = context.__testState.listeners.find((listener) => listener.type === 'message');
+  assert.equal(iframe.style.width, '400px');
+  assert.ok(messageListener, 'message listener should be registered');
+
+  messageListener.callback({
+    source: iframe.contentWindow,
+    data: {
+      type: 'GSDF_PATTERN_VIEW_CHANGED',
+      payload: { open: true }
+    }
+  });
+
+  assert.equal(iframe.style.width, '960px');
+  assert.equal(iframe.style.height, '704px');
+
+  messageListener.callback({
+    source: iframe.contentWindow,
+    data: {
+      type: 'GSDF_PATTERN_VIEW_CHANGED',
+      payload: { open: false }
+    }
+  });
+
+  assert.equal(iframe.style.width, '400px');
 });
 
 test('maps target luminance on a 10 to 500 nits logarithmic slider', () => {

@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, useDragControls } from 'motion/react';
-import { Activity, Eye, Gauge, RotateCcw, Save, Settings, SlidersHorizontal, Sun, Thermometer } from 'lucide-react';
+import { Activity, Eye, Gauge, Grid3X3, RotateCcw, Save, Settings, SlidersHorizontal, Sun, Thermometer, X } from 'lucide-react';
 import {
   AppSettings,
   buildGsdfCalibrationStripeRows,
@@ -137,8 +137,39 @@ function isInteractiveDragTarget(target: EventTarget | null): boolean {
 }
 
 function GSDFStripeTest({ settings }: { settings: AppSettings }) {
+  const [showFullPattern, setShowFullPattern] = React.useState(false);
+  const compactStripeWidth = 14;
   const outputRows = React.useMemo(() => buildGsdfStripeRows(settings), [settings]);
   const calibrationRows = React.useMemo(() => buildGsdfCalibrationStripeRows(), []);
+  const frequencies = React.useMemo(
+    () => [
+      { label: '1', stripeWidth: 40 },
+      { label: '2', stripeWidth: 28 },
+      { label: '4', stripeWidth: 20 },
+      { label: '8', stripeWidth: 14 },
+      { label: '12', stripeWidth: 10 },
+      { label: '16', stripeWidth: 7 },
+    ],
+    [],
+  );
+
+  React.useEffect(() => {
+    if (!window.parent || window.parent === window) {
+      return;
+    }
+
+    window.parent.postMessage({
+      type: 'GSDF_PATTERN_VIEW_CHANGED',
+      payload: { open: showFullPattern },
+    }, '*');
+
+    return () => {
+      window.parent.postMessage({
+        type: 'GSDF_PATTERN_VIEW_CHANGED',
+        payload: { open: false },
+      }, '*');
+    };
+  }, [showFullPattern]);
 
   const renderRows = (rows: ReturnType<typeof buildGsdfStripeRows>) => (
     <div className="bg-[#07090b] border border-white/5 rounded-lg p-3 space-y-2 overflow-hidden">
@@ -148,7 +179,7 @@ function GSDFStripeTest({ settings }: { settings: AppSettings }) {
           <div
             className="h-9 rounded border border-white/5 shadow-inner"
             style={{
-              backgroundImage: `repeating-linear-gradient(90deg, rgb(${row.left} ${row.left} ${row.left}) 0 8px, rgb(${row.right} ${row.right} ${row.right}) 8px 16px)`,
+              backgroundImage: `repeating-linear-gradient(90deg, rgb(${row.left} ${row.left} ${row.left}) 0 ${compactStripeWidth}px, rgb(${row.right} ${row.right} ${row.right}) ${compactStripeWidth}px ${compactStripeWidth * 2}px)`,
             }}
           />
         </div>
@@ -156,14 +187,50 @@ function GSDFStripeTest({ settings }: { settings: AppSettings }) {
     </div>
   );
 
+  const renderFrequencyMatrix = (rows: ReturnType<typeof buildGsdfStripeRows>) => (
+    <div className="space-y-2">
+      <div className="grid grid-cols-[42px_repeat(6,minmax(72px,1fr))] gap-2 text-[8px] uppercase tracking-wider text-slate-600">
+        <div />
+        {frequencies.map((frequency) => (
+          <div key={frequency.label} className="text-center">{frequency.label}x</div>
+        ))}
+      </div>
+      {rows.map((row) => (
+        <div key={row.id} className="grid grid-cols-[42px_repeat(6,minmax(72px,1fr))] gap-2 items-center">
+          <span className="text-[9px] text-slate-500 font-mono tracking-wider">{row.label}</span>
+          {frequencies.map((frequency) => (
+            <div
+              key={`${row.id}-${frequency.label}`}
+              className="h-14 rounded border border-white/5 shadow-inner"
+              style={{
+                backgroundImage: `repeating-linear-gradient(90deg, rgb(${row.left} ${row.left} ${row.left}) 0 ${frequency.stripeWidth}px, rgb(${row.right} ${row.right} ${row.right}) ${frequency.stripeWidth}px ${frequency.stripeWidth * 2}px)`,
+              }}
+            />
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+
   return (
     <section className={`space-y-3 transition-opacity ${settings.enabled ? 'opacity-100' : 'opacity-40'}`}>
-      <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold flex items-center gap-3">
-        <div className="flex items-center justify-center w-5">
-          <Eye size={15} className="text-sky-400" />
-        </div>
-        GSDF 條紋測試
-      </label>
+      <div className="flex items-center justify-between gap-3">
+        <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold flex items-center gap-3">
+          <div className="flex items-center justify-center w-5">
+            <Eye size={15} className="text-sky-400" />
+          </div>
+          GSDF 條紋測試
+        </label>
+        <button
+          type="button"
+          title="開啟完整多頻率條紋圖"
+          onClick={() => setShowFullPattern(true)}
+          className="p-1.5 rounded text-slate-500 hover:text-sky-400 hover:bg-white/5 transition-colors"
+          data-no-drag
+        >
+          <Grid3X3 size={14} />
+        </button>
+      </div>
       <div className="space-y-4">
         <div className="space-y-2">
           <div className="text-[9px] uppercase tracking-widest text-slate-500 font-bold">輸出預覽</div>
@@ -174,6 +241,34 @@ function GSDFStripeTest({ settings }: { settings: AppSettings }) {
           {renderRows(calibrationRows)}
         </div>
       </div>
+      {showFullPattern && (
+        <div className="fixed inset-3 z-[80] flex flex-col rounded-xl border border-white/10 bg-[#0b0e12] shadow-2xl overflow-hidden" data-no-drag>
+          <div className="shrink-0 flex items-center justify-between gap-3 border-b border-white/10 bg-white/5 px-4 py-3">
+            <div>
+              <div className="text-[10px] uppercase tracking-widest text-slate-400 font-bold">完整多頻率條紋圖</div>
+              <div className="text-[9px] text-slate-600 font-mono">frequency columns: 1x / 2x / 4x / 8x / 12x / 16x</div>
+            </div>
+            <button
+              type="button"
+              title="關閉"
+              onClick={() => setShowFullPattern(false)}
+              className="p-1.5 rounded text-slate-500 hover:text-white hover:bg-white/10 transition-colors"
+            >
+              <X size={15} />
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto p-4 space-y-5">
+            <div className="space-y-3">
+              <div className="text-[9px] uppercase tracking-widest text-slate-500 font-bold">輸出預覽</div>
+              {renderFrequencyMatrix(outputRows)}
+            </div>
+            <div className="space-y-3">
+              <div className="text-[9px] uppercase tracking-widest text-slate-500 font-bold">亮度校準</div>
+              {renderFrequencyMatrix(calibrationRows)}
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

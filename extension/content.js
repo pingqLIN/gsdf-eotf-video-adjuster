@@ -51,11 +51,17 @@ const FILTER_IDS = {
 const MANAGED_FILTER_RE =
   /\s*url\((["']?)#gsdf-eotf-(?:gamma|ycbcr|levels|temp|sharpen-[123])\1\)\s*/g;
 const MIN_VISIBLE_AREA = 8000;
+const PANEL_VIEWPORT_MARGIN = 16;
+const PANEL_DEFAULT_WIDTH = 400;
+const PANEL_DEFAULT_MAX_HEIGHT = 720;
+const PANEL_PATTERN_WIDTH = 960;
+const PANEL_PATTERN_MAX_HEIGHT = 820;
 
 let uiIframe = null;
 let svgFilterInjected = false;
 let currentSettings = { ...DEFAULT_SETTINGS };
 let panelPosition = { x: 24, y: 24 };
+let panelExpandedForPattern = false;
 let scanTimer = null;
 let mutationObserver = null;
 const managedVideos = new Set();
@@ -644,9 +650,45 @@ function startVideoObservers() {
   });
 }
 
+function getPanelFrameSize(expanded = panelExpandedForPattern) {
+  const viewportWidth = Math.max(PANEL_DEFAULT_WIDTH, Number(window.innerWidth || PANEL_DEFAULT_WIDTH));
+  const viewportHeight = Math.max(PANEL_DEFAULT_MAX_HEIGHT, Number(window.innerHeight || PANEL_DEFAULT_MAX_HEIGHT));
+  const width = Math.min(
+    expanded ? PANEL_PATTERN_WIDTH : PANEL_DEFAULT_WIDTH,
+    Math.max(PANEL_DEFAULT_WIDTH, viewportWidth - PANEL_VIEWPORT_MARGIN)
+  );
+  const height = Math.min(
+    expanded ? PANEL_PATTERN_MAX_HEIGHT : PANEL_DEFAULT_MAX_HEIGHT,
+    Math.max(320, viewportHeight - PANEL_VIEWPORT_MARGIN)
+  );
+
+  return { width, height };
+}
+
+function applyPanelFrameLayout() {
+  if (!uiIframe) {
+    return;
+  }
+
+  const { width, height } = getPanelFrameSize();
+  const maxX = Math.max(0, Number(window.innerWidth || width) - width);
+  const maxY = Math.max(0, Number(window.innerHeight || height) - height);
+  panelPosition = {
+    x: Math.min(Math.max(0, panelPosition.x), maxX),
+    y: Math.min(Math.max(0, panelPosition.y), maxY),
+  };
+  uiIframe.style.width = `${width}px`;
+  uiIframe.style.height = `${height}px`;
+  uiIframe.style.left = `${panelPosition.x}px`;
+  uiIframe.style.top = `${panelPosition.y}px`;
+}
+
 function toggleUI() {
   if (uiIframe) {
     uiIframe.style.display = uiIframe.style.display === 'none' ? 'block' : 'none';
+    if (uiIframe.style.display !== 'none') {
+      applyPanelFrameLayout();
+    }
     return;
   }
 
@@ -661,8 +703,6 @@ function toggleUI() {
     position: 'fixed',
     top: `${panelPosition.y}px`,
     left: `${panelPosition.x}px`,
-    width: '400px',
-    height: 'min(720px, calc(100vh - 16px))',
     border: 'none',
     zIndex: '2147483647',
     backgroundColor: 'transparent',
@@ -673,6 +713,7 @@ function toggleUI() {
   });
 
   document.body.appendChild(uiIframe);
+  applyPanelFrameLayout();
 }
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -696,14 +737,20 @@ window.addEventListener('message', (event) => {
 
   if (event.data && event.data.type === 'GSDF_PANEL_DRAGGED' && uiIframe) {
     const { deltaX, deltaY } = event.data.payload;
-    const maxX = Math.max(0, window.innerWidth - uiIframe.offsetWidth);
-    const maxY = Math.max(0, window.innerHeight - uiIframe.offsetHeight);
+    const { width, height } = getPanelFrameSize();
+    const maxX = Math.max(0, window.innerWidth - width);
+    const maxY = Math.max(0, window.innerHeight - height);
     panelPosition = {
       x: Math.min(Math.max(0, panelPosition.x + deltaX), maxX),
       y: Math.min(Math.max(0, panelPosition.y + deltaY), maxY),
     };
     uiIframe.style.left = `${panelPosition.x}px`;
     uiIframe.style.top = `${panelPosition.y}px`;
+  }
+
+  if (event.data && event.data.type === 'GSDF_PATTERN_VIEW_CHANGED') {
+    panelExpandedForPattern = event.data.payload?.open === true;
+    applyPanelFrameLayout();
   }
 });
 
