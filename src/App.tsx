@@ -8,13 +8,33 @@ import { DraggablePanel } from './components/DraggablePanel';
 import { VideoBackground } from './components/VideoBackground';
 import { DEFAULT_APP_SETTINGS, normalizeAppSettings, type AppSettings } from './types';
 
+function normalizeSavedSettings(value: Partial<AppSettings>): AppSettings {
+  const normalized = normalizeAppSettings(value);
+  const hasLegacyProcessedDefaults =
+    value.blackPoint === 2 &&
+    value.whitePoint === 98 &&
+    value.sharpness === 20 &&
+    value.temperature === 0;
+
+  if (hasLegacyProcessedDefaults) {
+    return {
+      ...normalized,
+      blackPoint: DEFAULT_APP_SETTINGS.blackPoint,
+      whitePoint: DEFAULT_APP_SETTINGS.whitePoint,
+      sharpness: DEFAULT_APP_SETTINGS.sharpness,
+    };
+  }
+
+  return normalized;
+}
+
 export default function App() {
   const isExtension = window.location.search.includes('mode=extension');
   const [settings, setSettings] = useState<AppSettings>(() => {
     const saved = localStorage.getItem('gsdf_extension_settings');
     if (saved) {
       try {
-        return normalizeAppSettings(JSON.parse(saved) as Partial<AppSettings>);
+        return normalizeSavedSettings(JSON.parse(saved) as Partial<AppSettings>);
       } catch (e) {
         console.error('Failed to parse settings');
       }

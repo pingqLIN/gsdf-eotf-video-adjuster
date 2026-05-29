@@ -150,7 +150,7 @@ test('derives a richer GSDF tone profile from luminance and image controls', () 
     temperature: 35
   });
 
-  assert.ok(profile.gammaExponent > 1, 'low target luminance should increase gamma exponent');
+  assert.notEqual(profile.gsdfTableValues[128], Number((128 / 255).toFixed(5)), 'low target luminance should bend the GSDF table');
   assert.ok(profile.levelSlope > 1, 'black/white point compression should increase slope');
   assert.equal(profile.sharpenFilterId, 'gsdf-eotf-sharpen-2');
   assert.ok(profile.temperatureMatrix[0] > profile.temperatureMatrix[10], 'warm temperature should lift red over blue');
@@ -185,6 +185,9 @@ test('maps target luminance on a 10 to 500 nits logarithmic slider', () => {
 
   assert.equal(hooks.normalizeSettings({ lmax: 1 }).lmax, 10);
   assert.equal(hooks.normalizeSettings({ lmax: 900 }).lmax, 500);
+  assert.equal(hooks.normalizeSettings({}).blackPoint, 0);
+  assert.equal(hooks.normalizeSettings({}).whitePoint, 100);
+  assert.equal(hooks.normalizeSettings({}).sharpness, 0);
   assert.equal(hooks.sliderValueToLuminance(0), 10);
   assert.equal(hooks.sliderValueToLuminance(1000), 500);
 
@@ -196,15 +199,23 @@ test('maps target luminance on a 10 to 500 nits logarithmic slider', () => {
   assert.ok(lowStep < highStep, 'log scale should provide finer absolute control at low nits');
 });
 
-test('keeps 500 nits neutral and makes 10 nits the strongest low luminance curve', () => {
+test('keeps 500 nits neutral and varies lower luminance curves', () => {
   const hooks = loadContentHooks();
   const neutral = hooks.deriveToneProfile({ enabled: true, lmax: 500, strength: 100 });
   const dim = hooks.deriveToneProfile({ enabled: true, lmax: 100, strength: 100 });
   const veryDim = hooks.deriveToneProfile({ enabled: true, lmax: 10, strength: 100 });
+  const identityMid = Number((128 / 255).toFixed(5));
+  const neutralDelta = Math.abs(neutral.gsdfTableValues[128] - identityMid);
+  const dimDelta = Math.abs(dim.gsdfTableValues[128] - identityMid);
+  const veryDimDelta = Math.abs(veryDim.gsdfTableValues[128] - identityMid);
 
-  assert.equal(neutral.gammaExponent, 1);
-  assert.ok(dim.gammaExponent > neutral.gammaExponent);
-  assert.ok(veryDim.gammaExponent > dim.gammaExponent);
+  assert.equal(neutral.gsdfTableValues[0], 0);
+  assert.equal(neutral.gsdfTableValues[128], identityMid);
+  assert.equal(neutral.gsdfTableValues[255], 1);
+  assert.ok(neutralDelta < 0.00001);
+  assert.ok(dimDelta > neutralDelta);
+  assert.ok(veryDimDelta > neutralDelta);
+  assert.notEqual(dim.gsdfTableValues[64], veryDim.gsdfTableValues[64]);
 });
 
 test('uses the DICOM GSDF JND luminance formula for the transfer table', () => {
@@ -213,7 +224,7 @@ test('uses the DICOM GSDF JND luminance formula for the transfer table', () => {
   assert.ok(Math.abs(hooks.gsdfJndToLuminance(1) - 0.05) < 0.001);
   assert.ok(Math.abs(hooks.gsdfJndToLuminance(1023) - 3993) < 8);
 
-  const table = hooks.buildGsdfTableValues({ lmax: 500, strength: 100 });
+  const table = hooks.buildGsdfTableValues({ lmax: 10, strength: 100 });
   assert.equal(table.length, 256);
   assert.equal(table[0], 0);
   assert.equal(table[255], 1);
@@ -240,6 +251,7 @@ test('replaces stale GSDF filters while preserving host page filter tokens', () 
 
   assert.match(filter, /brightness\(90%\)/);
   assert.match(filter, /contrast\(105%\)/);
+  assert.doesNotMatch(filter, /saturate\(/);
   assert.equal((filter.match(/gsdf-eotf-gamma/g) ?? []).length, 1);
   assert.match(filter, /url\("#gsdf-eotf-temp"\)/);
 });

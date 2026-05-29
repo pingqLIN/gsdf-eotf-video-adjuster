@@ -32,9 +32,9 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   enabled: false,
   lmax: 500,
   strength: 80,
-  blackPoint: 2,
-  whitePoint: 98,
-  sharpness: 20,
+  blackPoint: 0,
+  whitePoint: 100,
+  sharpness: 0,
   temperature: 0,
 };
 
@@ -136,12 +136,12 @@ export function getGsdfDisplayCode(inputLevel: number, lmax: number): number {
 
 export function buildGsdfTableValues(settings: Partial<AppSettings>, tableSize = 256): number[] {
   const normalized = normalizeAppSettings(settings);
-  const strengthRatio = normalized.strength / 100;
+  const correctionRatio = (normalized.strength / 100) * getLowLuminanceRatio(normalized.lmax);
 
   return Array.from({ length: tableSize }, (_, index) => {
     const inputLevel = index / Math.max(1, tableSize - 1);
     const gsdfLevel = getGsdfDisplayCode(inputLevel, normalized.lmax);
-    const mixedLevel = inputLevel + (gsdfLevel - inputLevel) * strengthRatio;
+    const mixedLevel = inputLevel + (gsdfLevel - inputLevel) * correctionRatio;
 
     return Number(clampNumber(mixedLevel, 0, 1, inputLevel).toFixed(5));
   });

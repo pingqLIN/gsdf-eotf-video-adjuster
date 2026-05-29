@@ -10,9 +10,9 @@ const DEFAULT_SETTINGS = {
   enabled: false,
   lmax: 500,
   strength: 80,
-  blackPoint: 2,
-  whitePoint: 98,
-  sharpness: 20,
+  blackPoint: 0,
+  whitePoint: 100,
+  sharpness: 0,
   temperature: 0
 };
 
@@ -156,12 +156,12 @@ function getGsdfDisplayCode(inputLevel, lmax) {
 
 function buildGsdfTableValues(settings = currentSettings, tableSize = GSDF_TABLE_SIZE) {
   const normalized = normalizeSettings(settings);
-  const strengthRatio = normalized.strength / 100;
+  const correctionRatio = (normalized.strength / 100) * getLowLuminanceRatio(normalized.lmax);
 
   return Array.from({ length: tableSize }, (_, index) => {
     const inputLevel = index / Math.max(1, tableSize - 1);
     const gsdfLevel = getGsdfDisplayCode(inputLevel, normalized.lmax);
-    const mixedLevel = inputLevel + (gsdfLevel - inputLevel) * strengthRatio;
+    const mixedLevel = inputLevel + (gsdfLevel - inputLevel) * correctionRatio;
 
     return Number(clampNumber(mixedLevel, 0, 1, inputLevel).toFixed(5));
   });
@@ -194,9 +194,6 @@ function getSharpnessFilterId(sharpness) {
 
 function deriveToneProfile(settings = currentSettings) {
   const normalized = normalizeSettings(settings);
-  const strengthRatio = normalized.strength / 100;
-  const lowLuminanceRatio = getLowLuminanceRatio(normalized.lmax);
-  const gammaExponent = clampNumber(1 + lowLuminanceRatio * 0.45 * strengthRatio, 0.55, 1.55, 1);
   const blackPoint = normalized.blackPoint / 100;
   const whitePoint = normalized.whitePoint / 100;
   const usableRange = Math.max(0.05, whitePoint - blackPoint);
@@ -206,12 +203,10 @@ function deriveToneProfile(settings = currentSettings) {
   const redGain = clampNumber(1 + temperatureRatio * 0.16, 0.78, 1.22, 1);
   const greenGain = clampNumber(1 + temperatureRatio * 0.035, 0.92, 1.08, 1);
   const blueGain = clampNumber(1 - temperatureRatio * 0.16, 0.78, 1.22, 1);
-  const correctionMagnitude = lowLuminanceRatio * strengthRatio;
   const gsdfTableValues = buildGsdfTableValues(normalized);
 
   return {
     ...normalized,
-    gammaExponent,
     levelSlope,
     levelIntercept,
     temperatureMatrix: [
@@ -220,9 +215,6 @@ function deriveToneProfile(settings = currentSettings) {
       0, 0, blueGain, 0, 0,
       0, 0, 0, 1, 0
     ],
-    brightnessPercent: Math.round(100 + correctionMagnitude * 7),
-    contrastPercent: Math.round(100 + correctionMagnitude * 12 + normalized.blackPoint * 0.25),
-    saturationPercent: Math.round(100 + Math.abs(normalized.temperature) * 0.08),
     sharpenFilterId: getSharpnessFilterId(normalized.sharpness),
     gsdfTableValues
   };
@@ -247,10 +239,7 @@ function buildManagedFilterChain(existingFilter, profile = deriveToneProfile()) 
     profile.sharpenFilterId ? formatFilterUrl(profile.sharpenFilterId) : '',
     formatFilterUrl(FILTER_IDS.levels),
     formatFilterUrl(FILTER_IDS.gamma),
-    formatFilterUrl(FILTER_IDS.temperature),
-    `brightness(${profile.brightnessPercent}%)`,
-    `contrast(${profile.contrastPercent}%)`,
-    `saturate(${profile.saturationPercent}%)`
+    formatFilterUrl(FILTER_IDS.temperature)
   ].filter(Boolean);
 
   return [hostFilter, ...managedFilters].filter(Boolean).join(' ');
