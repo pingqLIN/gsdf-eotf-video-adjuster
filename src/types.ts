@@ -1,7 +1,6 @@
 export interface AppSettings {
   enabled: boolean;
   lmax: number;
-  inputGamma: number;
   strength: number;
   blackPoint: number;
   whitePoint: number;
@@ -12,10 +11,6 @@ export interface AppSettings {
 export const LUMINANCE_MIN_NITS = 10;
 export const LUMINANCE_MAX_NITS = 500;
 export const LUMINANCE_SLIDER_MAX = 1000;
-export const INPUT_GAMMA_MIN = 1;
-export const INPUT_GAMMA_MAX = 2.6;
-export const INPUT_GAMMA_DEFAULT = 1;
-export const GSDF_OUTPUT_GAMMA = 2.2;
 const LUMINANCE_LOG_RANGE = Math.log(LUMINANCE_MAX_NITS / LUMINANCE_MIN_NITS);
 const GSDF_DISPLAY_LMIN_NITS = 0.05;
 const GSDF_JND_MIN = 1;
@@ -36,7 +31,6 @@ const GSDF_COEFFICIENTS = {
 export const DEFAULT_APP_SETTINGS: AppSettings = {
   enabled: false,
   lmax: 500,
-  inputGamma: INPUT_GAMMA_DEFAULT,
   strength: 80,
   blackPoint: 2,
   whitePoint: 98,
@@ -59,10 +53,6 @@ function roundLuminance(value: number): number {
 
 export function clampLuminance(value: unknown): number {
   return roundLuminance(clampNumber(value, LUMINANCE_MIN_NITS, LUMINANCE_MAX_NITS, DEFAULT_APP_SETTINGS.lmax));
-}
-
-export function clampInputGamma(value: unknown): number {
-  return Number(clampNumber(value, INPUT_GAMMA_MIN, INPUT_GAMMA_MAX, DEFAULT_APP_SETTINGS.inputGamma).toFixed(2));
 }
 
 export function sliderValueToLuminance(value: unknown): number {
@@ -126,15 +116,13 @@ export function luminanceToGsdfJnd(luminance: number): number {
   return (low + high) / 2;
 }
 
-export function getGsdfDisplayCode(inputLevel: number, lmax: number, inputGamma = INPUT_GAMMA_DEFAULT): number {
+export function getGsdfDisplayCode(inputLevel: number, lmax: number): number {
   const normalized = clampNumber(inputLevel, 0, 1, 0);
-  const gamma = clampInputGamma(inputGamma);
-  const sourceLinearLevel = Math.pow(normalized, gamma);
   const maxLuminance = clampLuminance(lmax);
   const minLuminance = Math.min(GSDF_DISPLAY_LMIN_NITS, maxLuminance * 0.01);
   const jndMin = luminanceToGsdfJnd(minLuminance);
   const jndMax = luminanceToGsdfJnd(maxLuminance);
-  const jnd = jndMin + sourceLinearLevel * (jndMax - jndMin);
+  const jnd = jndMin + normalized * (jndMax - jndMin);
   const luminance = gsdfJndToLuminance(jnd);
   const linearDisplayLevel = clampNumber(
     (luminance - minLuminance) / Math.max(0.0001, maxLuminance - minLuminance),
@@ -143,7 +131,7 @@ export function getGsdfDisplayCode(inputLevel: number, lmax: number, inputGamma 
     normalized,
   );
 
-  return clampNumber(Math.pow(linearDisplayLevel, 1 / GSDF_OUTPUT_GAMMA), 0, 1, normalized);
+  return clampNumber(Math.pow(linearDisplayLevel, 1 / 2.2), 0, 1, normalized);
 }
 
 export function buildGsdfTableValues(settings: Partial<AppSettings>, tableSize = 256): number[] {
@@ -152,7 +140,7 @@ export function buildGsdfTableValues(settings: Partial<AppSettings>, tableSize =
 
   return Array.from({ length: tableSize }, (_, index) => {
     const inputLevel = index / Math.max(1, tableSize - 1);
-    const gsdfLevel = getGsdfDisplayCode(inputLevel, normalized.lmax, normalized.inputGamma);
+    const gsdfLevel = getGsdfDisplayCode(inputLevel, normalized.lmax);
     const mixedLevel = inputLevel + (gsdfLevel - inputLevel) * strengthRatio;
 
     return Number(clampNumber(mixedLevel, 0, 1, inputLevel).toFixed(5));
@@ -166,7 +154,7 @@ export interface GSDFStripeRow {
   right: number;
 }
 
-export function buildGsdfStripeRows(lmax: number, inputGamma = INPUT_GAMMA_DEFAULT): GSDFStripeRow[] {
+export function buildGsdfStripeRows(lmax: number): GSDFStripeRow[] {
   const maxLuminance = clampLuminance(lmax);
   const minLuminance = Math.min(GSDF_DISPLAY_LMIN_NITS, maxLuminance * 0.01);
   const jndMin = luminanceToGsdfJnd(minLuminance);
@@ -186,8 +174,8 @@ export function buildGsdfStripeRows(lmax: number, inputGamma = INPUT_GAMMA_DEFAU
     return {
       id: row.id,
       label: row.label,
-      left: Math.round(getGsdfDisplayCode(baseRatio, maxLuminance, inputGamma) * 255),
-      right: Math.round(getGsdfDisplayCode(nextRatio, maxLuminance, inputGamma) * 255),
+      left: Math.round(getGsdfDisplayCode(baseRatio, maxLuminance) * 255),
+      right: Math.round(getGsdfDisplayCode(nextRatio, maxLuminance) * 255),
     };
   });
 }
@@ -201,7 +189,6 @@ export function normalizeAppSettings(value: Partial<AppSettings> | null | undefi
   const normalized: AppSettings = {
     enabled: settings.enabled === true,
     lmax: clampLuminance(settings.lmax),
-    inputGamma: clampInputGamma(settings.inputGamma),
     strength: clampNumber(settings.strength, 0, 100, DEFAULT_APP_SETTINGS.strength),
     blackPoint: clampNumber(settings.blackPoint, 0, 20, DEFAULT_APP_SETTINGS.blackPoint),
     whitePoint: clampNumber(settings.whitePoint, 80, 100, DEFAULT_APP_SETTINGS.whitePoint),

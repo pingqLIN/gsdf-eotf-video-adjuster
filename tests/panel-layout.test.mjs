@@ -3,7 +3,6 @@ import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
 const panelSource = readFileSync(new URL('../src/components/DraggablePanel.tsx', import.meta.url), 'utf8');
-const chartSource = readFileSync(new URL('../src/components/GSDFChart.tsx', import.meta.url), 'utf8');
 const videoBackgroundSource = readFileSync(new URL('../src/components/VideoBackground.tsx', import.meta.url), 'utf8');
 
 test('control panel is split into basic and advanced tabs', () => {
@@ -11,13 +10,8 @@ test('control panel is split into basic and advanced tabs', () => {
   assert.match(panelSource, /'basic'/);
   assert.match(panelSource, /'advanced'/);
   assert.match(panelSource, /GSDFStripeTest/);
-  assert.match(panelSource, /NumberControl/);
-  assert.match(panelSource, /起始 Gamma/);
-  assert.match(panelSource, /INPUT_GAMMA_MIN/);
-  assert.match(panelSource, /INPUT_GAMMA_MAX/);
-  assert.match(panelSource, /inputGamma=\{settings\.inputGamma\}/);
-  assert.match(chartSource, /inputGamma: number/);
-  assert.match(chartSource, /buildGsdfTableValues\(\{ enabled, lmax, strength, inputGamma \}\)/);
+  assert.doesNotMatch(panelSource, /起始 Gamma/);
+  assert.doesNotMatch(panelSource, /inputGamma/);
 
   const basicIndex = panelSource.indexOf("activeTab === 'basic'");
   const advancedIndex = panelSource.indexOf("activeTab === 'advanced'");
@@ -34,4 +28,5 @@ test('header drag handling does not intercept interactive controls', () => {
 test('standalone video preview uses the shared GSDF table model', () => {
   assert.match(videoBackgroundSource, /buildGsdfTableValues\(settings\)/);
   assert.match(videoBackgroundSource, /tableValues=\{gsdfTableValues\}/);
+  assert.doesNotMatch(videoBackgroundSource, /type="gamma"/);
 });

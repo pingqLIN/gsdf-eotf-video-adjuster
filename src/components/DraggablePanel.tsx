@@ -4,11 +4,8 @@ import { Activity, Eye, Gauge, RotateCcw, Save, Settings, SlidersHorizontal, Sun
 import {
   AppSettings,
   buildGsdfStripeRows,
-  clampInputGamma,
   DEFAULT_APP_SETTINGS,
   formatLuminance,
-  INPUT_GAMMA_MAX,
-  INPUT_GAMMA_MIN,
   LUMINANCE_MAX_NITS,
   LUMINANCE_MIN_NITS,
   LUMINANCE_SLIDER_MAX,
@@ -39,70 +36,6 @@ interface SliderControlProps {
   value: number;
   disabled?: boolean;
   onChange: (value: number) => void;
-}
-
-interface NumberControlProps {
-  icon: React.ReactNode;
-  label: string;
-  value: number;
-  min: number;
-  max: number;
-  step: number;
-  disabled?: boolean;
-  onChange: (value: number) => void;
-}
-
-function isInteractiveDragTarget(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) {
-    return false;
-  }
-
-  return Boolean(target.closest('button, input, label, select, textarea, a, [role="button"], [data-no-drag]'));
-}
-
-function NumberControl({
-  icon,
-  label,
-  value,
-  min,
-  max,
-  step,
-  disabled = false,
-  onChange,
-}: NumberControlProps) {
-  const displayValue = Number(value.toFixed(2));
-
-  return (
-    <div className={`space-y-3 transition-opacity ${disabled ? 'opacity-40 pointer-events-none' : 'opacity-100'}`}>
-      <div className="flex justify-between items-center gap-4">
-        <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold flex items-center gap-3">
-          <div className="flex items-center justify-center w-5">
-            {icon}
-          </div>
-          {label}
-        </label>
-        <input
-          type="number"
-          min={min}
-          max={max}
-          step={step}
-          value={displayValue}
-          onChange={(event) => {
-            const nextValue = Number.parseFloat(event.target.value);
-            if (Number.isFinite(nextValue)) {
-              onChange(nextValue);
-            }
-          }}
-          className="w-20 rounded-lg border border-white/10 bg-black/30 px-2 py-1.5 text-right font-mono text-sm text-sky-400 outline-none transition-colors focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
-          aria-label={label}
-        />
-      </div>
-      <div className="flex justify-between text-[9px] text-slate-600">
-        <span>{min.toFixed(1)}</span>
-        <span>{max.toFixed(1)}</span>
-      </div>
-    </div>
-  );
 }
 
 function SliderControl({
@@ -150,8 +83,16 @@ function SliderControl({
   );
 }
 
-function GSDFStripeTest({ lmax, inputGamma, enabled }: { lmax: number; inputGamma: number; enabled: boolean }) {
-  const rows = React.useMemo(() => buildGsdfStripeRows(lmax, inputGamma), [lmax, inputGamma]);
+function isInteractiveDragTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) {
+    return false;
+  }
+
+  return Boolean(target.closest('button, input, label, select, textarea, a, [role="button"], [data-no-drag]'));
+}
+
+function GSDFStripeTest({ lmax, enabled }: { lmax: number; enabled: boolean }) {
+  const rows = React.useMemo(() => buildGsdfStripeRows(lmax), [lmax]);
 
   return (
     <section className={`space-y-3 transition-opacity ${enabled ? 'opacity-100' : 'opacity-40'}`}>
@@ -197,15 +138,9 @@ export function DraggablePanel({
     setSettings((prev) => ({ ...prev, lmax: sliderValueToLuminance(e.target.value) }));
   };
 
-  const setNumericSetting = (
-    key: keyof Pick<AppSettings, 'inputGamma' | 'strength' | 'blackPoint' | 'whitePoint' | 'sharpness' | 'temperature'>,
-    value: number,
-  ) => {
+  const setNumericSetting = (key: keyof Pick<AppSettings, 'strength' | 'blackPoint' | 'whitePoint' | 'sharpness' | 'temperature'>, value: number) => {
     setSettings((prev) => {
       const next = { ...prev, [key]: value };
-      if (key === 'inputGamma') {
-        next.inputGamma = clampInputGamma(value);
-      }
       if (key === 'blackPoint' && next.whitePoint <= value + 10) {
         next.whitePoint = Math.min(100, value + 10);
       }
@@ -356,7 +291,7 @@ export function DraggablePanel({
                 </div>
               </div>
 
-              <GSDFStripeTest lmax={settings.lmax} inputGamma={settings.inputGamma} enabled={settings.enabled} />
+              <GSDFStripeTest lmax={settings.lmax} enabled={settings.enabled} />
             </>
           )}
 
@@ -374,17 +309,6 @@ export function DraggablePanel({
                 step={5}
                 value={settings.strength}
                 onChange={(value) => setNumericSetting('strength', value)}
-              />
-
-              <NumberControl
-                disabled={!settings.enabled}
-                icon={<Gauge size={15} className="text-sky-400" />}
-                label="起始 Gamma"
-                value={settings.inputGamma}
-                min={INPUT_GAMMA_MIN}
-                max={INPUT_GAMMA_MAX}
-                step={0.05}
-                onChange={(value) => setNumericSetting('inputGamma', value)}
               />
 
               <div className={`grid grid-cols-2 gap-4 transition-opacity ${settings.enabled ? 'opacity-100' : 'opacity-40 pointer-events-none'}`}>
@@ -444,12 +368,7 @@ export function DraggablePanel({
                   即時對比度分析視圖
                 </label>
                 <div className="bg-[#0a0a0c] border border-white/5 rounded-lg p-3">
-                  <GSDFChart
-                    enabled={settings.enabled}
-                    lmax={settings.lmax}
-                    strength={settings.strength}
-                    inputGamma={settings.inputGamma}
-                  />
+                  <GSDFChart enabled={settings.enabled} lmax={settings.lmax} strength={settings.strength} />
                 </div>
               </div>
             </>
