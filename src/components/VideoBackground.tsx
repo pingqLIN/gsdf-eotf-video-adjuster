@@ -1,14 +1,12 @@
 import React from 'react';
-import { AppSettings, getLowLuminanceRatio } from '../types';
+import { AppSettings, buildGsdfTableValues } from '../types';
 
 interface VideoBackgroundProps {
   settings: AppSettings;
 }
 
 export function VideoBackground({ settings }: VideoBackgroundProps) {
-  const strengthRatio = settings.strength / 100;
-  const lowLuminanceRatio = getLowLuminanceRatio(settings.lmax);
-  const exponent = settings.enabled ? Math.max(0.55, Math.min(1.55, 1.0 + lowLuminanceRatio * 0.45 * strengthRatio)) : 1.0;
+  const gsdfTableValues = React.useMemo(() => buildGsdfTableValues(settings).join(' '), [settings]);
   const blackPoint = settings.blackPoint / 100;
   const whitePoint = settings.whitePoint / 100;
   const usableRange = Math.max(0.05, whitePoint - blackPoint);
@@ -32,9 +30,9 @@ export function VideoBackground({ settings }: VideoBackgroundProps) {
         </filter>
         <filter id="eotf-filter" colorInterpolationFilters="sRGB">
           <feComponentTransfer>
-            <feFuncR type="gamma" amplitude="1" exponent={exponent} offset="0" />
-            <feFuncG type="gamma" amplitude="1" exponent={exponent} offset="0" />
-            <feFuncB type="gamma" amplitude="1" exponent={exponent} offset="0" />
+            <feFuncR type="table" tableValues={gsdfTableValues} />
+            <feFuncG type="table" tableValues={gsdfTableValues} />
+            <feFuncB type="table" tableValues={gsdfTableValues} />
           </feComponentTransfer>
         </filter>
         <filter id="eotf-temp" colorInterpolationFilters="sRGB">

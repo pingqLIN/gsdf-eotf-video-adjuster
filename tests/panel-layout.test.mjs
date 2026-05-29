@@ -4,6 +4,7 @@ import { test } from 'node:test';
 
 const panelSource = readFileSync(new URL('../src/components/DraggablePanel.tsx', import.meta.url), 'utf8');
 const chartSource = readFileSync(new URL('../src/components/GSDFChart.tsx', import.meta.url), 'utf8');
+const videoBackgroundSource = readFileSync(new URL('../src/components/VideoBackground.tsx', import.meta.url), 'utf8');
 
 test('control panel is split into basic and advanced tabs', () => {
   assert.match(panelSource, /activeTab/);
@@ -28,4 +29,9 @@ test('header drag handling does not intercept interactive controls', () => {
   assert.match(panelSource, /button, input, label, select, textarea, a/);
   assert.match(panelSource, /data-no-drag/);
   assert.match(panelSource, /isInteractiveDragTarget\(e\.target\)/);
+});
+
+test('standalone video preview uses the shared GSDF table model', () => {
+  assert.match(videoBackgroundSource, /buildGsdfTableValues\(settings\)/);
+  assert.match(videoBackgroundSource, /tableValues=\{gsdfTableValues\}/);
 });
