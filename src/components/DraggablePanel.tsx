@@ -3,6 +3,7 @@ import { motion, useDragControls } from 'motion/react';
 import { Activity, Eye, Gauge, RotateCcw, Save, Settings, SlidersHorizontal, Sun, Thermometer } from 'lucide-react';
 import {
   AppSettings,
+  buildGsdfCalibrationStripeRows,
   buildGsdfStripeRows,
   DEFAULT_APP_SETTINGS,
   formatLuminance,
@@ -36,6 +37,50 @@ interface SliderControlProps {
   value: number;
   disabled?: boolean;
   onChange: (value: number) => void;
+}
+
+interface SegmentedControlProps<T extends string> {
+  label: string;
+  value: T;
+  options: Array<{ value: T; label: string; title: string }>;
+  disabled?: boolean;
+  onChange: (value: T) => void;
+}
+
+function SegmentedControl<T extends string>({
+  label,
+  value,
+  options,
+  disabled = false,
+  onChange,
+}: SegmentedControlProps<T>) {
+  return (
+    <div className={`space-y-3 transition-opacity ${disabled ? 'opacity-40 pointer-events-none' : 'opacity-100'}`}>
+      <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold flex items-center gap-3">
+        <div className="flex items-center justify-center w-5">
+          <SlidersHorizontal size={15} className="text-sky-400" />
+        </div>
+        {label}
+      </label>
+      <div className="grid grid-cols-2 gap-1 rounded-lg bg-black/30 border border-white/5 p-1">
+        {options.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            title={option.title}
+            onClick={() => onChange(option.value)}
+            className={`h-9 rounded-md text-[11px] font-bold tracking-wider transition-colors ${
+              value === option.value
+                ? 'bg-sky-500 text-white shadow-lg shadow-sky-950/30'
+                : 'text-slate-400 hover:text-white hover:bg-white/5'
+            }`}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function SliderControl({
@@ -92,7 +137,24 @@ function isInteractiveDragTarget(target: EventTarget | null): boolean {
 }
 
 function GSDFStripeTest({ settings }: { settings: AppSettings }) {
-  const rows = React.useMemo(() => buildGsdfStripeRows(settings), [settings]);
+  const outputRows = React.useMemo(() => buildGsdfStripeRows(settings), [settings]);
+  const calibrationRows = React.useMemo(() => buildGsdfCalibrationStripeRows(), []);
+
+  const renderRows = (rows: ReturnType<typeof buildGsdfStripeRows>) => (
+    <div className="bg-[#07090b] border border-white/5 rounded-lg p-3 space-y-2 overflow-hidden">
+      {rows.map((row) => (
+        <div key={row.id} className="grid grid-cols-[42px_1fr] items-center gap-3">
+          <span className="text-[9px] text-slate-500 font-mono tracking-wider">{row.label}</span>
+          <div
+            className="h-9 rounded border border-white/5 shadow-inner"
+            style={{
+              backgroundImage: `repeating-linear-gradient(90deg, rgb(${row.left} ${row.left} ${row.left}) 0 8px, rgb(${row.right} ${row.right} ${row.right}) 8px 16px)`,
+            }}
+          />
+        </div>
+      ))}
+    </div>
+  );
 
   return (
     <section className={`space-y-3 transition-opacity ${settings.enabled ? 'opacity-100' : 'opacity-40'}`}>
@@ -102,18 +164,15 @@ function GSDFStripeTest({ settings }: { settings: AppSettings }) {
         </div>
         GSDF 條紋測試
       </label>
-      <div className="bg-[#07090b] border border-white/5 rounded-lg p-3 space-y-2 overflow-hidden">
-        {rows.map((row) => (
-          <div key={row.id} className="grid grid-cols-[42px_1fr] items-center gap-3">
-            <span className="text-[9px] text-slate-500 font-mono tracking-wider">{row.label}</span>
-            <div
-              className="h-9 rounded border border-white/5 shadow-inner"
-              style={{
-                backgroundImage: `repeating-linear-gradient(90deg, rgb(${row.left} ${row.left} ${row.left}) 0 8px, rgb(${row.right} ${row.right} ${row.right}) 8px 16px)`,
-              }}
-            />
-          </div>
-        ))}
+      <div className="space-y-4">
+        <div className="space-y-2">
+          <div className="text-[9px] uppercase tracking-widest text-slate-500 font-bold">輸出預覽</div>
+          {renderRows(outputRows)}
+        </div>
+        <div className="space-y-2">
+          <div className="text-[9px] uppercase tracking-widest text-slate-500 font-bold">亮度校準</div>
+          {renderRows(calibrationRows)}
+        </div>
       </div>
     </section>
   );
@@ -136,6 +195,10 @@ export function DraggablePanel({
 
   const handleLmaxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSettings((prev) => ({ ...prev, lmax: sliderValueToLuminance(e.target.value) }));
+  };
+
+  const setModeSetting = <K extends keyof Pick<AppSettings, 'curveMode' | 'colorModel'>>(key: K, value: AppSettings[K]) => {
+    setSettings((prev) => ({ ...prev, [key]: value }));
   };
 
   const setNumericSetting = (key: keyof Pick<AppSettings, 'strength' | 'blackPoint' | 'whitePoint' | 'sharpness' | 'temperature'>, value: number) => {
@@ -297,8 +360,30 @@ export function DraggablePanel({
 
           {activeTab === 'advanced' && (
             <>
-              <SliderControl
+              <SegmentedControl
                 disabled={!settings.enabled}
+                label="曲線模式"
+                value={settings.curveMode}
+                options={[
+                  { value: 'relative', label: '相對補償', title: '以 500 nits 為補償歸零點，低亮度逐步引入 GSDF' },
+                  { value: 'pure', label: '純 GSDF', title: '不做 500 nits 中性混合，直接套用 GSDF table' },
+                ]}
+                onChange={(value) => setModeSetting('curveMode', value)}
+              />
+
+              <SegmentedControl
+                disabled={!settings.enabled}
+                label="色彩模型"
+                value={settings.colorModel}
+                options={[
+                  { value: 'rgb', label: 'RGB', title: '對 R/G/B 三通道套同一張 GSDF table' },
+                  { value: 'ycbcr', label: 'YCbCr', title: '轉成 YCbCr 後只調整 Y 亮度，保留 Cb/Cr 色度' },
+                ]}
+                onChange={(value) => setModeSetting('colorModel', value)}
+              />
+
+              <SliderControl
+                disabled={!settings.enabled || settings.curveMode === 'pure'}
                 icon={<Gauge size={15} className="text-sky-400" />}
                 label="修正強度"
                 valueText={`${settings.strength}%`}
@@ -368,7 +453,7 @@ export function DraggablePanel({
                   即時對比度分析視圖
                 </label>
                 <div className="bg-[#0a0a0c] border border-white/5 rounded-lg p-3">
-                  <GSDFChart enabled={settings.enabled} lmax={settings.lmax} strength={settings.strength} />
+                  <GSDFChart settings={settings} />
                 </div>
               </div>
             </>

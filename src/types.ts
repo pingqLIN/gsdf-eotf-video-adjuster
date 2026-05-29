@@ -1,12 +1,17 @@
 export interface AppSettings {
   enabled: boolean;
   lmax: number;
+  curveMode: GsdfCurveMode;
+  colorModel: GsdfColorModel;
   strength: number;
   blackPoint: number;
   whitePoint: number;
   sharpness: number;
   temperature: number;
 }
+
+export type GsdfCurveMode = 'relative' | 'pure';
+export type GsdfColorModel = 'rgb' | 'ycbcr';
 
 export const LUMINANCE_MIN_NITS = 10;
 export const LUMINANCE_MAX_NITS = 500;
@@ -31,6 +36,8 @@ const GSDF_COEFFICIENTS = {
 export const DEFAULT_APP_SETTINGS: AppSettings = {
   enabled: false,
   lmax: 500,
+  curveMode: 'relative',
+  colorModel: 'rgb',
   strength: 80,
   blackPoint: 0,
   whitePoint: 100,
@@ -49,6 +56,14 @@ function clampNumber(value: unknown, min: number, max: number, fallback: number)
 
 function roundLuminance(value: number): number {
   return Number(value.toFixed(value < 100 ? 1 : 0));
+}
+
+function normalizeCurveMode(value: unknown): GsdfCurveMode {
+  return value === 'pure' ? 'pure' : DEFAULT_APP_SETTINGS.curveMode;
+}
+
+function normalizeColorModel(value: unknown): GsdfColorModel {
+  return value === 'ycbcr' ? 'ycbcr' : DEFAULT_APP_SETTINGS.colorModel;
 }
 
 export function clampLuminance(value: unknown): number {
@@ -136,7 +151,10 @@ export function getGsdfDisplayCode(inputLevel: number, lmax: number): number {
 
 export function buildGsdfTableValues(settings: Partial<AppSettings>, tableSize = 256): number[] {
   const normalized = normalizeAppSettings(settings);
-  const correctionRatio = (normalized.strength / 100) * getLowLuminanceRatio(normalized.lmax);
+  const correctionRatio =
+    normalized.curveMode === 'pure'
+      ? 1
+      : (normalized.strength / 100) * getLowLuminanceRatio(normalized.lmax);
 
   return Array.from({ length: tableSize }, (_, index) => {
     const inputLevel = index / Math.max(1, tableSize - 1);
@@ -153,6 +171,13 @@ export interface GSDFStripeRow {
   left: number;
   right: number;
 }
+
+const GSDF_STRIPE_BASE_ROWS = [
+  { id: 'dark', label: 'LOW', ratio: 0.08, deltaJnd: 6 },
+  { id: 'shadow', label: 'DARK', ratio: 0.22, deltaJnd: 5 },
+  { id: 'mid', label: 'MID', ratio: 0.48, deltaJnd: 4 },
+  { id: 'bright', label: 'HIGH', ratio: 0.74, deltaJnd: 3 },
+];
 
 function sampleTableValue(table: number[], ratio: number): number {
   if (table.length === 0) {
@@ -177,14 +202,8 @@ export function buildGsdfStripeRows(settings: Partial<AppSettings>): GSDFStripeR
   const jndMax = luminanceToGsdfJnd(maxLuminance);
   const jndRange = jndMax - jndMin;
   const transferTable = buildGsdfTableValues(normalized);
-  const rows = [
-    { id: 'dark', label: 'LOW', ratio: 0.08, deltaJnd: 6 },
-    { id: 'shadow', label: 'DARK', ratio: 0.22, deltaJnd: 5 },
-    { id: 'mid', label: 'MID', ratio: 0.48, deltaJnd: 4 },
-    { id: 'bright', label: 'HIGH', ratio: 0.74, deltaJnd: 3 },
-  ];
 
-  return rows.map((row) => {
+  return GSDF_STRIPE_BASE_ROWS.map((row) => {
     const baseRatio = clampNumber(row.ratio, 0, 1, 0);
     const nextRatio = clampNumber(baseRatio + row.deltaJnd / Math.max(1, jndRange), 0, 1, baseRatio);
 
@@ -193,6 +212,20 @@ export function buildGsdfStripeRows(settings: Partial<AppSettings>): GSDFStripeR
       label: row.label,
       left: Math.round(sampleTableValue(transferTable, baseRatio) * 255),
       right: Math.round(sampleTableValue(transferTable, nextRatio) * 255),
+    };
+  });
+}
+
+export function buildGsdfCalibrationStripeRows(): GSDFStripeRow[] {
+  return GSDF_STRIPE_BASE_ROWS.map((row) => {
+    const left = Math.round(clampNumber(row.ratio, 0, 1, 0) * 255);
+    const right = Math.min(255, left + 2);
+
+    return {
+      id: `cal-${row.id}`,
+      label: row.label,
+      left,
+      right,
     };
   });
 }
@@ -206,6 +239,8 @@ export function normalizeAppSettings(value: Partial<AppSettings> | null | undefi
   const normalized: AppSettings = {
     enabled: settings.enabled === true,
     lmax: clampLuminance(settings.lmax),
+    curveMode: normalizeCurveMode(settings.curveMode),
+    colorModel: normalizeColorModel(settings.colorModel),
     strength: clampNumber(settings.strength, 0, 100, DEFAULT_APP_SETTINGS.strength),
     blackPoint: clampNumber(settings.blackPoint, 0, 20, DEFAULT_APP_SETTINGS.blackPoint),
     whitePoint: clampNumber(settings.whitePoint, 80, 100, DEFAULT_APP_SETTINGS.whitePoint),

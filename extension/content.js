@@ -9,6 +9,8 @@ globalThis.__GSDF_EOTF_CONTENT__ = { status: 'loading' };
 const DEFAULT_SETTINGS = {
   enabled: false,
   lmax: 500,
+  curveMode: 'relative',
+  colorModel: 'rgb',
   strength: 80,
   blackPoint: 0,
   whitePoint: 100,
@@ -39,6 +41,7 @@ const GSDF_COEFFICIENTS = {
 const FILTER_CONTAINER_ID = 'gsdf-eotf-svg-filter-container';
 const FILTER_IDS = {
   gamma: 'gsdf-eotf-gamma',
+  ycbcr: 'gsdf-eotf-ycbcr',
   levels: 'gsdf-eotf-levels',
   temperature: 'gsdf-eotf-temp',
   sharpen1: 'gsdf-eotf-sharpen-1',
@@ -46,7 +49,7 @@ const FILTER_IDS = {
   sharpen3: 'gsdf-eotf-sharpen-3'
 };
 const MANAGED_FILTER_RE =
-  /\s*url\((["']?)#gsdf-eotf-(?:gamma|levels|temp|sharpen-[123])\1\)\s*/g;
+  /\s*url\((["']?)#gsdf-eotf-(?:gamma|ycbcr|levels|temp|sharpen-[123])\1\)\s*/g;
 const MIN_VISIBLE_AREA = 8000;
 
 let uiIframe = null;
@@ -69,6 +72,14 @@ function clampNumber(value, min, max, fallback = min) {
 
 function roundLuminance(value) {
   return Number(value.toFixed(value < 100 ? 1 : 0));
+}
+
+function normalizeCurveMode(value) {
+  return value === 'pure' ? 'pure' : DEFAULT_SETTINGS.curveMode;
+}
+
+function normalizeColorModel(value) {
+  return value === 'ycbcr' ? 'ycbcr' : DEFAULT_SETTINGS.colorModel;
 }
 
 function clampLuminance(value) {
@@ -156,7 +167,10 @@ function getGsdfDisplayCode(inputLevel, lmax) {
 
 function buildGsdfTableValues(settings = currentSettings, tableSize = GSDF_TABLE_SIZE) {
   const normalized = normalizeSettings(settings);
-  const correctionRatio = (normalized.strength / 100) * getLowLuminanceRatio(normalized.lmax);
+  const correctionRatio =
+    normalized.curveMode === 'pure'
+      ? 1
+      : (normalized.strength / 100) * getLowLuminanceRatio(normalized.lmax);
 
   return Array.from({ length: tableSize }, (_, index) => {
     const inputLevel = index / Math.max(1, tableSize - 1);
@@ -171,6 +185,8 @@ function normalizeSettings(settings = {}) {
   const normalized = {
     enabled: settings.enabled === true,
     lmax: clampLuminance(settings.lmax),
+    curveMode: normalizeCurveMode(settings.curveMode),
+    colorModel: normalizeColorModel(settings.colorModel),
     strength: clampNumber(settings.strength, 0, 100, DEFAULT_SETTINGS.strength),
     blackPoint: clampNumber(settings.blackPoint, 0, 20, DEFAULT_SETTINGS.blackPoint),
     whitePoint: clampNumber(settings.whitePoint, 80, 100, DEFAULT_SETTINGS.whitePoint),
@@ -235,10 +251,11 @@ function stripManagedFilterTokens(filterText = '') {
 
 function buildManagedFilterChain(existingFilter, profile = deriveToneProfile()) {
   const hostFilter = stripManagedFilterTokens(existingFilter);
+  const transferFilterId = profile.colorModel === 'ycbcr' ? FILTER_IDS.ycbcr : FILTER_IDS.gamma;
   const managedFilters = [
     profile.sharpenFilterId ? formatFilterUrl(profile.sharpenFilterId) : '',
     formatFilterUrl(FILTER_IDS.levels),
-    formatFilterUrl(FILTER_IDS.gamma),
+    formatFilterUrl(transferFilterId),
     formatFilterUrl(FILTER_IDS.temperature)
   ].filter(Boolean);
 
@@ -279,6 +296,23 @@ function injectSVGFilter() {
           <feFuncB id="${FILTER_IDS.gamma}-b" type="table" tableValues="0 1"></feFuncB>
         </feComponentTransfer>
       </filter>
+      <filter id="${FILTER_IDS.ycbcr}" color-interpolation-filters="sRGB">
+        <feColorMatrix
+          type="matrix"
+          values="0.2126 0.7152 0.0722 0 0  -0.1146 -0.3854 0.5000 0 0.5  0.5000 -0.4542 -0.0458 0 0.5  0 0 0 1 0"
+          result="ycbcr"
+        ></feColorMatrix>
+        <feComponentTransfer in="ycbcr" result="yAdjusted">
+          <feFuncR id="${FILTER_IDS.ycbcr}-r" type="table" tableValues="0 1"></feFuncR>
+          <feFuncG id="${FILTER_IDS.ycbcr}-g" type="linear" slope="1" intercept="0"></feFuncG>
+          <feFuncB id="${FILTER_IDS.ycbcr}-b" type="linear" slope="1" intercept="0"></feFuncB>
+        </feComponentTransfer>
+        <feColorMatrix
+          in="yAdjusted"
+          type="matrix"
+          values="1 0 1.5748 0 -0.7874  1 -0.1873 -0.4681 0 0.3277  1 1.8556 0 0 -0.9278  0 0 0 1 0"
+        ></feColorMatrix>
+      </filter>
       <filter id="${FILTER_IDS.temperature}" color-interpolation-filters="sRGB">
         <feColorMatrix id="${FILTER_IDS.temperature}-matrix" type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 1 0"></feColorMatrix>
       </filter>
@@ -314,6 +348,9 @@ function setTransferAttributes(filterId, attributes) {
 function updateFilterDefinitions(profile) {
   injectSVGFilter();
   setTransferAttributes(FILTER_IDS.gamma, {
+    tableValues: profile.gsdfTableValues.join(' ')
+  });
+  setTransferAttributes(FILTER_IDS.ycbcr, {
     tableValues: profile.gsdfTableValues.join(' ')
   });
   setTransferAttributes(FILTER_IDS.levels, {

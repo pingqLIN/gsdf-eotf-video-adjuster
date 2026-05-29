@@ -188,6 +188,10 @@ test('maps target luminance on a 10 to 500 nits logarithmic slider', () => {
   assert.equal(hooks.normalizeSettings({}).blackPoint, 0);
   assert.equal(hooks.normalizeSettings({}).whitePoint, 100);
   assert.equal(hooks.normalizeSettings({}).sharpness, 0);
+  assert.equal(hooks.normalizeSettings({ curveMode: 'pure' }).curveMode, 'pure');
+  assert.equal(hooks.normalizeSettings({ curveMode: 'unknown' }).curveMode, 'relative');
+  assert.equal(hooks.normalizeSettings({ colorModel: 'ycbcr' }).colorModel, 'ycbcr');
+  assert.equal(hooks.normalizeSettings({ colorModel: 'ictcp' }).colorModel, 'rgb');
   assert.equal(hooks.sliderValueToLuminance(0), 10);
   assert.equal(hooks.sliderValueToLuminance(1000), 500);
 
@@ -230,6 +234,32 @@ test('uses the DICOM GSDF JND luminance formula for the transfer table', () => {
   assert.equal(table[255], 1);
   assert.ok(table[16] > 0 && table[16] < table[128]);
   assert.ok(table[128] < table[240]);
+});
+
+test('pure GSDF mode applies the full curve without the 500 nit neutral blend', () => {
+  const hooks = loadContentHooks();
+  const relativeTable = hooks.buildGsdfTableValues({ lmax: 500, strength: 100, curveMode: 'relative' });
+  const pureTable = hooks.buildGsdfTableValues({ lmax: 500, strength: 100, curveMode: 'pure' });
+
+  assert.equal(relativeTable[128], Number((128 / 255).toFixed(5)));
+  assert.notEqual(pureTable[128], relativeTable[128]);
+  assert.equal(pureTable[0], 0);
+  assert.equal(pureTable[255], 1);
+});
+
+test('YCbCr mode selects the luma-only managed filter', () => {
+  const hooks = loadContentHooks();
+  const profile = hooks.deriveToneProfile({
+    enabled: true,
+    lmax: 100,
+    strength: 100,
+    colorModel: 'ycbcr'
+  });
+
+  const filter = hooks.buildManagedFilterChain('', profile);
+
+  assert.match(filter, /url\("#gsdf-eotf-ycbcr"\)/);
+  assert.doesNotMatch(filter, /url\("#gsdf-eotf-gamma"\)/);
 });
 
 test('replaces stale GSDF filters while preserving host page filter tokens', () => {

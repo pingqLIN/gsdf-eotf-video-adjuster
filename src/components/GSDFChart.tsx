@@ -1,18 +1,16 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
-import { buildGsdfTableValues } from '../types';
+import { AppSettings, buildGsdfTableValues } from '../types';
 
 interface GSDFChartProps {
-  enabled: boolean;
-  lmax: number;
-  strength: number;
+  settings: AppSettings;
 }
 
-export function GSDFChart({ enabled, lmax, strength }: GSDFChartProps) {
+export function GSDFChart({ settings }: GSDFChartProps) {
   const [layoutReady, setLayoutReady] = useState(false);
   const data = useMemo(() => {
     const arr = [];
-    const table = buildGsdfTableValues({ enabled, lmax, strength });
+    const table = buildGsdfTableValues(settings);
 
     for (let i = 0; i <= 255; i += 15) {
       const v = i / 255;
@@ -29,7 +27,7 @@ export function GSDFChart({ enabled, lmax, strength }: GSDFChartProps) {
       GSDF_Simulated: table[255] ?? 1.0,
     });
     return arr;
-  }, [enabled, lmax, strength]);
+  }, [settings]);
 
   useEffect(() => {
     const frameId = window.requestAnimationFrame(() => setLayoutReady(true));
@@ -74,7 +72,7 @@ export function GSDFChart({ enabled, lmax, strength }: GSDFChartProps) {
             name="Standard sRGB" 
             isAnimationActive={false}
           />
-          {enabled && (
+          {settings.enabled && (
              <Line 
                type="monotone" 
                dataKey="GSDF_Simulated" 
