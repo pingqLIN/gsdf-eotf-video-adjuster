@@ -9,7 +9,7 @@ globalThis.__GSDF_EOTF_CONTENT__ = { status: 'loading' };
 const DEFAULT_SETTINGS = {
   enabled: false,
   lmax: 500,
-  inputGamma: 2.2,
+  inputGamma: 1,
   strength: 80,
   blackPoint: 2,
   whitePoint: 98,

@@ -185,6 +185,7 @@ test('maps target luminance on a 10 to 500 nits logarithmic slider', () => {
 
   assert.equal(hooks.normalizeSettings({ lmax: 1 }).lmax, 10);
   assert.equal(hooks.normalizeSettings({ lmax: 900 }).lmax, 500);
+  assert.equal(hooks.normalizeSettings({}).inputGamma, 1);
   assert.equal(hooks.normalizeSettings({ inputGamma: 0.5 }).inputGamma, 1);
   assert.equal(hooks.normalizeSettings({ inputGamma: 3 }).inputGamma, 2.6);
   assert.equal(hooks.sliderValueToLuminance(0), 10);
@@ -202,9 +203,11 @@ test('uses configurable input gamma for GSDF transfer table mapping', () => {
   const hooks = loadContentHooks();
 
   const linearTable = hooks.buildGsdfTableValues({ lmax: 500, strength: 100, inputGamma: 1 });
+  const defaultTable = hooks.buildGsdfTableValues({ lmax: 500, strength: 100 });
   const gammaTable = hooks.buildGsdfTableValues({ lmax: 500, strength: 100, inputGamma: 2.2 });
 
   assert.equal(linearTable.length, 256);
+  assert.deepEqual(defaultTable, linearTable);
   assert.equal(gammaTable.length, 256);
   assert.equal(gammaTable[0], 0);
   assert.equal(gammaTable[255], 1);
