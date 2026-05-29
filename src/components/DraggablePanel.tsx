@@ -91,11 +91,11 @@ function isInteractiveDragTarget(target: EventTarget | null): boolean {
   return Boolean(target.closest('button, input, label, select, textarea, a, [role="button"], [data-no-drag]'));
 }
 
-function GSDFStripeTest({ lmax, enabled }: { lmax: number; enabled: boolean }) {
-  const rows = React.useMemo(() => buildGsdfStripeRows(lmax), [lmax]);
+function GSDFStripeTest({ settings }: { settings: AppSettings }) {
+  const rows = React.useMemo(() => buildGsdfStripeRows(settings), [settings]);
 
   return (
-    <section className={`space-y-3 transition-opacity ${enabled ? 'opacity-100' : 'opacity-40'}`}>
+    <section className={`space-y-3 transition-opacity ${settings.enabled ? 'opacity-100' : 'opacity-40'}`}>
       <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold flex items-center gap-3">
         <div className="flex items-center justify-center w-5">
           <Eye size={15} className="text-sky-400" />
@@ -291,7 +291,7 @@ export function DraggablePanel({
                 </div>
               </div>
 
-              <GSDFStripeTest lmax={settings.lmax} enabled={settings.enabled} />
+              <GSDFStripeTest settings={settings} />
             </>
           )}
 

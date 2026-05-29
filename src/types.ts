@@ -154,12 +154,29 @@ export interface GSDFStripeRow {
   right: number;
 }
 
-export function buildGsdfStripeRows(lmax: number): GSDFStripeRow[] {
-  const maxLuminance = clampLuminance(lmax);
+function sampleTableValue(table: number[], ratio: number): number {
+  if (table.length === 0) {
+    return clampNumber(ratio, 0, 1, 0);
+  }
+
+  const position = clampNumber(ratio, 0, 1, 0) * (table.length - 1);
+  const lowIndex = Math.floor(position);
+  const highIndex = Math.ceil(position);
+  const mix = position - lowIndex;
+  const lowValue = table[lowIndex] ?? ratio;
+  const highValue = table[highIndex] ?? lowValue;
+
+  return lowValue + (highValue - lowValue) * mix;
+}
+
+export function buildGsdfStripeRows(settings: Partial<AppSettings>): GSDFStripeRow[] {
+  const normalized = normalizeAppSettings(settings);
+  const maxLuminance = normalized.lmax;
   const minLuminance = Math.min(GSDF_DISPLAY_LMIN_NITS, maxLuminance * 0.01);
   const jndMin = luminanceToGsdfJnd(minLuminance);
   const jndMax = luminanceToGsdfJnd(maxLuminance);
   const jndRange = jndMax - jndMin;
+  const transferTable = buildGsdfTableValues(normalized);
   const rows = [
     { id: 'dark', label: 'LOW', ratio: 0.08, deltaJnd: 6 },
     { id: 'shadow', label: 'DARK', ratio: 0.22, deltaJnd: 5 },
@@ -174,8 +191,8 @@ export function buildGsdfStripeRows(lmax: number): GSDFStripeRow[] {
     return {
       id: row.id,
       label: row.label,
-      left: Math.round(getGsdfDisplayCode(baseRatio, maxLuminance) * 255),
-      right: Math.round(getGsdfDisplayCode(nextRatio, maxLuminance) * 255),
+      left: Math.round(sampleTableValue(transferTable, baseRatio) * 255),
+      right: Math.round(sampleTableValue(transferTable, nextRatio) * 255),
     };
   });
 }

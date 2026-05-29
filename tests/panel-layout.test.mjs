@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
 const panelSource = readFileSync(new URL('../src/components/DraggablePanel.tsx', import.meta.url), 'utf8');
+const typesSource = readFileSync(new URL('../src/types.ts', import.meta.url), 'utf8');
 const videoBackgroundSource = readFileSync(new URL('../src/components/VideoBackground.tsx', import.meta.url), 'utf8');
 
 test('control panel is split into basic and advanced tabs', () => {
@@ -29,4 +30,11 @@ test('standalone video preview uses the shared GSDF table model', () => {
   assert.match(videoBackgroundSource, /buildGsdfTableValues\(settings\)/);
   assert.match(videoBackgroundSource, /tableValues=\{gsdfTableValues\}/);
   assert.doesNotMatch(videoBackgroundSource, /type="gamma"/);
+});
+
+test('basic tab stripe test follows the active transfer table', () => {
+  assert.match(panelSource, /buildGsdfStripeRows\(settings\)/);
+  assert.match(typesSource, /const transferTable = buildGsdfTableValues\(normalized\)/);
+  assert.match(typesSource, /sampleTableValue\(transferTable, baseRatio\)/);
+  assert.match(typesSource, /sampleTableValue\(transferTable, nextRatio\)/);
 });
