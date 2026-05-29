@@ -6,13 +6,14 @@ interface GSDFChartProps {
   enabled: boolean;
   lmax: number;
   strength: number;
+  inputGamma: number;
 }
 
-export function GSDFChart({ enabled, lmax, strength }: GSDFChartProps) {
+export function GSDFChart({ enabled, lmax, strength, inputGamma }: GSDFChartProps) {
   const [layoutReady, setLayoutReady] = useState(false);
   const data = useMemo(() => {
     const arr = [];
-    const table = buildGsdfTableValues({ enabled, lmax, strength });
+    const table = buildGsdfTableValues({ enabled, lmax, strength, inputGamma });
 
     for (let i = 0; i <= 255; i += 15) {
       const v = i / 255;
@@ -29,7 +30,7 @@ export function GSDFChart({ enabled, lmax, strength }: GSDFChartProps) {
       GSDF_Simulated: table[255] ?? 1.0,
     });
     return arr;
-  }, [enabled, lmax, strength]);
+  }, [enabled, lmax, strength, inputGamma]);
 
   useEffect(() => {
     const frameId = window.requestAnimationFrame(() => setLayoutReady(true));

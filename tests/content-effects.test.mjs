@@ -185,6 +185,8 @@ test('maps target luminance on a 10 to 500 nits logarithmic slider', () => {
 
   assert.equal(hooks.normalizeSettings({ lmax: 1 }).lmax, 10);
   assert.equal(hooks.normalizeSettings({ lmax: 900 }).lmax, 500);
+  assert.equal(hooks.normalizeSettings({ inputGamma: 0.5 }).inputGamma, 1);
+  assert.equal(hooks.normalizeSettings({ inputGamma: 3 }).inputGamma, 2.6);
   assert.equal(hooks.sliderValueToLuminance(0), 10);
   assert.equal(hooks.sliderValueToLuminance(1000), 500);
 
@@ -194,6 +196,26 @@ test('maps target luminance on a 10 to 500 nits logarithmic slider', () => {
   const lowStep = hooks.sliderValueToLuminance(101) - hooks.sliderValueToLuminance(100);
   const highStep = hooks.sliderValueToLuminance(901) - hooks.sliderValueToLuminance(900);
   assert.ok(lowStep < highStep, 'log scale should provide finer absolute control at low nits');
+});
+
+test('uses configurable input gamma for GSDF transfer table mapping', () => {
+  const hooks = loadContentHooks();
+
+  const linearTable = hooks.buildGsdfTableValues({ lmax: 500, strength: 100, inputGamma: 1 });
+  const gammaTable = hooks.buildGsdfTableValues({ lmax: 500, strength: 100, inputGamma: 2.2 });
+
+  assert.equal(linearTable.length, 256);
+  assert.equal(gammaTable.length, 256);
+  assert.equal(gammaTable[0], 0);
+  assert.equal(gammaTable[255], 1);
+  assert.equal(linearTable[128], 0.31018);
+  assert.equal(gammaTable[128], 0.11841);
+  assert.notEqual(gammaTable[128], linearTable[128]);
+  assert.ok(gammaTable[128] > 0 && gammaTable[128] < gammaTable[240]);
+
+  const highGammaTable = hooks.buildGsdfTableValues({ lmax: 500, strength: 100, inputGamma: 2.6 });
+  assert.equal(highGammaTable[128], 0.09062);
+  assert.ok(highGammaTable[128] < gammaTable[128]);
 });
 
 test('keeps 500 nits neutral and makes 10 nits the strongest low luminance curve', () => {

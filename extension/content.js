@@ -9,6 +9,7 @@ globalThis.__GSDF_EOTF_CONTENT__ = { status: 'loading' };
 const DEFAULT_SETTINGS = {
   enabled: false,
   lmax: 500,
+  inputGamma: 2.2,
   strength: 80,
   blackPoint: 2,
   whitePoint: 98,
@@ -19,6 +20,9 @@ const DEFAULT_SETTINGS = {
 const LUMINANCE_MIN_NITS = 10;
 const LUMINANCE_MAX_NITS = 500;
 const LUMINANCE_SLIDER_MAX = 1000;
+const INPUT_GAMMA_MIN = 1;
+const INPUT_GAMMA_MAX = 2.6;
+const GSDF_OUTPUT_GAMMA = 2.2;
 const LUMINANCE_LOG_RANGE = Math.log(LUMINANCE_MAX_NITS / LUMINANCE_MIN_NITS);
 const GSDF_DISPLAY_LMIN_NITS = 0.05;
 const GSDF_JND_MIN = 1;
@@ -73,6 +77,10 @@ function roundLuminance(value) {
 
 function clampLuminance(value) {
   return roundLuminance(clampNumber(value, LUMINANCE_MIN_NITS, LUMINANCE_MAX_NITS, DEFAULT_SETTINGS.lmax));
+}
+
+function clampInputGamma(value) {
+  return Number(clampNumber(value, INPUT_GAMMA_MIN, INPUT_GAMMA_MAX, DEFAULT_SETTINGS.inputGamma).toFixed(2));
 }
 
 function sliderValueToLuminance(value) {
@@ -136,13 +144,15 @@ function luminanceToGsdfJnd(luminance) {
   return (low + high) / 2;
 }
 
-function getGsdfDisplayCode(inputLevel, lmax) {
+function getGsdfDisplayCode(inputLevel, lmax, inputGamma = DEFAULT_SETTINGS.inputGamma) {
   const normalized = clampNumber(inputLevel, 0, 1, 0);
+  const gamma = clampInputGamma(inputGamma);
+  const sourceLinearLevel = Math.pow(normalized, gamma);
   const maxLuminance = clampLuminance(lmax);
   const minLuminance = Math.min(GSDF_DISPLAY_LMIN_NITS, maxLuminance * 0.01);
   const jndMin = luminanceToGsdfJnd(minLuminance);
   const jndMax = luminanceToGsdfJnd(maxLuminance);
-  const jnd = jndMin + normalized * (jndMax - jndMin);
+  const jnd = jndMin + sourceLinearLevel * (jndMax - jndMin);
   const luminance = gsdfJndToLuminance(jnd);
   const linearDisplayLevel = clampNumber(
     (luminance - minLuminance) / Math.max(0.0001, maxLuminance - minLuminance),
@@ -151,7 +161,7 @@ function getGsdfDisplayCode(inputLevel, lmax) {
     normalized
   );
 
-  return clampNumber(Math.pow(linearDisplayLevel, 1 / 2.2), 0, 1, normalized);
+  return clampNumber(Math.pow(linearDisplayLevel, 1 / GSDF_OUTPUT_GAMMA), 0, 1, normalized);
 }
 
 function buildGsdfTableValues(settings = currentSettings, tableSize = GSDF_TABLE_SIZE) {
@@ -160,7 +170,7 @@ function buildGsdfTableValues(settings = currentSettings, tableSize = GSDF_TABLE
 
   return Array.from({ length: tableSize }, (_, index) => {
     const inputLevel = index / Math.max(1, tableSize - 1);
-    const gsdfLevel = getGsdfDisplayCode(inputLevel, normalized.lmax);
+    const gsdfLevel = getGsdfDisplayCode(inputLevel, normalized.lmax, normalized.inputGamma);
     const mixedLevel = inputLevel + (gsdfLevel - inputLevel) * strengthRatio;
 
     return Number(clampNumber(mixedLevel, 0, 1, inputLevel).toFixed(5));
@@ -171,6 +181,7 @@ function normalizeSettings(settings = {}) {
   const normalized = {
     enabled: settings.enabled === true,
     lmax: clampLuminance(settings.lmax),
+    inputGamma: clampInputGamma(settings.inputGamma),
     strength: clampNumber(settings.strength, 0, 100, DEFAULT_SETTINGS.strength),
     blackPoint: clampNumber(settings.blackPoint, 0, 20, DEFAULT_SETTINGS.blackPoint),
     whitePoint: clampNumber(settings.whitePoint, 80, 100, DEFAULT_SETTINGS.whitePoint),
@@ -706,6 +717,7 @@ if (window.__GSDF_EOTF_TEST__) {
     buildGsdfTableValues,
     deriveToneProfile,
     gsdfJndToLuminance,
+    clampInputGamma,
     luminanceToSliderValue,
     luminanceToGsdfJnd,
     normalizeSettings,
