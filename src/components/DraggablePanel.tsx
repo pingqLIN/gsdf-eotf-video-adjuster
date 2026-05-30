@@ -13,7 +13,8 @@ import {
   luminanceToSliderValue,
   sliderValueToLuminance,
 } from '../types';
-import { GSDFChart } from './GSDFChart';
+
+const GSDFChart = React.lazy(() => import('./GSDFChart').then((module) => ({ default: module.GSDFChart })));
 
 type PanelTab = 'basic' | 'advanced';
 
@@ -548,7 +549,9 @@ export function DraggablePanel({
                   即時對比度分析視圖
                 </label>
                 <div className="bg-[#0a0a0c] border border-white/5 rounded-lg p-3">
-                  <GSDFChart settings={settings} />
+                  <React.Suspense fallback={<div className="h-48" />}>
+                    <GSDFChart settings={settings} />
+                  </React.Suspense>
                 </div>
               </div>
             </>

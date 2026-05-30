@@ -20,6 +20,10 @@ test('control panel is split into basic and advanced tabs', () => {
   assert.match(panelSource, /純 GSDF/);
   assert.match(panelSource, /色彩模型/);
   assert.match(panelSource, /YCbCr/);
+  assert.match(panelSource, /React\.lazy/);
+  assert.match(panelSource, /React\.Suspense/);
+  assert.match(panelSource, /import\('\.\/GSDFChart'\)/);
+  assert.doesNotMatch(panelSource, /import \{ GSDFChart \} from '\.\/GSDFChart'/);
   assert.doesNotMatch(panelSource, /起始 Gamma/);
   assert.doesNotMatch(panelSource, /inputGamma/);
 
