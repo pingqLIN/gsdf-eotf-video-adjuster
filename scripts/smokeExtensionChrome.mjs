@@ -186,14 +186,30 @@ async function readIframeState(page) {
       return { exists: false };
     }
     const rect = iframe.getBoundingClientRect();
-    return {
+    return Promise.resolve(fetch(iframe.src))
+      .then((response) => response.text().then((text) => ({
+        fetchOk: response.ok,
+        fetchStatus: response.status,
+        fetchTextStart: text.slice(0, 80)
+      })))
+      .catch((error) => ({
+        fetchOk: false,
+        fetchStatus: null,
+        fetchError: String(error?.message || error)
+      }))
+      .then((fetchResult) => ({
       exists: true,
       src: iframe.src,
       display: getComputedStyle(iframe).display,
+      visibility: getComputedStyle(iframe).visibility,
+      opacity: getComputedStyle(iframe).opacity,
+      left: rect.left,
+      top: rect.top,
       width: rect.width,
       height: rect.height,
-      zIndex: getComputedStyle(iframe).zIndex
-    };
+      zIndex: getComputedStyle(iframe).zIndex,
+      fetchResult
+    }));
   })()`);
 }
 
@@ -262,6 +278,28 @@ async function pollExtensionWorker(port, timeoutMs = 15000) {
   throw new Error(`Timed out waiting for GSDF Visual Corrector worker: ${JSON.stringify(lastTargets)}`);
 }
 
+async function tryPollExtensionWorker(port, timeoutMs = 5000) {
+  try {
+    return await pollExtensionWorker(port, timeoutMs);
+  } catch (error) {
+    return { target: null, client: null, reason: String(error?.message || error) };
+  }
+}
+
+function findExtensionContext(contexts) {
+  return contexts.find((context) => {
+    return context.origin?.startsWith('chrome-extension://') || context.name?.includes('chrome-extension://');
+  });
+}
+
+function getExtensionIdFromContext(context) {
+  if (!context?.origin?.startsWith('chrome-extension://')) {
+    return null;
+  }
+
+  return new URL(context.origin).hostname;
+}
+
 async function main() {
   await mkdir(outputDir, { recursive: true });
   await rm(profileDir, { recursive: true, force: true });
@@ -277,7 +315,6 @@ async function main() {
     '--disable-component-extensions-with-background-pages',
     '--disable-popup-blocking',
     '--enable-logging=stderr',
-    `--disable-extensions-except=${extensionDirForChrome}`,
     `--load-extension=${extensionDirForChrome}`,
     url
   ];
@@ -295,8 +332,6 @@ async function main() {
       (value) => value.some((target) => target.type === 'page')
     );
     const pageTarget = targets.find((target) => target.type === 'page');
-    const { target: workerTarget, client: worker } = await pollExtensionWorker(remoteDebuggingPort);
-    const extensionId = new URL(workerTarget.url).hostname;
     const page = new CdpClient(pageTarget.webSocketDebuggerUrl);
 
     await page.send('Runtime.enable');
@@ -304,36 +339,58 @@ async function main() {
     const readyState = await waitForPageInteractive(page);
     await delay(800);
 
-    const isolatedContext = page.contexts.find((context) => {
-      return context.origin === `chrome-extension://${extensionId}` || context.name?.includes(extensionId);
-    });
+    const isolatedContext = findExtensionContext(page.contexts);
+    const extensionId = getExtensionIdFromContext(isolatedContext);
+    const workerInfo = await tryPollExtensionWorker(remoteDebuggingPort);
+    const worker = workerInfo.client;
     const contentStatus = isolatedContext
       ? await evaluate(page, 'globalThis.__GSDF_EOTF_CONTENT__?.status || null', isolatedContext.id)
       : null;
-    const workerToggleType = await evaluate(worker, 'typeof togglePanel');
-    const triggerResult = await evaluate(worker, `new Promise((resolve) => {
-      chrome.tabs.query({ active: true, lastFocusedWindow: true }, async ([tab]) => {
-        try {
-          if (!tab) {
-            resolve({ ok: false, reason: 'no active tab' });
-            return;
+    const workerToggleType = worker ? await evaluate(worker, 'typeof togglePanel') : null;
+    const triggerResult = worker
+      ? await evaluate(worker, `new Promise((resolve) => {
+        chrome.tabs.query({ active: true, lastFocusedWindow: true }, async ([tab]) => {
+          try {
+            if (!tab) {
+              resolve({ ok: false, reason: 'no active tab' });
+              return;
+            }
+            if (typeof togglePanel !== 'function') {
+              resolve({ ok: false, reason: 'togglePanel missing', tab });
+              return;
+            }
+            await togglePanel(tab);
+            resolve({ ok: true, tab: { id: tab.id, url: tab.url } });
+          } catch (error) {
+            resolve({ ok: false, reason: String(error?.message || error), tab });
           }
-          if (typeof togglePanel !== 'function') {
-            resolve({ ok: false, reason: 'togglePanel missing', tab });
-            return;
+        });
+      })`)
+      : isolatedContext
+        ? await evaluate(page, `(() => {
+          const api = globalThis.__GSDF_EOTF_CONTENT__;
+          if (!api || typeof api.toggleUI !== 'function') {
+            return {
+              ok: false,
+              reason: 'content api missing',
+              hasApi: Boolean(api),
+              status: api?.status || null
+            };
           }
-          await togglePanel(tab);
-          resolve({ ok: true, tab: { id: tab.id, url: tab.url } });
-        } catch (error) {
-          resolve({ ok: false, reason: String(error?.message || error), tab });
-        }
-      });
-    })`);
+
+          api.toggleUI();
+          return {
+            ok: true,
+            status: api.status,
+            state: typeof api.getState === 'function' ? api.getState() : null
+          };
+        })()`, isolatedContext.id)
+        : { ok: false, reason: 'extension content script context missing' };
     let iframeState = await waitForIframeState(page);
     let manualInjectResult = null;
     let manualDirectToggleResult = null;
 
-    if (!iframeState.exists) {
+    if (!iframeState.exists && worker) {
       manualInjectResult = await runWorkerTabScript(worker, `chrome.scripting.executeScript(
         { target: { tabId: tab.id }, files: ['content.js'] },
         (results) => {
@@ -377,6 +434,29 @@ async function main() {
         }
       );`);
       iframeState = await waitForIframeState(page, 5000);
+    } else if (!iframeState.exists && isolatedContext) {
+      manualDirectToggleResult = await evaluate(page, `(() => {
+        const api = globalThis.__GSDF_EOTF_CONTENT__;
+        if (!api || typeof api.toggleUI !== 'function') {
+          return {
+            ok: false,
+            hasApi: Boolean(api),
+            status: api?.status || null
+          };
+        }
+
+        api.toggleUI();
+        return {
+          ok: true,
+          status: api.status,
+          state: typeof api.getState === 'function' ? api.getState() : null
+        };
+      })()`, isolatedContext.id);
+      iframeState = await waitForIframeState(page, 5000);
+    }
+    if (iframeState.exists) {
+      await delay(1000);
+      iframeState = await readIframeState(page);
     }
     const exceptions = page.events
       .filter((event) => event.method === 'Runtime.exceptionThrown')
@@ -385,12 +465,14 @@ async function main() {
     await writeFile(screenshotPath, Buffer.from(screenshot.data, 'base64'));
 
     page.close();
-    worker.close();
+    worker?.close();
 
-    console.log(JSON.stringify({
-      ok: Boolean(triggerResult.ok && iframeState.exists),
+    const smokeResult = {
+      ok: Boolean(triggerResult.ok && iframeState.exists && iframeState.fetchResult?.fetchOk),
       url,
       extensionId,
+      workerTargetUrl: workerInfo.target?.url || null,
+      workerFallbackReason: workerInfo.reason || null,
       readyState,
       contentStatus,
       workerToggleType,
@@ -400,7 +482,12 @@ async function main() {
       iframeState,
       exceptions,
       screenshotPath
-    }, null, 2));
+    };
+
+    console.log(JSON.stringify(smokeResult, null, 2));
+    if (!smokeResult.ok) {
+      process.exitCode = 1;
+    }
   } finally {
     chrome.kill();
     await delay(500);

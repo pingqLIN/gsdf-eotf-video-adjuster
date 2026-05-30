@@ -19,7 +19,7 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["ui/*"],
+      "resources": ["ui/*", "ui/assets/*"],
       "matches": ["<all_urls>"]
     }
   ]
