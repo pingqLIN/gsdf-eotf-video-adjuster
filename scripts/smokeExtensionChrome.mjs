@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
+import { existsSync, readdirSync } from 'node:fs';
 import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -11,9 +12,34 @@ const extensionDirForChrome = extensionDir.replaceAll('\\', '/');
 const outputDir = resolve(repoRoot, 'output', 'playwright');
 const profileDir = resolve(outputDir, 'gsdf-extension-profile');
 const screenshotPath = resolve(outputDir, 'gsdf-extension-smoke.png');
-const chromePath = process.env.CHROME_PATH || 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
+const chromePath = process.env.CHROME_PATH || findPlaywrightChromiumPath() || 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
 const remoteDebuggingPort = Number(process.env.CHROME_DEBUG_PORT || 9338);
 const targetUrl = process.argv[2] || process.env.SMOKE_URL || '';
+
+function findPlaywrightChromiumPath() {
+  if (!process.env.LOCALAPPDATA) {
+    return null;
+  }
+
+  const browserRoot = resolve(process.env.LOCALAPPDATA, 'ms-playwright');
+  if (!existsSync(browserRoot)) {
+    return null;
+  }
+
+  const chromiumDirs = readdirSync(browserRoot, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && /^chromium-\d+$/.test(entry.name))
+    .map((entry) => entry.name)
+    .sort((left, right) => Number(right.replace('chromium-', '')) - Number(left.replace('chromium-', '')));
+
+  for (const dir of chromiumDirs) {
+    const candidate = resolve(browserRoot, dir, 'chrome-win64', 'chrome.exe');
+    if (existsSync(candidate)) {
+      return candidate;
+    }
+  }
+
+  return null;
+}
 
 function delay(ms) {
   return new Promise((resolveDelay) => setTimeout(resolveDelay, ms));
@@ -470,6 +496,7 @@ async function main() {
     const smokeResult = {
       ok: Boolean(triggerResult.ok && iframeState.exists && iframeState.fetchResult?.fetchOk),
       url,
+      chromePath,
       extensionId,
       workerTargetUrl: workerInfo.target?.url || null,
       workerFallbackReason: workerInfo.reason || null,

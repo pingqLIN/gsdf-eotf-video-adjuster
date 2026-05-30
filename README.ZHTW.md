@@ -82,16 +82,16 @@ npm run build:ext
 npm run smoke:ext
 ```
 
-`smoke:ext` 會用暫存 profile 啟動 Chrome、載入 unpacked extension、切換控制面板，並把截圖寫到 `output/playwright`。
+`smoke:ext` 會用暫存 profile 啟動 Chromium 或 Chrome、載入 unpacked extension、切換控制面板，並把截圖寫到 `output/playwright`。它會優先使用 `CHROME_PATH`；若未設定，會先嘗試最新的本機 Playwright Chromium，再退回預設 Google Chrome 路徑。
 
-如果 Chrome 不在預設 Windows 路徑，請先設定 `CHROME_PATH`：
+如果 browser 安裝在其他位置，請先設定 `CHROME_PATH`：
 
 ```powershell
 $env:CHROME_PATH = 'C:\Path\To\chrome.exe'
 npm run smoke:ext
 ```
 
-如果受管理的 Google Chrome 擋下 command-line unpacked extension loading，可以把 `CHROME_PATH` 指到本機 Chromium build。舉例來說，若已安裝 Playwright Chromium：
+如果受管理的 Google Chrome 擋下 command-line unpacked extension loading，可以把 `CHROME_PATH` 指到本機 Chromium build：
 
 ```powershell
 $env:CHROME_PATH = "$env:LOCALAPPDATA\ms-playwright\chromium-1217\chrome-win64\chrome.exe"

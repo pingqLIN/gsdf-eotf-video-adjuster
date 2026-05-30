@@ -82,16 +82,16 @@ npm run build:ext
 npm run smoke:ext
 ```
 
-`smoke:ext` launches Chrome with a temporary profile, loads the unpacked extension, toggles the panel, and writes a screenshot under `output/playwright`.
+`smoke:ext` launches Chromium or Chrome with a temporary profile, loads the unpacked extension, toggles the panel, and writes a screenshot under `output/playwright`. It uses `CHROME_PATH` when set, otherwise it tries the newest local Playwright Chromium before falling back to the default Google Chrome path.
 
-If Chrome is installed somewhere other than the default Windows path, set `CHROME_PATH` first:
+If the browser is installed somewhere else, set `CHROME_PATH` first:
 
 ```powershell
 $env:CHROME_PATH = 'C:\Path\To\chrome.exe'
 npm run smoke:ext
 ```
 
-On machines where managed Google Chrome blocks command-line unpacked extension loading, point `CHROME_PATH` at a local Chromium build instead. For example, when Playwright's Chromium browser is already installed:
+On machines where managed Google Chrome blocks command-line unpacked extension loading, point `CHROME_PATH` at a local Chromium build instead:
 
 ```powershell
 $env:CHROME_PATH = "$env:LOCALAPPDATA\ms-playwright\chromium-1217\chrome-win64\chrome.exe"
