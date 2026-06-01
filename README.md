@@ -55,6 +55,10 @@ Then load the `extension` folder in Chrome:
 
 Click the extension action on a supported web page to toggle the GSDF control panel.
 
+## GSDF Model
+
+The luminance model is documented in [docs/gsdf-model.md](docs/gsdf-model.md). It covers the purpose, DICOM PS3.14 source formula, implementation flow, project-specific choices, and limits.
+
 ## Verification
 
 Run the fast test suite:

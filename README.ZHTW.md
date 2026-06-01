@@ -55,6 +55,10 @@ npm run build:ext
 
 在支援的網頁上點擊 extension action，即可切換 GSDF 控制面板。
 
+## GSDF 模型
+
+亮度模型說明請見 [docs/gsdf-model.ZHTW.md](docs/gsdf-model.ZHTW.md)。內容包含目的、DICOM PS3.14 來源公式、實作流程、專案內取捨與限制。
+
 ## 驗證
 
 執行快速測試：
