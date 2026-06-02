@@ -10,11 +10,12 @@ export interface AppSettings {
   temperature: number;
 }
 
-export type GsdfCurveMode = 'relative' | 'pure';
+export type GsdfCurveMode = 'relative';
 export type GsdfColorModel = 'rgb' | 'ycbcr';
 
 export const LUMINANCE_MIN_NITS = 10;
 export const LUMINANCE_MAX_NITS = 500;
+export const DEFAULT_TARGET_LUMINANCE_NITS = 350;
 export const LUMINANCE_SLIDER_MAX = 1000;
 const LUMINANCE_LOG_RANGE = Math.log(LUMINANCE_MAX_NITS / LUMINANCE_MIN_NITS);
 const GSDF_DISPLAY_LMIN_NITS = 0.05;
@@ -35,7 +36,7 @@ const GSDF_COEFFICIENTS = {
 
 export const DEFAULT_APP_SETTINGS: AppSettings = {
   enabled: false,
-  lmax: 500,
+  lmax: DEFAULT_TARGET_LUMINANCE_NITS,
   curveMode: 'relative',
   colorModel: 'rgb',
   strength: 80,
@@ -58,8 +59,8 @@ function roundLuminance(value: number): number {
   return Number(value.toFixed(value < 100 ? 1 : 0));
 }
 
-function normalizeCurveMode(value: unknown): GsdfCurveMode {
-  return value === 'pure' ? 'pure' : DEFAULT_APP_SETTINGS.curveMode;
+function normalizeCurveMode(_value: unknown): GsdfCurveMode {
+  return DEFAULT_APP_SETTINGS.curveMode;
 }
 
 function normalizeColorModel(value: unknown): GsdfColorModel {
@@ -82,12 +83,6 @@ export function luminanceToSliderValue(value: unknown): number {
   const ratio = Math.log(luminance / LUMINANCE_MIN_NITS) / LUMINANCE_LOG_RANGE;
 
   return Math.round(clampNumber(ratio, 0, 1, 1) * LUMINANCE_SLIDER_MAX);
-}
-
-export function getLowLuminanceRatio(value: unknown): number {
-  const luminance = clampLuminance(value);
-
-  return clampNumber(Math.log(LUMINANCE_MAX_NITS / luminance) / LUMINANCE_LOG_RANGE, 0, 1, 0);
 }
 
 export function gsdfJndToLuminance(jndIndex: number): number {
@@ -151,15 +146,12 @@ export function getGsdfDisplayCode(inputLevel: number, lmax: number): number {
 
 export function buildGsdfTableValues(settings: Partial<AppSettings>, tableSize = 256): number[] {
   const normalized = normalizeAppSettings(settings);
-  const correctionRatio =
-    normalized.curveMode === 'pure'
-      ? 1
-      : (normalized.strength / 100) * getLowLuminanceRatio(normalized.lmax);
+  const filterAmount = normalized.strength / 100;
 
   return Array.from({ length: tableSize }, (_, index) => {
     const inputLevel = index / Math.max(1, tableSize - 1);
     const gsdfLevel = getGsdfDisplayCode(inputLevel, normalized.lmax);
-    const mixedLevel = inputLevel + (gsdfLevel - inputLevel) * correctionRatio;
+    const mixedLevel = inputLevel + (gsdfLevel - inputLevel) * filterAmount;
 
     return Number(clampNumber(mixedLevel, 0, 1, inputLevel).toFixed(5));
   });

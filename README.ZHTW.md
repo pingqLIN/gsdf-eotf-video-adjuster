@@ -7,8 +7,8 @@ GSDF EOTF Video Adjuster 是一個 Vite/React 控制面板與 Chrome Manifest V3
 ## 功能
 
 - 10 到 500 nits 的對數式目標亮度控制。
-- 相對補償模式：500 nits 保持中性，低亮度時逐步增加修正。
-- 純 GSDF 模式：直接套用完整 transfer curve。
+- 依所選目標亮度產生完整 GSDF table。
+- Filter 總量控制：決定完整 GSDF output 與原訊號的混合比例。
 - RGB 與 YCbCr/luma-only filter 路徑。
 - 黑位、白位、細節銳化與色溫偏移控制。
 - 精簡與展開版 GSDF 條紋測試視圖。
@@ -58,6 +58,8 @@ npm run build:ext
 ## GSDF 模型
 
 亮度模型說明請見 [docs/gsdf-model.ZHTW.md](docs/gsdf-model.ZHTW.md)。內容包含目的、DICOM PS3.14 來源公式、實作流程、專案內取捨與限制。
+
+公式與 UI 應用審查請見 [docs/gsdf-application-and-ui-review.ZHTW.md](docs/gsdf-application-and-ui-review.ZHTW.md)。
 
 ## 驗證
 

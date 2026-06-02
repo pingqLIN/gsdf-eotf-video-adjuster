@@ -7,8 +7,8 @@ The app can run as a standalone local preview, and the production path packages 
 ## Capabilities
 
 - Logarithmic target-luminance control from 10 to 500 nits.
-- Relative compensation mode that keeps 500 nits neutral and increases correction at lower luminance.
-- Pure GSDF mode for applying the full transfer curve.
+- Full GSDF table generation for the selected target luminance.
+- Filter amount control for blending the full GSDF output with the original signal.
 - RGB and YCbCr/luma-only filter paths.
 - Black point, white point, sharpness, and color-temperature controls.
 - Compact and expanded GSDF stripe test views.
@@ -58,6 +58,8 @@ Click the extension action on a supported web page to toggle the GSDF control pa
 ## GSDF Model
 
 The luminance model is documented in [docs/gsdf-model.md](docs/gsdf-model.md). It covers the purpose, DICOM PS3.14 source formula, implementation flow, project-specific choices, and limits.
+
+The formula and UI application review is documented in [docs/gsdf-application-and-ui-review.md](docs/gsdf-application-and-ui-review.md).
 
 ## Verification
 

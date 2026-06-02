@@ -222,7 +222,7 @@ test('maps target luminance on a 10 to 500 nits logarithmic slider', () => {
   assert.equal(hooks.normalizeSettings({}).blackPoint, 0);
   assert.equal(hooks.normalizeSettings({}).whitePoint, 100);
   assert.equal(hooks.normalizeSettings({}).sharpness, 0);
-  assert.equal(hooks.normalizeSettings({ curveMode: 'pure' }).curveMode, 'pure');
+  assert.equal(hooks.normalizeSettings({ curveMode: 'pure' }).curveMode, 'relative');
   assert.equal(hooks.normalizeSettings({ curveMode: 'unknown' }).curveMode, 'relative');
   assert.equal(hooks.normalizeSettings({ colorModel: 'ycbcr' }).colorModel, 'ycbcr');
   assert.equal(hooks.normalizeSettings({ colorModel: 'ictcp' }).colorModel, 'rgb');
@@ -237,30 +237,40 @@ test('maps target luminance on a 10 to 500 nits logarithmic slider', () => {
   assert.ok(lowStep < highStep, 'log scale should provide finer absolute control at low nits');
 });
 
-test('keeps 500 nits neutral and varies lower luminance curves', () => {
+test('applies the full GSDF table at every target luminance and uses strength as the filter amount', () => {
   const hooks = loadContentHooks();
-  const neutral = hooks.deriveToneProfile({ enabled: true, lmax: 500, strength: 100 });
-  const dim = hooks.deriveToneProfile({ enabled: true, lmax: 100, strength: 100 });
-  const veryDim = hooks.deriveToneProfile({ enabled: true, lmax: 10, strength: 100 });
+  const noFilter = hooks.deriveToneProfile({ enabled: true, lmax: 350, strength: 0 });
+  const defaultTarget = hooks.deriveToneProfile({ enabled: true, lmax: 350, strength: 100 });
+  const high = hooks.deriveToneProfile({ enabled: true, lmax: 500, strength: 100 });
+  const dim = hooks.deriveToneProfile({ enabled: true, lmax: 150, strength: 100 });
   const identityMid = Number((128 / 255).toFixed(5));
-  const neutralDelta = Math.abs(neutral.gsdfTableValues[128] - identityMid);
+  const defaultDelta = Math.abs(defaultTarget.gsdfTableValues[128] - identityMid);
+  const highDelta = Math.abs(high.gsdfTableValues[128] - identityMid);
   const dimDelta = Math.abs(dim.gsdfTableValues[128] - identityMid);
-  const veryDimDelta = Math.abs(veryDim.gsdfTableValues[128] - identityMid);
 
-  assert.equal(neutral.gsdfTableValues[0], 0);
-  assert.equal(neutral.gsdfTableValues[128], identityMid);
-  assert.equal(neutral.gsdfTableValues[255], 1);
-  assert.ok(neutralDelta < 0.00001);
-  assert.ok(dimDelta > neutralDelta);
-  assert.ok(veryDimDelta > neutralDelta);
-  assert.notEqual(dim.gsdfTableValues[64], veryDim.gsdfTableValues[64]);
+  assert.equal(noFilter.gsdfTableValues[128], identityMid);
+  assert.equal(defaultTarget.gsdfTableValues[0], 0);
+  assert.equal(defaultTarget.gsdfTableValues[255], 1);
+  assert.ok(defaultDelta > 0.00001);
+  assert.ok(highDelta > 0.00001, '500 nits should no longer be treated as a neutral no-filter anchor');
+  assert.ok(dimDelta > 0.00001);
+  assert.notEqual(defaultTarget.gsdfTableValues[64], high.gsdfTableValues[64]);
+  assert.notEqual(defaultTarget.gsdfTableValues[64], dim.gsdfTableValues[64]);
 });
 
 test('uses the DICOM GSDF JND luminance formula for the transfer table', () => {
   const hooks = loadContentHooks();
 
   assert.ok(Math.abs(hooks.gsdfJndToLuminance(1) - 0.05) < 0.001);
+  assert.ok(Math.abs(hooks.gsdfJndToLuminance(256) - 15.238) < 0.02);
+  assert.ok(Math.abs(hooks.gsdfJndToLuminance(512) - 130.065) < 0.05);
   assert.ok(Math.abs(hooks.gsdfJndToLuminance(1023) - 3993) < 8);
+
+  const sampledJnds = [1, 64, 128, 256, 512, 768, 1023];
+  const sampledLuminance = sampledJnds.map((jnd) => hooks.gsdfJndToLuminance(jnd));
+  for (let index = 1; index < sampledLuminance.length; index += 1) {
+    assert.ok(sampledLuminance[index] > sampledLuminance[index - 1], `JND ${sampledJnds[index]} should be brighter than ${sampledJnds[index - 1]}`);
+  }
 
   const table = hooks.buildGsdfTableValues({ lmax: 10, strength: 100 });
   assert.equal(table.length, 256);
@@ -270,15 +280,20 @@ test('uses the DICOM GSDF JND luminance formula for the transfer table', () => {
   assert.ok(table[128] < table[240]);
 });
 
-test('pure GSDF mode applies the full curve without the 500 nit neutral blend', () => {
+test('strength controls the full GSDF filter amount', () => {
   const hooks = loadContentHooks();
-  const relativeTable = hooks.buildGsdfTableValues({ lmax: 500, strength: 100, curveMode: 'relative' });
-  const pureTable = hooks.buildGsdfTableValues({ lmax: 500, strength: 100, curveMode: 'pure' });
+  const identityMid = Number((128 / 255).toFixed(5));
+  const offTable = hooks.buildGsdfTableValues({ lmax: 100, strength: 0 });
+  const mediumTable = hooks.buildGsdfTableValues({ lmax: 100, strength: 50 });
+  const fullTable = hooks.buildGsdfTableValues({ lmax: 100, strength: 100, curveMode: 'pure' });
+  const mediumDelta = Math.abs(mediumTable[128] - identityMid);
+  const fullDelta = Math.abs(fullTable[128] - identityMid);
 
-  assert.equal(relativeTable[128], Number((128 / 255).toFixed(5)));
-  assert.notEqual(pureTable[128], relativeTable[128]);
-  assert.equal(pureTable[0], 0);
-  assert.equal(pureTable[255], 1);
+  assert.equal(offTable[128], identityMid);
+  assert.ok(mediumDelta > 0);
+  assert.ok(fullDelta > mediumDelta);
+  assert.equal(fullTable[0], 0);
+  assert.equal(fullTable[255], 1);
 });
 
 test('YCbCr mode selects the luma-only managed filter', () => {

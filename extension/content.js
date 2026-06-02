@@ -8,7 +8,7 @@ globalThis.__GSDF_EOTF_CONTENT__ = { status: 'loading' };
 
 const DEFAULT_SETTINGS = {
   enabled: false,
-  lmax: 500,
+  lmax: 350,
   curveMode: 'relative',
   colorModel: 'rgb',
   strength: 80,
@@ -53,7 +53,7 @@ const MANAGED_FILTER_RE =
 const MIN_VISIBLE_AREA = 8000;
 const PANEL_VIEWPORT_MARGIN = 16;
 const PANEL_DEFAULT_WIDTH = 400;
-const PANEL_DEFAULT_MAX_HEIGHT = 720;
+const PANEL_DEFAULT_MAX_HEIGHT = 680;
 const PANEL_PATTERN_WIDTH = 960;
 const PANEL_PATTERN_MAX_HEIGHT = 820;
 
@@ -80,8 +80,8 @@ function roundLuminance(value) {
   return Number(value.toFixed(value < 100 ? 1 : 0));
 }
 
-function normalizeCurveMode(value) {
-  return value === 'pure' ? 'pure' : DEFAULT_SETTINGS.curveMode;
+function normalizeCurveMode(_value) {
+  return DEFAULT_SETTINGS.curveMode;
 }
 
 function normalizeColorModel(value) {
@@ -104,12 +104,6 @@ function luminanceToSliderValue(lmax) {
   const ratio = Math.log(luminance / LUMINANCE_MIN_NITS) / LUMINANCE_LOG_RANGE;
 
   return Math.round(clampNumber(ratio, 0, 1, 1) * LUMINANCE_SLIDER_MAX);
-}
-
-function getLowLuminanceRatio(lmax) {
-  const luminance = clampLuminance(lmax);
-
-  return clampNumber(Math.log(LUMINANCE_MAX_NITS / luminance) / LUMINANCE_LOG_RANGE, 0, 1, 0);
 }
 
 function gsdfJndToLuminance(jndIndex) {
@@ -173,15 +167,12 @@ function getGsdfDisplayCode(inputLevel, lmax) {
 
 function buildGsdfTableValues(settings = currentSettings, tableSize = GSDF_TABLE_SIZE) {
   const normalized = normalizeSettings(settings);
-  const correctionRatio =
-    normalized.curveMode === 'pure'
-      ? 1
-      : (normalized.strength / 100) * getLowLuminanceRatio(normalized.lmax);
+  const filterAmount = normalized.strength / 100;
 
   return Array.from({ length: tableSize }, (_, index) => {
     const inputLevel = index / Math.max(1, tableSize - 1);
     const gsdfLevel = getGsdfDisplayCode(inputLevel, normalized.lmax);
-    const mixedLevel = inputLevel + (gsdfLevel - inputLevel) * correctionRatio;
+    const mixedLevel = inputLevel + (gsdfLevel - inputLevel) * filterAmount;
 
     return Number(clampNumber(mixedLevel, 0, 1, inputLevel).toFixed(5));
   });

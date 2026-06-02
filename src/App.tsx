@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { DraggablePanel } from './components/DraggablePanel';
 import { VideoBackground } from './components/VideoBackground';
 import { DEFAULT_APP_SETTINGS, normalizeAppSettings, type AppSettings } from './types';
@@ -43,6 +43,8 @@ export default function App() {
   });
 
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const lastSavedSettingsRef = useRef(JSON.stringify(settings));
+  const toastTimerRef = useRef<number | null>(null);
 
   // Sync settings to the parent window (Chrome content script)
   useEffect(() => {
@@ -53,6 +55,39 @@ export default function App() {
       }, '*');
     }
   }, [settings, isExtension]);
+
+  useEffect(() => {
+    const serializedSettings = JSON.stringify(settings);
+    if (serializedSettings === lastSavedSettingsRef.current) {
+      return;
+    }
+
+    const autosaveTimer = window.setTimeout(() => {
+      localStorage.setItem('gsdf_extension_settings', serializedSettings);
+      lastSavedSettingsRef.current = serializedSettings;
+      setToastMessage('偏好設定已自動儲存');
+
+      if (toastTimerRef.current !== null) {
+        window.clearTimeout(toastTimerRef.current);
+      }
+      toastTimerRef.current = window.setTimeout(() => {
+        setToastMessage(null);
+        toastTimerRef.current = null;
+      }, 1400);
+    }, 1000);
+
+    return () => {
+      window.clearTimeout(autosaveTimer);
+    };
+  }, [settings]);
+
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current !== null) {
+        window.clearTimeout(toastTimerRef.current);
+      }
+    };
+  }, []);
 
   const handlePanelDrag = (deltaX: number, deltaY: number) => {
     if (!isExtension || !window.parent || window.parent === window) {
@@ -65,12 +100,6 @@ export default function App() {
     }, '*');
   };
 
-  const handleSaveDefault = () => {
-    localStorage.setItem('gsdf_extension_settings', JSON.stringify(settings));
-    setToastMessage('偏好設定已儲存');
-    setTimeout(() => setToastMessage(null), 3000);
-  };
-
   return (
     <div className={`relative w-full h-screen overflow-hidden font-sans ${isExtension ? 'bg-transparent pointer-events-none' : 'bg-[#050505]'}`}>
       {!isExtension && <VideoBackground settings={settings} />}
@@ -79,7 +108,6 @@ export default function App() {
         <DraggablePanel 
           settings={settings} 
           setSettings={setSettings} 
-          onSaveDefault={handleSaveDefault}
           extensionMode={isExtension}
           onExtensionDrag={handlePanelDrag}
         />
@@ -89,7 +117,7 @@ export default function App() {
       {toastMessage && (
         <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-[#121417] border border-white/10 text-sky-400 px-5 py-3 rounded-full shadow-2xl flex items-center gap-3 text-xs font-mono tracking-wide z-50 animate-fade-in-up pointer-events-auto">
           <div className="w-2 h-2 bg-green-500 rounded-full shadow-[0_0_8px_rgba(34,197,94,0.6)]"></div>
-          {toastMessage.toUpperCase()}
+          {toastMessage}
         </div>
       )}
     </div>

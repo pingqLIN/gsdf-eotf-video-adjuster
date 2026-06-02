@@ -54,6 +54,8 @@ The core flow is:
 5. Convert the normalized linear display level to a browser-friendly transfer value using `pow(level, 1 / 2.2)`.
 6. Store 256 values in an SVG `feComponentTransfer` table.
 
+Step 5 is an extension approximation, not part of DICOM PS3.14. It gives the browser filter an encoded output value that is practical for web video, but it does not measure the actual page, GPU path, display EOTF, HDR mode, or ambient viewing condition.
+
 Important functions:
 
 - `gsdfJndToLuminance(jndIndex)`: evaluates the PS3.14 luminance equation.
@@ -70,16 +72,18 @@ The UI exposes `10..500 nits` for `lmax`. This range is intentionally narrower t
 
 The slider is logarithmic. Low-luminance targets get finer control because perceptual differences are more sensitive there.
 
-### Relative vs Pure GSDF
+### Full GSDF and Filter Amount
 
-`curveMode: "relative"` keeps `500 nits` neutral and blends in more correction as the target luminance drops:
+The UI exposes one GSDF path. It first builds the full GSDF-shaped table for the selected target luminance, then blends that full table output with the original input by the user-facing filter amount. No target luminance is treated as a neutral no-compensation point.
 
 ```text
-correctionRatio = strength/100 * lowLuminanceRatio(lmax)
-mixedLevel = inputLevel + (gsdfLevel - inputLevel) * correctionRatio
+filterAmount = strength/100
+mixedLevel = inputLevel + (gsdfLevel - inputLevel) * filterAmount
 ```
 
-`curveMode: "pure"` applies the full GSDF-shaped table without the `500 nits` neutral blend. This is useful for inspection and comparison, but it is intentionally more aggressive.
+At `0%`, the table is the original signal. At `100%`, the table is the full GSDF output for the selected `lmax`. Intermediate values are a global filter amount, not a relative low-luminance compensation rule.
+
+Legacy saved settings that contain `curveMode: "pure"` are normalized back to the single GSDF path. Users should choose the filter amount instead of switching between multiple GSDF interpretations.
 
 ### RGB vs YCbCr
 
