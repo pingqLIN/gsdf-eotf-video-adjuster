@@ -24,13 +24,26 @@ gammaTarget pre-compensation
 In practice, one input video level first passes through the selected gamma target, then moves through the GSDF luminance model, and finally blends back toward the gamma-adjusted baseline by the chosen filter amount. That keeps the tool useful as a viewing rescue layer instead of forcing a full all-or-nothing remap.
 
 ```mermaid
-flowchart LR
-  A["Input video code value"] --> B["Gamma pre-compensation<br/>0 = gamma 2.2"]
-  B --> C["Map into GSDF JND space"]
-  C --> D["Convert JND back to luminance"]
-  D --> E["Build SVG transfer table"]
-  E --> F["Blend by filter amount"]
-  F --> G["Apply to preview or Chrome video element"]
+flowchart TD
+  A["User controls<br/>enabled, lmax, gammaTarget, strength,<br/>colorModel, blackPoint, whitePoint"] --> B["normalize settings"]
+
+  subgraph M["Shared GSDF model"]
+    B --> C["Gamma pre-compensation<br/>0 = gamma 2.2"]
+    C --> D["Map into GSDF JND space"]
+    D --> E["Convert JND back to luminance"]
+    E --> F["Build 256-step SVG transfer table"]
+    B --> G["Build output-preview stripe rows"]
+    B --> H["Build calibration stripe rows"]
+  end
+
+  F --> I["Standalone preview<br/>VideoBackground.tsx"]
+  F --> J["GSDFChart sampled curve"]
+  F --> K["Extension tone profile<br/>deriveToneProfile()"]
+  G --> L["Output-preview stripes<br/>follow active table"]
+  H --> N["Calibration stripes<br/>fixed low-contrast pairs"]
+  K --> O["updateFilterDefinitions()"]
+  O --> P["Managed CSS and SVG filter chain"]
+  P --> Q["Browser video element"]
 ```
 
 The full formula notes, implementation details, and extended pipeline diagrams live in [docs/gsdf-model.md](docs/gsdf-model.md) and [docs/gsdf-application-and-ui-review.md](docs/gsdf-application-and-ui-review.md).

@@ -15,8 +15,21 @@ test('control panel is split into basic and advanced tabs', () => {
   assert.match(panelSource, /輸出預覽/);
   assert.match(panelSource, /亮度校準/);
   assert.match(panelSource, /完整多頻率條紋圖/);
+  assert.match(panelSource, /GSDF-QC 全域測試圖/);
+  assert.match(panelSource, /FullDiagnosticPattern/);
+  assert.match(panelSource, /PatternLuminanceControl/);
+  assert.match(panelSource, /GSDF 亮度調整/);
+  assert.match(panelSource, /大圖顯示時仍可直接調整目標亮度/);
+  assert.match(panelSource, /drawDiagnosticPattern/);
+  assert.match(panelSource, /drawLinePairBand/);
+  assert.match(panelSource, /drawVerticalGradient/);
+  assert.match(panelSource, /drawContinuousSweepCell/);
+  assert.match(panelSource, /line-pair and gradient pattern/);
   assert.match(panelSource, /Grid3X3/);
   assert.match(panelSource, /GSDF_PATTERN_VIEW_CHANGED/);
+  assert.match(panelSource, /PANEL_THEME_STORAGE_KEY/);
+  assert.match(panelSource, /theme-\$\{panelTheme\}/);
+  assert.match(panelSource, /切換到明亮面板/);
   assert.match(panelSource, /Filter 總量/);
   assert.match(panelSource, /Gamma 補償/);
   assert.match(panelSource, /gammaTarget/);
@@ -52,6 +65,8 @@ test('header drag handling does not intercept interactive controls', () => {
   assert.match(panelSource, /button, input, label, select, textarea, a/);
   assert.match(panelSource, /data-no-drag/);
   assert.match(panelSource, /isInteractiveDragTarget\(e\.target\)/);
+  assert.match(panelSource, /requestAnimationFrame/);
+  assert.match(panelSource, /pendingDragRef/);
 });
 
 test('standalone video preview uses the shared GSDF table model', () => {
@@ -74,12 +89,11 @@ test('analysis chart resizes with the control panel', () => {
 test('basic tab stripe test follows the active transfer table', () => {
   assert.match(panelSource, /buildGsdfStripeRows\(settings\)/);
   assert.match(panelSource, /buildGsdfCalibrationStripeRows\(\)/);
-  assert.match(panelSource, /renderFrequencyMatrix/);
+  assert.match(panelSource, /drawContinuousSweepCell/);
   assert.match(panelSource, /compactStripeWidth = 18/);
   assert.match(panelSource, /h-6/);
-  assert.match(panelSource, /minmax\(72px,1fr\)/);
-  assert.match(panelSource, /stripeWidth: 40/);
-  assert.match(panelSource, /frequency\.stripeWidth \* 2/);
+  assert.match(panelSource, /modulationPeriods = \[18, 12, 6, 4\]/);
+  assert.match(panelSource, /rowCount = 18/);
   assert.match(typesSource, /const transferTable = buildGsdfTableValues\(normalized\)/);
   assert.match(typesSource, /getGammaAdjustedInputLevel/);
   assert.match(typesSource, /gammaLevel = getGammaAdjustedInputLevel\(inputLevel, normalized\.gammaTarget\)/);
@@ -92,8 +106,9 @@ test('basic tab stripe test follows the active transfer table', () => {
 });
 
 test('extension panel avoids internal scrollbars in the compact control view', () => {
-  assert.match(panelSource, /h-\[680px\]/);
-  assert.match(panelSource, /overflow-hidden p-5/);
+  assert.match(panelSource, /h-\[720px\]/);
+  assert.match(panelSource, /w-\[420px\]/);
+  assert.match(panelSource, /overflow-hidden p-4/);
   assert.doesNotMatch(panelSource, /flex-1 space-y-5 overflow-y-auto p-5/);
 });
 

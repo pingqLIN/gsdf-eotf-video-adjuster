@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { motion, useDragControls } from 'motion/react';
 import {
   Activity,
@@ -12,6 +13,7 @@ import {
   Grid3X3,
   Maximize2,
   MonitorUp,
+  Moon,
   Power,
   RotateCcw,
   Settings,
@@ -42,6 +44,9 @@ import {
 const GSDFChart = React.lazy(() => import('./GSDFChart').then((module) => ({ default: module.GSDFChart })));
 
 type PanelTab = 'basic' | 'advanced';
+type PanelTheme = 'dark' | 'light';
+
+const PANEL_THEME_STORAGE_KEY = 'gsdf_panel_theme';
 
 interface DraggablePanelProps {
   settings: AppSettings;
@@ -196,7 +201,7 @@ function StatusDeck({ settings }: { settings: AppSettings }) {
   const statusLabel = settings.enabled ? 'ACTIVE' : 'STANDBY';
 
   return (
-    <section className="rounded-md border border-white/10 bg-[#0a0e13] p-3.5 shadow-inner">
+    <section className="rounded-md border border-white/10 bg-[#0a0e13] p-3 shadow-inner">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2 text-[11px] font-semibold text-zinc-400">
@@ -204,7 +209,7 @@ function StatusDeck({ settings }: { settings: AppSettings }) {
             <span>{statusLabel}</span>
           </div>
           <div className="mt-1 flex items-baseline gap-2">
-            <span className="font-mono text-[34px] leading-none text-zinc-50 tabular-nums">{formatLuminance(settings.lmax)}</span>
+            <span className="font-mono text-[30px] leading-none text-zinc-50 tabular-nums">{formatLuminance(settings.lmax)}</span>
             <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-zinc-500">nits</span>
           </div>
         </div>
@@ -234,23 +239,257 @@ function StatusDeck({ settings }: { settings: AppSettings }) {
   );
 }
 
-function GSDFStripeTest({ settings }: { settings: AppSettings }) {
+function FullDiagnosticPattern({ settings }: { settings: AppSettings }) {
+  const canvasRef = React.useRef<HTMLCanvasElement | null>(null);
+
+  React.useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) {
+      return;
+    }
+
+    const draw = () => {
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = Math.max(1, Math.floor(rect.width * dpr));
+      canvas.height = Math.max(1, Math.floor(rect.height * dpr));
+
+      const context = canvas.getContext('2d');
+      if (!context) {
+        return;
+      }
+
+      context.setTransform(dpr, 0, 0, dpr, 0, 0);
+      context.imageSmoothingEnabled = false;
+      context.fillStyle = '#050505';
+      context.fillRect(0, 0, rect.width, rect.height);
+
+      const designWidth = 1800;
+      const designHeight = 1200;
+      const scale = Math.min(rect.width / designWidth, rect.height / designHeight);
+      const offsetX = (rect.width - designWidth * scale) / 2;
+      const offsetY = (rect.height - designHeight * scale) / 2;
+
+      context.save();
+      context.translate(offsetX, offsetY);
+      context.scale(scale, scale);
+      drawDiagnosticPattern(context, settings);
+      context.restore();
+    };
+
+    const observer = new ResizeObserver(draw);
+    observer.observe(canvas);
+    draw();
+
+    return () => observer.disconnect();
+  }, [settings]);
+
+  return <canvas ref={canvasRef} className="h-full w-full bg-black" aria-label="GSDF QC diagnostic pattern" />;
+}
+
+function drawDiagnosticPattern(context: CanvasRenderingContext2D, settings: AppSettings) {
+  const width = 1800;
+  const height = 1200;
+  const outputRows = buildGsdfStripeRows(settings);
+  const modulationPeriods = [18, 12, 6, 4];
+  const rowCount = 18;
+  const chartX = 250;
+  const chartY = 130;
+  const chartW = 1300;
+  const chartH = 900;
+  const rowH = chartH / rowCount;
+
+  context.fillStyle = '#000';
+  context.fillRect(0, 0, width, height);
+  context.strokeStyle = '#808080';
+  context.lineWidth = 2;
+  context.strokeRect(18, 18, width - 36, height - 36);
+
+  drawVerticalGradient(context, 52, 130, 140, 900, true);
+  drawVerticalGradient(context, 1608, 130, 140, 900, false);
+  drawLinePairBand(context, 250, 44, 1300, 72, false);
+  drawLinePairBand(context, 250, 1084, 1300, 72, true);
+
+  context.font = '22px Cascadia Mono, monospace';
+  context.fillStyle = '#d6d6d6';
+  context.fillText('GSDF-QC FULL FIELD PATTERN', 58, 76);
+  context.font = '15px Cascadia Mono, monospace';
+  context.fillStyle = '#9a9a9a';
+  context.fillText('18 grayscale steps · directional modulation · line-pair resolution · vertical gradient uniformity', 58, 104);
+
+  for (let rowIndex = 0; rowIndex < rowCount; rowIndex += 1) {
+    const y = chartY + rowIndex * rowH;
+    const gray = Math.round((rowIndex / (rowCount - 1)) * 255);
+    context.fillStyle = `rgb(${gray},${gray},${gray})`;
+    context.fillRect(chartX, y, chartW, rowH + 0.5);
+    context.strokeStyle = rowIndex % 2 === 0 ? 'rgba(255,255,255,0.22)' : 'rgba(0,0,0,0.25)';
+    context.beginPath();
+    context.moveTo(chartX, y);
+    context.lineTo(chartX + chartW, y);
+    context.stroke();
+
+    drawModulationCells(context, chartX + 38, y + 6, 420, rowH - 12, gray, modulationPeriods, 'horizontal');
+    drawModulationCells(context, chartX + chartW - 458, y + 6, 420, rowH - 12, gray, [...modulationPeriods].reverse(), 'vertical');
+
+    const sample = outputRows[rowIndex % outputRows.length];
+    drawContinuousSweepCell(context, chartX + 520, y + 9, 210, rowH - 18, sample.left, sample.right);
+    drawContinuousSweepCell(context, chartX + 770, y + 9, 210, rowH - 18, gray, Math.min(255, gray + (rowIndex % 2 === 0 ? 8 : 2)));
+
+    context.font = '13px Cascadia Mono, monospace';
+    context.fillStyle = gray > 128 ? '#111' : '#eee';
+    context.fillText(String(gray).padStart(3, '0'), chartX + chartW / 2 - 18, y + rowH / 2 + 5);
+  }
+
+  context.strokeStyle = '#b8b8b8';
+  context.lineWidth = 2;
+  context.strokeRect(chartX, chartY, chartW, chartH);
+
+  context.font = '14px Cascadia Mono, monospace';
+  context.fillStyle = '#cfcfcf';
+  context.fillText('H modulation: 18 / 12 / 6 / 4 px', chartX + 38, chartY + chartH + 32);
+  context.fillText('GSDF output sweep', chartX + 520, chartY + chartH + 32);
+  context.fillText('fixed contrast sweep', chartX + 770, chartY + chartH + 32);
+  context.fillText('V modulation: 4 / 6 / 12 / 18 px', chartX + chartW - 458, chartY + chartH + 32);
+}
+
+function drawVerticalGradient(context: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, invert: boolean) {
+  const gradient = context.createLinearGradient(0, y, 0, y + height);
+  gradient.addColorStop(0, invert ? '#fff' : '#000');
+  gradient.addColorStop(1, invert ? '#000' : '#fff');
+  context.fillStyle = gradient;
+  context.fillRect(x, y, width, height);
+
+  for (let band = 0; band < 12; band += 1) {
+    const bandY = y + band * (height / 12);
+    const gray = Math.round((band / 11) * 255);
+    drawStripeRect(context, x + width - 34, bandY, 28, height / 12, gray, Math.min(255, gray + 5), 6, 'vertical');
+  }
+
+  context.strokeStyle = '#8c8c8c';
+  context.strokeRect(x, y, width, height);
+}
+
+function drawLinePairBand(context: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, invert: boolean) {
+  const periods = [2, 4, 6, 8, 12, 16];
+  const cellW = width / periods.length;
+  periods.forEach((period, index) => {
+    const left = x + index * cellW;
+    drawStripeRect(context, left + 8, y, cellW - 16, height, invert ? 128 : 0, invert ? 255 : 128, period, 'vertical');
+    context.strokeStyle = '#6f6f6f';
+    context.strokeRect(left + 8, y, cellW - 16, height);
+  });
+}
+
+function drawModulationCells(
+  context: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  base: number,
+  periods: number[],
+  direction: 'horizontal' | 'vertical',
+) {
+  const cellW = width / periods.length;
+  periods.forEach((period, index) => {
+    const contrast = index === 0 || index === periods.length - 1 ? 2 : 8;
+    const low = Math.max(0, base - contrast);
+    const high = Math.min(255, base + contrast);
+    drawStripeRect(context, x + index * cellW + 4, y, cellW - 8, height, low, high, period, direction);
+  });
+}
+
+function drawContinuousSweepCell(context: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, left: number, right: number) {
+  let cursor = 0;
+  let useRight = false;
+  while (cursor < width) {
+    const progress = cursor / width;
+    const stripeWidth = Math.max(2, 26 - progress ** 1.35 * 23);
+    const value = useRight ? right : left;
+    context.fillStyle = `rgb(${value},${value},${value})`;
+    context.fillRect(x + cursor, y, Math.min(stripeWidth, width - cursor), height);
+    cursor += stripeWidth;
+    useRight = !useRight;
+  }
+}
+
+function drawStripeRect(
+  context: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  low: number,
+  high: number,
+  period: number,
+  direction: 'horizontal' | 'vertical',
+) {
+  const limit = direction === 'vertical' ? width : height;
+  let cursor = 0;
+  while (cursor < limit) {
+    const value = Math.floor(cursor / period) % 2 === 0 ? low : high;
+    context.fillStyle = `rgb(${value},${value},${value})`;
+    if (direction === 'vertical') {
+      context.fillRect(x + cursor, y, Math.min(period, width - cursor), height);
+    } else {
+      context.fillRect(x, y + cursor, width, Math.min(period, height - cursor));
+    }
+    cursor += period;
+  }
+}
+
+function PatternLuminanceControl({
+  settings,
+  setSettings,
+}: {
+  settings: AppSettings;
+  setSettings: React.Dispatch<React.SetStateAction<AppSettings>>;
+}) {
+  return (
+    <div className="shrink-0 border-b border-white/10 bg-[#0b1016] px-4 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-[11px] font-semibold text-zinc-200">GSDF 亮度調整</div>
+          <div className="font-mono text-[9px] text-zinc-500">大圖顯示時仍可直接調整目標亮度</div>
+        </div>
+        <div className="flex items-baseline gap-2">
+          <span className="font-mono text-[22px] font-semibold leading-none tabular-nums text-cyan-200">
+            {formatLuminance(settings.lmax)}
+          </span>
+          <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-zinc-500">nits</span>
+        </div>
+      </div>
+      <div className="mt-3 flex items-center gap-3">
+        <span className="w-8 text-right font-mono text-[10px] text-zinc-500">{LUMINANCE_MIN_NITS}</span>
+        <input
+          type="range"
+          min="0"
+          max={LUMINANCE_SLIDER_MAX}
+          step="1"
+          value={luminanceToSliderValue(settings.lmax)}
+          onChange={(event) => {
+            setSettings((prev) => ({ ...prev, lmax: sliderValueToLuminance(event.target.value) }));
+          }}
+          className="gsdf-range flex-1"
+        />
+        <span className="w-8 text-left font-mono text-[10px] text-zinc-500">{LUMINANCE_MAX_NITS}</span>
+      </div>
+    </div>
+  );
+}
+
+function GSDFStripeTest({
+  settings,
+  setSettings,
+}: {
+  settings: AppSettings;
+  setSettings: React.Dispatch<React.SetStateAction<AppSettings>>;
+}) {
   const [showDetails, setShowDetails] = React.useState(false);
   const [showFullPattern, setShowFullPattern] = React.useState(false);
   const compactStripeWidth = 18;
   const outputRows = React.useMemo(() => buildGsdfStripeRows(settings), [settings]);
   const calibrationRows = React.useMemo(() => buildGsdfCalibrationStripeRows(), []);
-  const frequencies = React.useMemo(
-    () => [
-      { label: '1', stripeWidth: 40 },
-      { label: '2', stripeWidth: 28 },
-      { label: '4', stripeWidth: 20 },
-      { label: '8', stripeWidth: 14 },
-      { label: '12', stripeWidth: 10 },
-      { label: '16', stripeWidth: 7 },
-    ],
-    [],
-  );
 
   React.useEffect(() => {
     if (!window.parent || window.parent === window) {
@@ -281,31 +520,6 @@ function GSDFStripeTest({ settings }: { settings: AppSettings }) {
               backgroundImage: `repeating-linear-gradient(90deg, rgb(${row.left} ${row.left} ${row.left}) 0 ${compactStripeWidth}px, rgb(${row.right} ${row.right} ${row.right}) ${compactStripeWidth}px ${compactStripeWidth * 2}px)`,
             }}
           />
-        </div>
-      ))}
-    </div>
-  );
-
-  const renderFrequencyMatrix = (rows: ReturnType<typeof buildGsdfStripeRows>) => (
-    <div className="space-y-2">
-      <div className="grid grid-cols-[42px_repeat(6,minmax(72px,1fr))] gap-2 font-mono text-[8px] uppercase tracking-wider text-zinc-500">
-        <div />
-        {frequencies.map((frequency) => (
-          <div key={frequency.label} className="text-center">{frequency.label}x</div>
-        ))}
-      </div>
-      {rows.map((row) => (
-        <div key={row.id} className="grid grid-cols-[42px_repeat(6,minmax(72px,1fr))] items-center gap-2">
-          <span className="font-mono text-[9px] tracking-wider text-zinc-500">{row.label}</span>
-          {frequencies.map((frequency) => (
-            <div
-              key={`${row.id}-${frequency.label}`}
-              className="h-14 rounded border border-white/[0.06] shadow-inner"
-              style={{
-                backgroundImage: `repeating-linear-gradient(90deg, rgb(${row.left} ${row.left} ${row.left}) 0 ${frequency.stripeWidth}px, rgb(${row.right} ${row.right} ${row.right}) ${frequency.stripeWidth}px ${frequency.stripeWidth * 2}px)`,
-              }}
-            />
-          ))}
         </div>
       ))}
     </div>
@@ -354,12 +568,12 @@ function GSDFStripeTest({ settings }: { settings: AppSettings }) {
           {renderRows(calibrationRows)}
         </div>
       )}
-      {showFullPattern && (
+      {showFullPattern && createPortal((
         <div className="fixed inset-3 z-[80] flex flex-col overflow-hidden rounded-md border border-white/10 bg-[#0b0e12] shadow-2xl" data-no-drag>
           <div className="shrink-0 flex items-center justify-between gap-3 border-b border-white/10 bg-[#111820] px-4 py-3">
             <div>
-              <div className="text-[11px] font-semibold text-zinc-200">完整多頻率條紋圖</div>
-              <div className="font-mono text-[9px] text-zinc-500">frequency columns: 1x / 2x / 4x / 8x / 12x / 16x</div>
+              <div className="text-[11px] font-semibold text-zinc-200">GSDF-QC 全域測試圖</div>
+              <div className="font-mono text-[9px] text-zinc-500">full-field grayscale, modulation, line-pair and gradient pattern</div>
             </div>
             <button
               type="button"
@@ -370,18 +584,12 @@ function GSDFStripeTest({ settings }: { settings: AppSettings }) {
               <X size={15} />
             </button>
           </div>
-          <div className="flex-1 space-y-5 overflow-auto p-4">
-            <div className="space-y-3">
-              <div className="font-mono text-[9px] font-semibold uppercase tracking-[0.18em] text-zinc-500">輸出預覽</div>
-              {renderFrequencyMatrix(outputRows)}
-            </div>
-            <div className="space-y-3">
-              <div className="font-mono text-[9px] font-semibold uppercase tracking-[0.18em] text-zinc-500">亮度校準</div>
-              {renderFrequencyMatrix(calibrationRows)}
-            </div>
+          <PatternLuminanceControl settings={settings} setSettings={setSettings} />
+          <div className="min-h-0 flex-1 overflow-hidden bg-black p-2">
+            <FullDiagnosticPattern settings={settings} />
           </div>
         </div>
-      )}
+      ), document.body)}
     </section>
   );
 }
@@ -488,7 +696,25 @@ export function DraggablePanel({
 }: DraggablePanelProps) {
   const dragControls = useDragControls();
   const dragStartRef = React.useRef<{ x: number; y: number } | null>(null);
+  const pendingDragRef = React.useRef({ deltaX: 0, deltaY: 0 });
+  const dragFrameRef = React.useRef<number | null>(null);
   const [activeTab, setActiveTab] = React.useState<PanelTab>('basic');
+  const [panelTheme, setPanelTheme] = React.useState<PanelTheme>(() => {
+    const savedTheme = localStorage.getItem(PANEL_THEME_STORAGE_KEY);
+    return savedTheme === 'light' ? 'light' : 'dark';
+  });
+
+  React.useEffect(() => {
+    localStorage.setItem(PANEL_THEME_STORAGE_KEY, panelTheme);
+  }, [panelTheme]);
+
+  React.useEffect(() => {
+    return () => {
+      if (dragFrameRef.current !== null) {
+        window.cancelAnimationFrame(dragFrameRef.current);
+      }
+    };
+  }, []);
 
   const handleEnabledChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSettings((prev) => ({ ...prev, enabled: e.target.checked }));
@@ -545,7 +771,19 @@ export function DraggablePanel({
     const deltaX = e.clientX - dragStartRef.current.x;
     const deltaY = e.clientY - dragStartRef.current.y;
     dragStartRef.current = { x: e.clientX, y: e.clientY };
-    onExtensionDrag?.(deltaX, deltaY);
+    pendingDragRef.current.deltaX += deltaX;
+    pendingDragRef.current.deltaY += deltaY;
+
+    if (dragFrameRef.current !== null) {
+      return;
+    }
+
+    dragFrameRef.current = window.requestAnimationFrame(() => {
+      dragFrameRef.current = null;
+      const drag = pendingDragRef.current;
+      pendingDragRef.current = { deltaX: 0, deltaY: 0 };
+      onExtensionDrag?.(drag.deltaX, drag.deltaY);
+    });
   };
 
   const handleHeaderPointerUp = () => {
@@ -559,10 +797,11 @@ export function DraggablePanel({
       dragListener={false}
       dragMomentum={false}
       initial={extensionMode ? false : { x: 24, y: 24 }}
-      className={`${extensionMode ? 'relative' : 'absolute'} top-0 left-0 z-50 flex h-[680px] max-h-[calc(100vh-16px)] w-[400px] flex-col overflow-hidden rounded-lg border border-white/10 bg-[#111418] font-sans text-zinc-200 shadow-2xl`}
+      data-panel-theme={panelTheme}
+      className={`${extensionMode ? 'relative' : 'absolute'} gsdf-panel theme-${panelTheme} top-0 left-0 z-50 flex h-[720px] max-h-[calc(100vh-16px)] w-[420px] flex-col overflow-hidden rounded-lg border border-white/10 bg-[#111418] font-sans text-zinc-200 shadow-2xl`}
     >
       <div
-        className="flex cursor-grab select-none items-center justify-between border-b border-white/10 bg-[#181c21] px-5 py-3.5 active:cursor-grabbing"
+        className="flex cursor-grab select-none items-center justify-between border-b border-white/10 bg-[#181c21] px-4 py-3 active:cursor-grabbing"
         onPointerDown={handleHeaderPointerDown}
         onPointerMove={handleHeaderPointerMove}
         onPointerUp={handleHeaderPointerUp}
@@ -577,29 +816,39 @@ export function DraggablePanel({
             <div className="font-mono text-[9px] uppercase tracking-[0.16em] text-zinc-500">perceptual video filter</div>
           </div>
         </div>
-        <label
-          className="relative inline-flex h-8 w-14 shrink-0 items-center rounded-md border border-white/10 bg-[#0b0d10] p-1"
-          title="啟動 EOTF 修正"
-          data-no-drag
-        >
-          <input
-            type="checkbox"
-            name="enable-gsdf"
-            id="enable-gsdf"
-            aria-label="啟動 EOTF 修正"
-            checked={settings.enabled}
-            onChange={handleEnabledChange}
-            className="peer sr-only"
-          />
-          <span className="pointer-events-none absolute inset-1 rounded bg-white/[0.04] transition-colors peer-checked:bg-cyan-400/20" />
-          <span className="relative z-10 flex h-6 w-6 translate-x-0 items-center justify-center rounded bg-zinc-500 text-[#0b0d10] transition-transform peer-checked:translate-x-6 peer-checked:bg-cyan-300">
-            <Power size={13} />
-          </span>
-        </label>
+        <div className="flex shrink-0 items-center gap-2" data-no-drag>
+          <button
+            type="button"
+            title={panelTheme === 'light' ? '切換到暗色面板' : '切換到明亮面板'}
+            aria-label={panelTheme === 'light' ? '切換到暗色面板' : '切換到明亮面板'}
+            onClick={() => setPanelTheme((theme) => (theme === 'light' ? 'dark' : 'light'))}
+            className="flex h-8 w-8 items-center justify-center rounded-md border border-white/10 bg-[#0b0d10] text-zinc-400 transition-colors hover:bg-white/[0.06] hover:text-cyan-300"
+          >
+            {panelTheme === 'light' ? <Moon size={14} /> : <Sun size={14} />}
+          </button>
+          <label
+            className="relative inline-flex h-8 w-14 shrink-0 items-center rounded-md border border-white/10 bg-[#0b0d10] p-1"
+            title="啟動 EOTF 修正"
+          >
+            <input
+              type="checkbox"
+              name="enable-gsdf"
+              id="enable-gsdf"
+              aria-label="啟動 EOTF 修正"
+              checked={settings.enabled}
+              onChange={handleEnabledChange}
+              className="peer sr-only"
+            />
+            <span className="pointer-events-none absolute inset-1 rounded bg-white/[0.04] transition-colors peer-checked:bg-cyan-400/20" />
+            <span className="relative z-10 flex h-6 w-6 translate-x-0 items-center justify-center rounded bg-zinc-500 text-[#0b0d10] transition-transform peer-checked:translate-x-6 peer-checked:bg-cyan-300">
+              <Power size={13} />
+            </span>
+          </label>
+        </div>
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col">
-        <div className="px-5 pt-4">
+        <div className="px-4 pt-3">
           <div className="grid grid-cols-2 gap-1 rounded-md border border-white/10 bg-[#090c10] p-1">
             {(['basic', 'advanced'] as PanelTab[]).map((tab) => (
               <button
@@ -618,7 +867,7 @@ export function DraggablePanel({
           </div>
         </div>
 
-        <div className="flex-1 space-y-4 overflow-hidden p-5">
+        <div className="flex-1 space-y-3 overflow-hidden p-4">
           <StatusDeck settings={settings} />
 
           {activeTab === 'basic' && (
@@ -684,101 +933,103 @@ export function DraggablePanel({
                 onChange={(value) => setNumericSetting('strength', value)}
               />
 
-              <GSDFStripeTest settings={settings} />
+                    <GSDFStripeTest settings={settings} setSettings={setSettings} />
             </>
           )}
 
           {activeTab === 'advanced' && (
             <>
-              <SegmentedControl
-                disabled={!settings.enabled}
-                icon={<BarChart3 size={14} />}
-                label="色彩模型"
-                value={settings.colorModel}
-                options={[
-                  { value: 'rgb', label: 'RGB', title: '對 R/G/B 三通道套同一張 GSDF table' },
-                  { value: 'ycbcr', label: 'YCbCr', title: '轉成 YCbCr 後只調整 Y 亮度，保留 Cb/Cr 色度' },
-                ]}
-                onChange={(value) => setColorModel(value)}
-              />
-
-              <SliderControl
-                disabled={!settings.enabled}
-                icon={<Activity size={14} />}
-                label="Gamma 補償"
-                title="中央 0 為 γ2.2 無調整；往左補償更暗觀影環境到 γ3.0，往右補償到 γ1.0 線性。"
-                valueText={`${gammaCorrection > 0 ? '+' : ''}${gammaCorrection} · γ ${settings.gammaTarget.toFixed(1)}`}
-                minLabel="-100"
-                maxLabel="+100"
-                min={GAMMA_CORRECTION_MIN}
-                max={GAMMA_CORRECTION_MAX}
-                value={gammaCorrection}
-                onChange={setGammaCorrection}
-              />
-
-              <SliderControl
-                disabled={!settings.enabled}
-                icon={<Gauge size={14} />}
-                label="Filter 總量"
-                title="完整 GSDF table 先算出來，再用此總量混合回 gamma-adjusted baseline；0% 為 gamma-adjusted baseline，100% 為完整 GSDF。"
-                valueText={`${settings.strength}%`}
-                minLabel="0"
-                maxLabel="100"
-                min={0}
-                max={100}
-                step={5}
-                value={settings.strength}
-                onChange={(value) => setNumericSetting('strength', value)}
-              />
-
-              <div className={`grid grid-cols-2 gap-4 transition-opacity ${settings.enabled ? 'opacity-100' : 'opacity-45 pointer-events-none'}`}>
-                <SliderControl
-                  icon={<SlidersHorizontal size={14} />}
-                  label="黑位"
-                  valueText={`${settings.blackPoint}%`}
-                  min={0}
-                  max={20}
-                  value={settings.blackPoint}
-                  onChange={(value) => setNumericSetting('blackPoint', value)}
+              <div className="grid grid-cols-2 gap-3">
+                <SegmentedControl
+                  disabled={!settings.enabled}
+                  icon={<BarChart3 size={14} />}
+                  label="色彩模型"
+                  value={settings.colorModel}
+                  options={[
+                    { value: 'rgb', label: 'RGB', title: '對 R/G/B 三通道套同一張 GSDF table' },
+                    { value: 'ycbcr', label: 'YCbCr', title: '轉成 YCbCr 後只調整 Y 亮度，保留 Cb/Cr 色度' },
+                  ]}
+                  onChange={(value) => setColorModel(value)}
                 />
+
                 <SliderControl
-                  icon={<Sun size={14} />}
-                  label="白位"
-                  valueText={`${settings.whitePoint}%`}
-                  min={80}
+                  disabled={!settings.enabled}
+                  icon={<Activity size={14} />}
+                  label="Gamma 補償"
+                  title="中央 0 為 γ2.2 無調整；往左補償更暗觀影環境到 γ3.0，往右補償到 γ1.0 線性。"
+                  valueText={`${gammaCorrection > 0 ? '+' : ''}${gammaCorrection} · γ ${settings.gammaTarget.toFixed(1)}`}
+                  minLabel="-100"
+                  maxLabel="+100"
+                  min={GAMMA_CORRECTION_MIN}
+                  max={GAMMA_CORRECTION_MAX}
+                  value={gammaCorrection}
+                  onChange={setGammaCorrection}
+                />
+
+                <SliderControl
+                  disabled={!settings.enabled}
+                  icon={<Gauge size={14} />}
+                  label="Filter 總量"
+                  title="完整 GSDF table 先算出來，再用此總量混合回 gamma-adjusted baseline；0% 為 gamma-adjusted baseline，100% 為完整 GSDF。"
+                  valueText={`${settings.strength}%`}
+                  minLabel="0"
+                  maxLabel="100"
+                  min={0}
                   max={100}
-                  value={settings.whitePoint}
-                  onChange={(value) => setNumericSetting('whitePoint', value)}
+                  step={5}
+                  value={settings.strength}
+                  onChange={(value) => setNumericSetting('strength', value)}
+                />
+
+                <div className={`grid grid-cols-2 gap-3 transition-opacity ${settings.enabled ? 'opacity-100' : 'opacity-45 pointer-events-none'}`}>
+                  <SliderControl
+                    icon={<SlidersHorizontal size={14} />}
+                    label="黑位"
+                    valueText={`${settings.blackPoint}%`}
+                    min={0}
+                    max={20}
+                    value={settings.blackPoint}
+                    onChange={(value) => setNumericSetting('blackPoint', value)}
+                  />
+                  <SliderControl
+                    icon={<Sun size={14} />}
+                    label="白位"
+                    valueText={`${settings.whitePoint}%`}
+                    min={80}
+                    max={100}
+                    value={settings.whitePoint}
+                    onChange={(value) => setNumericSetting('whitePoint', value)}
+                  />
+                </div>
+
+                <SliderControl
+                  disabled={!settings.enabled}
+                  icon={<Activity size={14} />}
+                  label="細節銳化"
+                  valueText={`${settings.sharpness}%`}
+                  minLabel="0"
+                  maxLabel="100"
+                  min={0}
+                  max={100}
+                  step={5}
+                  value={settings.sharpness}
+                  onChange={(value) => setNumericSetting('sharpness', value)}
+                />
+
+                <SliderControl
+                  disabled={!settings.enabled}
+                  icon={<Thermometer size={14} />}
+                  label="色溫偏移"
+                  valueText={settings.temperature === 0 ? '0' : settings.temperature > 0 ? `+${settings.temperature}` : String(settings.temperature)}
+                  minLabel="-50"
+                  maxLabel="+50"
+                  min={-50}
+                  max={50}
+                  step={1}
+                  value={settings.temperature}
+                  onChange={(value) => setNumericSetting('temperature', value)}
                 />
               </div>
-
-              <SliderControl
-                disabled={!settings.enabled}
-                icon={<Activity size={14} />}
-                label="細節銳化"
-                valueText={`${settings.sharpness}%`}
-                minLabel="0"
-                maxLabel="100"
-                min={0}
-                max={100}
-                step={5}
-                value={settings.sharpness}
-                onChange={(value) => setNumericSetting('sharpness', value)}
-              />
-
-              <SliderControl
-                disabled={!settings.enabled}
-                icon={<Thermometer size={14} />}
-                label="色溫偏移"
-                valueText={settings.temperature === 0 ? '0' : settings.temperature > 0 ? `+${settings.temperature}` : String(settings.temperature)}
-                minLabel="-50"
-                maxLabel="+50"
-                min={-50}
-                max={50}
-                step={1}
-                value={settings.temperature}
-                onChange={(value) => setNumericSetting('temperature', value)}
-              />
 
               <ContrastChartPanel settings={settings} />
             </>

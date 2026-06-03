@@ -24,13 +24,26 @@ gammaTarget 前級補償
 實際上，一個輸入影片亮度層級會先經過目前選定的 Gamma 目標，再送進 GSDF 亮度模型，最後依照 filter amount 拉回到 gamma-adjusted baseline。這樣可以把它維持在「觀影補救層」的角色，而不是強迫全域做一次全有或全無的重映射。
 
 ```mermaid
-flowchart LR
-  A["輸入影片 code value"] --> B["Gamma 前級補償<br/>0 = gamma 2.2"]
-  B --> C["映射進 GSDF JND 空間"]
-  C --> D["把 JND 轉回 luminance"]
-  D --> E["建立 SVG transfer table"]
-  E --> F["依 filter amount 混合"]
-  F --> G["套用到 preview 或 Chrome video element"]
+flowchart TD
+  A["使用者控制<br/>enabled, lmax, gammaTarget, strength,<br/>colorModel, blackPoint, whitePoint"] --> B["正規化設定"]
+
+  subgraph M["Shared GSDF model"]
+    B --> C["Gamma 前級補償<br/>0 = gamma 2.2"]
+    C --> D["映射進 GSDF JND 空間"]
+    D --> E["把 JND 轉回 luminance"]
+    E --> F["建立 256 階 SVG transfer table"]
+    B --> G["建立輸出預覽條紋列"]
+    B --> H["建立亮度校準條紋列"]
+  end
+
+  F --> I["Standalone preview<br/>VideoBackground.tsx"]
+  F --> J["GSDFChart 取樣曲線"]
+  F --> K["Extension tone profile<br/>deriveToneProfile()"]
+  G --> L["輸出預覽條紋<br/>跟隨 active table"]
+  H --> N["亮度校準條紋<br/>固定低對比配對"]
+  K --> O["updateFilterDefinitions()"]
+  O --> P["受控 CSS 與 SVG filter chain"]
+  P --> Q["Browser video element"]
 ```
 
 完整公式、實作細節與延伸流程圖請見 [docs/gsdf-model.ZHTW.md](docs/gsdf-model.ZHTW.md) 與 [docs/gsdf-application-and-ui-review.ZHTW.md](docs/gsdf-application-and-ui-review.ZHTW.md)。
