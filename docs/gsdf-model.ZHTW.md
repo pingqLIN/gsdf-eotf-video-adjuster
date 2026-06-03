@@ -64,6 +64,67 @@ m =  1.3635334e-3
 - `buildGsdfTableValues(settings, tableSize = 256)`：產生 UI、preview video、content script 與 chart 共用的 transfer table。
 - `buildGsdfStripeRows(settings)`：產生帶有小幅 JND offset 的 stripe pairs，用於視覺檢查。
 
+## 流程流水線圖
+
+`src/types.ts` 雖然檔名像 type 定義，但它其實是共用模型核心。它負責 settings shape、輸入正規化、luminance/JND 計算、transfer table 產生，以及條紋列資料產生。runtime application 再從三個地方消費這些輸出：
+
+- `src/components/VideoBackground.tsx`：用 SVG filters 渲染 standalone demo preview。
+- `src/components/DraggablePanel.tsx`：把 settings 接成 UI 控制、輸出預覽條紋、亮度校準條紋與圖表 overlay。
+- `extension/content.js`：鏡像同一套模型，並從 injected content script 把 SVG filters 套到真實頁面影片。
+
+```mermaid
+flowchart TD
+  A["使用者控制<br/>enabled, lmax, strength, colorModel,<br/>blackPoint, whitePoint, sharpness, temperature"] --> B["normalizeAppSettings / normalizeSettings"]
+  B --> C["GSDF transfer model<br/>src/types.ts and extension/content.js"]
+  C --> D["buildGsdfTableValues(settings, 256)"]
+  C --> E["buildGsdfStripeRows(settings)"]
+  C --> F["buildGsdfCalibrationStripeRows()"]
+  D --> G["Preview SVG table<br/>VideoBackground.tsx"]
+  D --> H["Extension SVG table<br/>deriveToneProfile()"]
+  D --> I["GSDFChart sampled curve"]
+  E --> J["輸出預覽條紋<br/>跟隨 active transfer table"]
+  F --> K["亮度校準條紋<br/>固定低對比 code pairs"]
+  H --> L["updateFilterDefinitions(profile)"]
+  L --> M["buildManagedFilterChain(existingFilter, profile)"]
+  M --> N["applyVideoFilter(video, profile)"]
+  N --> O["Browser video element<br/>managed CSS filter chain"]
+```
+
+核心 table-generation loop 會把每個 input code value 送進 GSDF luminance relationship，再轉成 SVG table value：
+
+```mermaid
+flowchart LR
+  A["8-bit table index"] --> B["inputLevel = index / 255"]
+  B --> C["getGsdfDisplayCode(inputLevel, lmax)"]
+  C --> D["luminanceToGsdfJnd(minLuminance / lmax)"]
+  D --> E["interpolate target JND"]
+  E --> F["gsdfJndToLuminance(jnd)"]
+  F --> G["normalize luminance to 0..1"]
+  G --> H["pow(level, 1 / 2.2)"]
+  H --> I["與原 input 混合<br/>strength / 100"]
+  I --> J["clamped 5-decimal table value"]
+```
+
+Chrome extension path 在同一個模型外面多了一層 runtime：它必須找到目標影片、保留 host page 原本的 filter token、注入可重用的 SVG definitions，並同步浮動 iframe panel 的大小與位置。
+
+```mermaid
+sequenceDiagram
+  participant User as 使用者
+  participant UI as React iframe UI
+  participant Content as extension/content.js
+  participant Page as Host page videos
+  User->>UI: 調整面板控制
+  UI->>Content: postMessage GSDF_SETTINGS_CHANGED
+  Content->>Content: normalizeSettings + deriveToneProfile
+  Content->>Content: updateFilterDefinitions
+  Content->>Page: discoverVideos + selectTargetVideos
+  Content->>Page: applyVideoFilter with managed SVG filter chain
+  UI->>Content: GSDF_PATTERN_VIEW_CHANGED
+  Content->>UI: resize iframe shell for large charts/patterns
+```
+
+視覺化表面刻意拆成兩種用途。輸出預覽條紋會從 active transfer table 取樣，所以會反映目前選到的 `lmax`、`strength` 與 color path。亮度校準條紋則是固定 `+2` code-value reference，因此不受目前 GSDF table 影響，可作為穩定的亮度/對比檢查。
+
 ## 專案內的取捨
 
 ### 目標亮度

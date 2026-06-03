@@ -64,6 +64,67 @@ Important functions:
 - `buildGsdfTableValues(settings, tableSize = 256)`: builds the transfer table used by the UI, preview video, content script, and chart.
 - `buildGsdfStripeRows(settings)`: derives small JND-offset stripe pairs for visual inspection.
 
+## Pipeline Map
+
+`src/types.ts` is the shared model core, despite its name. It owns the settings shape, input normalization, luminance/JND math, transfer-table generation, and stripe row generation. The runtime application then consumes those outputs in three places:
+
+- `src/components/VideoBackground.tsx` renders the standalone demo preview with SVG filters.
+- `src/components/DraggablePanel.tsx` turns settings into UI controls, output-preview stripes, calibration stripes, and chart overlays.
+- `extension/content.js` mirrors the model and applies the resulting SVG filters to real page videos from an injected content script.
+
+```mermaid
+flowchart TD
+  A["User controls<br/>enabled, lmax, strength, colorModel,<br/>blackPoint, whitePoint, sharpness, temperature"] --> B["normalizeAppSettings / normalizeSettings"]
+  B --> C["GSDF transfer model<br/>src/types.ts and extension/content.js"]
+  C --> D["buildGsdfTableValues(settings, 256)"]
+  C --> E["buildGsdfStripeRows(settings)"]
+  C --> F["buildGsdfCalibrationStripeRows()"]
+  D --> G["Preview SVG table<br/>VideoBackground.tsx"]
+  D --> H["Extension SVG table<br/>deriveToneProfile()"]
+  D --> I["GSDFChart sampled curve"]
+  E --> J["Output-preview stripe rows<br/>active transfer table"]
+  F --> K["Calibration stripe rows<br/>fixed low-contrast code pairs"]
+  H --> L["updateFilterDefinitions(profile)"]
+  L --> M["buildManagedFilterChain(existingFilter, profile)"]
+  M --> N["applyVideoFilter(video, profile)"]
+  N --> O["Browser video element<br/>managed CSS filter chain"]
+```
+
+The core table-generation loop expands each input code value through the GSDF luminance relationship before it becomes an SVG table value:
+
+```mermaid
+flowchart LR
+  A["8-bit table index"] --> B["inputLevel = index / 255"]
+  B --> C["getGsdfDisplayCode(inputLevel, lmax)"]
+  C --> D["luminanceToGsdfJnd(minLuminance / lmax)"]
+  D --> E["interpolate target JND"]
+  E --> F["gsdfJndToLuminance(jnd)"]
+  F --> G["normalize luminance to 0..1"]
+  G --> H["pow(level, 1 / 2.2)"]
+  H --> I["blend with original input<br/>strength / 100"]
+  I --> J["clamped 5-decimal table value"]
+```
+
+The Chrome extension path has one extra runtime layer around the same model. It has to discover target videos, preserve host-page filters, inject reusable SVG definitions, and keep the floating iframe panel in sync:
+
+```mermaid
+sequenceDiagram
+  participant User
+  participant UI as React iframe UI
+  participant Content as extension/content.js
+  participant Page as Host page videos
+  User->>UI: Adjust panel controls
+  UI->>Content: postMessage GSDF_SETTINGS_CHANGED
+  Content->>Content: normalizeSettings + deriveToneProfile
+  Content->>Content: updateFilterDefinitions
+  Content->>Page: discoverVideos + selectTargetVideos
+  Content->>Page: applyVideoFilter with managed SVG filter chain
+  UI->>Content: GSDF_PATTERN_VIEW_CHANGED
+  Content->>UI: resize iframe shell for large charts/patterns
+```
+
+The visualization surfaces intentionally split two concerns. Output-preview stripes are sampled from the active transfer table, so they show the currently selected `lmax`, `strength`, and color-path behavior. Calibration stripes are fixed `+2` code-value references, so they remain a stable brightness/contrast check independent of the active GSDF table.
+
 ## Project-Specific Choices
 
 ### Target Luminance
