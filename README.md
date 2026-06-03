@@ -10,6 +10,50 @@ The premise is deliberately display-side: the tool optimizes the signal that has
 
 Use it as a practical viewing aid for special cases, not as a replacement for proper color grading, calibrated mastering, or medical display certification. The app can run as a standalone local preview, and the production path packages the same UI into a Chrome extension iframe that injects managed SVG filters onto detected video elements.
 
+## GSDF Luminance Model
+
+The current canonical flow is:
+
+```text
+gammaTarget pre-compensation
+-> GSDF luminance/JND remap
+-> SVG transfer table generation
+-> filter-amount blend over the gamma-adjusted baseline
+```
+
+In practice, one input video level first passes through the selected gamma target, then moves through the GSDF luminance model, and finally blends back toward the gamma-adjusted baseline by the chosen filter amount. That keeps the tool useful as a viewing rescue layer instead of forcing a full all-or-nothing remap.
+
+```mermaid
+flowchart LR
+  A["Input video code value"] --> B["Gamma pre-compensation<br/>0 = gamma 2.2"]
+  B --> C["Map into GSDF JND space"]
+  C --> D["Convert JND back to luminance"]
+  D --> E["Build SVG transfer table"]
+  E --> F["Blend by filter amount"]
+  F --> G["Apply to preview or Chrome video element"]
+```
+
+The full formula notes, implementation details, and extended pipeline diagrams live in [docs/gsdf-model.md](docs/gsdf-model.md) and [docs/gsdf-application-and-ui-review.md](docs/gsdf-application-and-ui-review.md).
+
+## Test Images
+
+Test-image gallery is pending. This section is reserved for before/after captures, stripe comparisons, and difficult grayscale examples that show where GSDF rescue helps most.
+
+## Direct Install and Use
+
+The fastest path today is the unpacked Chrome extension workflow:
+
+1. Install dependencies with `npm ci`.
+2. Build the extension UI with `npm run build:ext`.
+3. Open `chrome://extensions`.
+4. Turn on Developer mode.
+5. Choose Load unpacked.
+6. Select this repo's `extension` directory.
+
+After loading, open a supported video page and click the extension action to toggle the GSDF control panel.
+
+Packaging is possible, but it is not the recommended default yet. Right now the project still benefits from the editable `build:ext` plus Load unpacked loop because UI behavior, filter tuning, and extension smoke validation are still part of active iteration. A packaged zip or Chrome Web Store-style release becomes more worthwhile once the install surface, permissions, and regression workflow stop moving as often.
+
 ## What It Gives You
 
 - Display-side tonal rescue for video that loses shadow, midtone, or highlight separation.
@@ -21,6 +65,16 @@ Use it as a practical viewing aid for special cases, not as a replacement for pr
 - Black point, white point, sharpness, and color-temperature controls for practical rescue tuning.
 - Compact and expanded GSDF stripe test views for visual inspection.
 - Chrome extension fallback activation when a page reloads or the content script is not ready.
+
+## Project Layout
+
+- `src/` contains the standalone React UI and shared GSDF model helpers.
+- `extension/manifest.json` defines the Manifest V3 extension.
+- `extension/background.js` owns action-click activation and injection fallback.
+- `extension/content.js` injects the iframe UI and applies managed video filters.
+- `scripts/buildExt.js` copies the Vite build into the extension package.
+- `scripts/smokeExtensionChrome.mjs` runs the real Chrome extension smoke test.
+- `tests/` contains Node-based regression tests for the model, content script, background script, manifest, and panel layout.
 
 ## Requirements
 
@@ -54,20 +108,7 @@ Build the web app and copy the generated UI into `extension/ui`:
 npm run build:ext
 ```
 
-Then load the `extension` folder in Chrome:
-
-1. Open `chrome://extensions`.
-2. Enable Developer mode.
-3. Choose Load unpacked.
-4. Select this repo's `extension` directory.
-
-Click the extension action on a supported web page to toggle the GSDF control panel.
-
-## GSDF Model
-
-The luminance model is documented in [docs/gsdf-model.md](docs/gsdf-model.md). It covers the purpose, DICOM PS3.14 source formula, implementation flow, project-specific choices, and limits.
-
-The formula and UI application review is documented in [docs/gsdf-application-and-ui-review.md](docs/gsdf-application-and-ui-review.md).
+The build step prepares the unpacked extension assets that Chrome loads from the `extension` directory.
 
 ## Verification
 
@@ -111,13 +152,3 @@ On machines where managed Google Chrome blocks command-line unpacked extension l
 $env:CHROME_PATH = "$env:LOCALAPPDATA\ms-playwright\chromium-1217\chrome-win64\chrome.exe"
 npm run smoke:ext
 ```
-
-## Project Layout
-
-- `src/` contains the standalone React UI and shared GSDF model helpers.
-- `extension/manifest.json` defines the Manifest V3 extension.
-- `extension/background.js` owns action-click activation and injection fallback.
-- `extension/content.js` injects the iframe UI and applies managed video filters.
-- `scripts/buildExt.js` copies the Vite build into the extension package.
-- `scripts/smokeExtensionChrome.mjs` runs the real Chrome extension smoke test.
-- `tests/` contains Node-based regression tests for the model, content script, background script, manifest, and panel layout.
