@@ -1,5 +1,7 @@
 # GSDF EOTF Video Adjuster
 
+<img src="./assets/readme-banner.png" alt="GSDF EOTF Video Adjuster banner" width="100%" />
+
 Reshape video grayscale into steadier JND steps so subtle tonal detail stays easier to tell apart.
 
 GSDF EOTF Video Adjuster is a compact Chrome Manifest V3 extension and local preview tool for display-side perceptual luminance rescue. When a video looks crushed, washed out, or uneven because the grading, display EOTF, or viewing environment does not line up, it gives you direct control over gamma compensation, target luminance, and GSDF-inspired grayscale redistribution that helps brightness differences remain consistently distinguishable.

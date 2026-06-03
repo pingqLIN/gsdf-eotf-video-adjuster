@@ -1,5 +1,7 @@
 # GSDF EOTF Video Adjuster
 
+<img src="./assets/readme-banner.png" alt="GSDF EOTF Video Adjuster banner" width="100%" />
+
 把影片灰階重新整理成更穩定的 JND 階調，讓細微亮度差更容易分辨。
 
 GSDF EOTF Video Adjuster 是一個精簡的 Chrome Manifest V3 extension 與本機 preview 工具，專注於顯示端感知亮度補救。當影片因後期調整不佳、螢幕 EOTF 不準確，或觀看環境不匹配而顯得暗部壓死、亮部不穩或階調不均時，它提供 Gamma 補償、目標亮度與 GSDF-inspired 灰階重新分布控制，讓亮度差異維持更穩定的可分辨性。
