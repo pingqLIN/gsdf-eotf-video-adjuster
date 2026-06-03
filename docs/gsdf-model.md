@@ -6,7 +6,9 @@ This document explains why the project uses a GSDF-inspired transfer model, wher
 
 The extension adjusts web video so dark-to-bright grayscale steps better follow a perceptual luminance scale. Its target is practical display preview and visual adjustment, not medical-device calibration or a claim of DICOM conformance.
 
-The model is useful because normal video code values are not evenly spaced in human visual response. DICOM PS3.14 defines a Grayscale Standard Display Function (GSDF) that maps presentation values through Just-Noticeable Difference (JND) indices to luminance. The project borrows that luminance/JND relationship to build an SVG component-transfer table for browser video.
+For ordinary color video, the viewing target should remain a gamma-style response. This extension is a remedial tool for special cases, such as poorly graded video, an inaccurate display EOTF, or viewing conditions where image detail is being lost. The project therefore keeps a configurable gamma target before the GSDF stage, then treats GSDF as an optional perceptual detail-recovery layer.
+
+The GSDF model is useful because normal video code values are not evenly spaced in human visual response. DICOM PS3.14 defines a Grayscale Standard Display Function (GSDF) that maps presentation values through Just-Noticeable Difference (JND) indices to luminance. The project borrows that luminance/JND relationship to build an SVG component-transfer table for browser video.
 
 ## Source Formula
 
@@ -48,18 +50,21 @@ Shared TypeScript implementation lives in [src/types.ts](../src/types.ts). The C
 The core flow is:
 
 1. Normalize settings with `normalizeAppSettings`.
-2. Convert each input code level `0..1` into a target JND position between the display minimum and selected maximum luminance.
-3. Convert that JND back to luminance with `gsdfJndToLuminance`.
-4. Normalize luminance to `0..1`.
-5. Convert the normalized linear display level to a browser-friendly transfer value using `pow(level, 1 / 2.2)`.
-6. Store 256 values in an SVG `feComponentTransfer` table.
+2. Apply the configured gamma target to each input code level. The UI presents this as a centered compensation slider: `0` means gamma `2.2`, the left edge maps to gamma `3.0`, and the right edge maps to gamma `1.0`.
+3. Convert the gamma-adjusted code level into a target JND position between the display minimum and selected maximum luminance.
+4. Convert that JND back to luminance with `gsdfJndToLuminance`.
+5. Normalize luminance to `0..1`.
+6. Convert the normalized linear display level to a browser-friendly transfer value using `pow(level, 1 / 2.2)`.
+7. Blend the full GSDF result back with the gamma-adjusted level by the filter amount.
+8. Store 256 values in an SVG `feComponentTransfer` table.
 
-Step 5 is an extension approximation, not part of DICOM PS3.14. It gives the browser filter an encoded output value that is practical for web video, but it does not measure the actual page, GPU path, display EOTF, HDR mode, or ambient viewing condition.
+Step 6 is an extension approximation, not part of DICOM PS3.14. It gives the browser filter an encoded output value that is practical for web video, but it does not measure the actual page, GPU path, display EOTF, HDR mode, or ambient viewing condition.
 
 Important functions:
 
 - `gsdfJndToLuminance(jndIndex)`: evaluates the PS3.14 luminance equation.
 - `luminanceToGsdfJnd(luminance)`: numerically inverts the equation with binary search.
+- `getGammaAdjustedInputLevel(inputLevel, gammaTarget)`: applies the pre-GSDF gamma target.
 - `getGsdfDisplayCode(inputLevel, lmax)`: maps one normalized code value to the GSDF-shaped display code.
 - `buildGsdfTableValues(settings, tableSize = 256)`: builds the transfer table used by the UI, preview video, content script, and chart.
 - `buildGsdfStripeRows(settings)`: derives small JND-offset stripe pairs for visual inspection.
@@ -74,35 +79,37 @@ Important functions:
 
 ```mermaid
 flowchart TD
-  A["User controls<br/>enabled, lmax, strength, colorModel,<br/>blackPoint, whitePoint, sharpness, temperature"] --> B["normalizeAppSettings / normalizeSettings"]
-  B --> C["GSDF transfer model<br/>src/types.ts and extension/content.js"]
-  C --> D["buildGsdfTableValues(settings, 256)"]
-  C --> E["buildGsdfStripeRows(settings)"]
-  C --> F["buildGsdfCalibrationStripeRows()"]
-  D --> G["Preview SVG table<br/>VideoBackground.tsx"]
-  D --> H["Extension SVG table<br/>deriveToneProfile()"]
-  D --> I["GSDFChart sampled curve"]
-  E --> J["Output-preview stripe rows<br/>active transfer table"]
-  F --> K["Calibration stripe rows<br/>fixed low-contrast code pairs"]
-  H --> L["updateFilterDefinitions(profile)"]
-  L --> M["buildManagedFilterChain(existingFilter, profile)"]
-  M --> N["applyVideoFilter(video, profile)"]
-  N --> O["Browser video element<br/>managed CSS filter chain"]
+  A["User controls<br/>enabled, lmax, gammaTarget, strength, colorModel,<br/>blackPoint, whitePoint, sharpness, temperature"] --> B["normalizeAppSettings / normalizeSettings"]
+  B --> C["Gamma pre-compensation<br/>0 = 2.2, left 3.0, right 1.0"]
+  C --> D["GSDF transfer model<br/>src/types.ts and extension/content.js"]
+  D --> E["buildGsdfTableValues(settings, 256)"]
+  D --> F["buildGsdfStripeRows(settings)"]
+  D --> G["buildGsdfCalibrationStripeRows()"]
+  E --> H["Preview SVG table<br/>VideoBackground.tsx"]
+  E --> I["Extension SVG table<br/>deriveToneProfile()"]
+  E --> J["GSDFChart sampled curve"]
+  F --> K["Output-preview stripe rows<br/>active transfer table"]
+  G --> L["Calibration stripe rows<br/>fixed low-contrast code pairs"]
+  I --> M["updateFilterDefinitions(profile)"]
+  M --> N["buildManagedFilterChain(existingFilter, profile)"]
+  N --> O["applyVideoFilter(video, profile)"]
+  O --> P["Browser video element<br/>managed CSS filter chain"]
 ```
 
-The core table-generation loop expands each input code value through the GSDF luminance relationship before it becomes an SVG table value:
+The core table-generation loop first applies the gamma target, then expands the adjusted code value through the GSDF luminance relationship before it becomes an SVG table value:
 
 ```mermaid
 flowchart LR
   A["8-bit table index"] --> B["inputLevel = index / 255"]
-  B --> C["getGsdfDisplayCode(inputLevel, lmax)"]
-  C --> D["luminanceToGsdfJnd(minLuminance / lmax)"]
-  D --> E["interpolate target JND"]
-  E --> F["gsdfJndToLuminance(jnd)"]
-  F --> G["normalize luminance to 0..1"]
-  G --> H["pow(level, 1 / 2.2)"]
-  H --> I["blend with original input<br/>strength / 100"]
-  I --> J["clamped 5-decimal table value"]
+  B --> C["gammaLevel = pow(inputLevel, gammaTarget / 2.2)"]
+  C --> D["getGsdfDisplayCode(gammaLevel, lmax)"]
+  D --> E["luminanceToGsdfJnd(minLuminance / lmax)"]
+  E --> F["interpolate target JND"]
+  F --> G["gsdfJndToLuminance(jnd)"]
+  G --> H["normalize luminance to 0..1"]
+  H --> I["pow(level, 1 / 2.2)"]
+  I --> J["blend with gamma-adjusted input<br/>strength / 100"]
+  J --> K["clamped 5-decimal table value"]
 ```
 
 The Chrome extension path has one extra runtime layer around the same model. It has to discover target videos, preserve host-page filters, inject reusable SVG definitions, and keep the floating iframe panel in sync:
@@ -123,7 +130,7 @@ sequenceDiagram
   Content->>UI: resize iframe shell for large charts/patterns
 ```
 
-The visualization surfaces intentionally split two concerns. Output-preview stripes are sampled from the active transfer table, so they show the currently selected `lmax`, `strength`, and color-path behavior. Calibration stripes are fixed `+2` code-value references, so they remain a stable brightness/contrast check independent of the active GSDF table.
+The visualization surfaces intentionally split two concerns. Output-preview stripes are sampled from the active transfer table, so they show the currently selected `gammaTarget`, `lmax`, `strength`, and color-path behavior. Calibration stripes are fixed `+2` code-value references, so they remain a stable brightness/contrast check independent of the active GSDF table.
 
 ## Project-Specific Choices
 
@@ -133,16 +140,30 @@ The UI exposes `10..500 nits` for `lmax`. This range is intentionally narrower t
 
 The slider is logarithmic. Low-luminance targets get finer control because perceptual differences are more sensitive there.
 
+### Gamma Compensation Before GSDF
+
+The UI presents this as `Gamma compensation`, while the model stores the resulting value as `gammaTarget`. The control is intentionally placed before GSDF. The center value `0` means gamma `2.2`, the normal color-video viewing baseline. Moving left compensates for darker viewing environments by increasing the target up to gamma `3.0`; moving right compensates toward a linear response down to gamma `1.0`.
+
+```text
+gammaCorrection = -100..0..+100
+gammaCorrection -100 -> gammaTarget 3.0
+gammaCorrection 0 -> gammaTarget 2.2
+gammaCorrection +100 -> gammaTarget 1.0
+gammaLevel = pow(inputLevel, gammaTarget / 2.2)
+```
+
+This is not a display measurement. It is a controllable pre-compensation stage for practical viewing rescue before the GSDF table is applied.
+
 ### Full GSDF and Filter Amount
 
-The UI exposes one GSDF path. It first builds the full GSDF-shaped table for the selected target luminance, then blends that full table output with the original input by the user-facing filter amount. No target luminance is treated as a neutral no-compensation point.
+The UI exposes one GSDF path. It first applies the gamma target, then builds the full GSDF-shaped table for the selected target luminance, and finally blends that full table output with the gamma-adjusted input by the user-facing filter amount. No target luminance is treated as a neutral no-compensation point.
 
 ```text
 filterAmount = strength/100
-mixedLevel = inputLevel + (gsdfLevel - inputLevel) * filterAmount
+mixedLevel = gammaLevel + (gsdfLevel - gammaLevel) * filterAmount
 ```
 
-At `0%`, the table is the original signal. At `100%`, the table is the full GSDF output for the selected `lmax`. Intermediate values are a global filter amount, not a relative low-luminance compensation rule.
+At `0%`, the table keeps the gamma-adjusted signal. At `100%`, the table is the full GSDF output for the selected `lmax`. Intermediate values are a global GSDF filter amount, not a relative low-luminance compensation rule.
 
 Legacy saved settings that contain `curveMode: "pure"` are normalized back to the single GSDF path. Users should choose the filter amount instead of switching between multiple GSDF interpretations.
 

@@ -10,6 +10,7 @@ const DEFAULT_SETTINGS = {
   enabled: false,
   lmax: 350,
   curveMode: 'relative',
+  gammaTarget: 2.2,
   colorModel: 'rgb',
   strength: 80,
   blackPoint: 0,
@@ -21,6 +22,11 @@ const DEFAULT_SETTINGS = {
 const LUMINANCE_MIN_NITS = 10;
 const LUMINANCE_MAX_NITS = 500;
 const LUMINANCE_SLIDER_MAX = 1000;
+const GAMMA_TARGET_MIN = 1.0;
+const GAMMA_TARGET_MAX = 3.0;
+const DEFAULT_GAMMA_TARGET = 2.2;
+const GAMMA_CORRECTION_MIN = -100;
+const GAMMA_CORRECTION_MAX = 100;
 const LUMINANCE_LOG_RANGE = Math.log(LUMINANCE_MAX_NITS / LUMINANCE_MIN_NITS);
 const GSDF_DISPLAY_LMIN_NITS = 0.05;
 const GSDF_JND_MIN = 1;
@@ -86,6 +92,36 @@ function normalizeCurveMode(_value) {
 
 function normalizeColorModel(value) {
   return value === 'ycbcr' ? 'ycbcr' : DEFAULT_SETTINGS.colorModel;
+}
+
+function normalizeGammaTarget(value) {
+  return Number(clampNumber(value, GAMMA_TARGET_MIN, GAMMA_TARGET_MAX, DEFAULT_SETTINGS.gammaTarget).toFixed(3));
+}
+
+function gammaCorrectionToTarget(value) {
+  const correction = clampNumber(value, GAMMA_CORRECTION_MIN, GAMMA_CORRECTION_MAX, 0);
+
+  if (correction < 0) {
+    const ratio = Math.abs(correction) / Math.abs(GAMMA_CORRECTION_MIN);
+    return normalizeGammaTarget(DEFAULT_GAMMA_TARGET + (GAMMA_TARGET_MAX - DEFAULT_GAMMA_TARGET) * ratio);
+  }
+
+  const ratio = correction / GAMMA_CORRECTION_MAX;
+  return normalizeGammaTarget(DEFAULT_GAMMA_TARGET - (DEFAULT_GAMMA_TARGET - GAMMA_TARGET_MIN) * ratio);
+}
+
+function gammaTargetToCorrection(value) {
+  const target = normalizeGammaTarget(value);
+
+  if (target > DEFAULT_GAMMA_TARGET) {
+    return Math.round(-((target - DEFAULT_GAMMA_TARGET) / (GAMMA_TARGET_MAX - DEFAULT_GAMMA_TARGET)) * Math.abs(GAMMA_CORRECTION_MIN));
+  }
+
+  if (target < DEFAULT_GAMMA_TARGET) {
+    return Math.round(((DEFAULT_GAMMA_TARGET - target) / (DEFAULT_GAMMA_TARGET - GAMMA_TARGET_MIN)) * GAMMA_CORRECTION_MAX);
+  }
+
+  return 0;
 }
 
 function clampLuminance(value) {
@@ -165,14 +201,23 @@ function getGsdfDisplayCode(inputLevel, lmax) {
   return clampNumber(Math.pow(linearDisplayLevel, 1 / 2.2), 0, 1, normalized);
 }
 
+function getGammaAdjustedInputLevel(inputLevel, gammaTarget) {
+  const normalized = clampNumber(inputLevel, 0, 1, 0);
+  const targetGamma = normalizeGammaTarget(gammaTarget);
+  const exponent = targetGamma / DEFAULT_GAMMA_TARGET;
+
+  return clampNumber(Math.pow(normalized, exponent), 0, 1, normalized);
+}
+
 function buildGsdfTableValues(settings = currentSettings, tableSize = GSDF_TABLE_SIZE) {
   const normalized = normalizeSettings(settings);
   const filterAmount = normalized.strength / 100;
 
   return Array.from({ length: tableSize }, (_, index) => {
     const inputLevel = index / Math.max(1, tableSize - 1);
-    const gsdfLevel = getGsdfDisplayCode(inputLevel, normalized.lmax);
-    const mixedLevel = inputLevel + (gsdfLevel - inputLevel) * filterAmount;
+    const gammaLevel = getGammaAdjustedInputLevel(inputLevel, normalized.gammaTarget);
+    const gsdfLevel = getGsdfDisplayCode(gammaLevel, normalized.lmax);
+    const mixedLevel = gammaLevel + (gsdfLevel - gammaLevel) * filterAmount;
 
     return Number(clampNumber(mixedLevel, 0, 1, inputLevel).toFixed(5));
   });
@@ -183,6 +228,7 @@ function normalizeSettings(settings = {}) {
     enabled: settings.enabled === true,
     lmax: clampLuminance(settings.lmax),
     curveMode: normalizeCurveMode(settings.curveMode),
+    gammaTarget: normalizeGammaTarget(settings.gammaTarget),
     colorModel: normalizeColorModel(settings.colorModel),
     strength: clampNumber(settings.strength, 0, 100, DEFAULT_SETTINGS.strength),
     blackPoint: clampNumber(settings.blackPoint, 0, 20, DEFAULT_SETTINGS.blackPoint),
@@ -769,6 +815,9 @@ if (window.__GSDF_EOTF_TEST__) {
     buildManagedFilterChain,
     buildGsdfTableValues,
     deriveToneProfile,
+    gammaCorrectionToTarget,
+    gammaTargetToCorrection,
+    getGammaAdjustedInputLevel,
     gsdfJndToLuminance,
     luminanceToSliderValue,
     luminanceToGsdfJnd,

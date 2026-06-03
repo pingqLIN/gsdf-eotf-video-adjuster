@@ -24,9 +24,14 @@ import {
   AppSettings,
   buildGsdfCalibrationStripeRows,
   buildGsdfStripeRows,
+  DEFAULT_GAMMA_TARGET,
   DEFAULT_TARGET_LUMINANCE_NITS,
   DEFAULT_APP_SETTINGS,
   formatLuminance,
+  gammaCorrectionToTarget,
+  GAMMA_CORRECTION_MAX,
+  GAMMA_CORRECTION_MIN,
+  gammaTargetToCorrection,
   LUMINANCE_MAX_NITS,
   LUMINANCE_MIN_NITS,
   LUMINANCE_SLIDER_MAX,
@@ -206,12 +211,16 @@ function StatusDeck({ settings }: { settings: AppSettings }) {
         <div className="flex flex-wrap justify-end gap-1.5">
           <ModePill
             tone={settings.enabled ? 'active' : 'neutral'}
-            title="完整 GSDF transfer table 先依目標亮度計算，再由 filter 總量混合回原訊號。"
+            title="完整 GSDF transfer table 先依目標亮度計算，再由 filter 總量混合回 gamma-adjusted baseline。"
           >
             <MonitorUp size={13} />
             GSDF
           </ModePill>
-          <ModePill title="Filter 總量控制完整 GSDF 結果的混入比例；0% 為原訊號，100% 為完整 GSDF table。">
+          <ModePill title="Gamma 補償會先於 GSDF table 套用；0 為 γ2.2，左側到 γ3.0，右側到 γ1.0。">
+            <Activity size={13} />
+            γ{settings.gammaTarget.toFixed(1)}
+          </ModePill>
+          <ModePill title="Filter 總量控制完整 GSDF 結果的混入比例；0% 為 gamma-adjusted baseline，100% 為完整 GSDF table。">
             <Gauge size={13} />
             {settings.strength}%
           </ModePill>
@@ -262,12 +271,12 @@ function GSDFStripeTest({ settings }: { settings: AppSettings }) {
   }, [showFullPattern]);
 
   const renderRows = (rows: ReturnType<typeof buildGsdfStripeRows>, condensed = false) => (
-    <div className={`space-y-1.5 overflow-hidden rounded-md border border-white/10 bg-[#080b0f] ${condensed ? 'p-2.5' : 'p-3'}`}>
+    <div className={`space-y-1.5 overflow-hidden rounded-md border border-white/10 bg-[#080b0f] ${condensed ? 'p-2' : 'p-3'}`}>
       {rows.map((row) => (
         <div key={row.id} className="grid grid-cols-[44px_1fr] items-center gap-2.5">
           <span className="font-mono text-[9px] font-semibold tracking-[0.12em] text-zinc-500">{row.label}</span>
           <div
-            className={`${condensed ? 'h-7' : 'h-10'} rounded border border-white/[0.06] shadow-inner`}
+            className={`${condensed ? 'h-6' : 'h-10'} rounded border border-white/[0.06] shadow-inner`}
             style={{
               backgroundImage: `repeating-linear-gradient(90deg, rgb(${row.left} ${row.left} ${row.left}) 0 ${compactStripeWidth}px, rgb(${row.right} ${row.right} ${row.right}) ${compactStripeWidth}px ${compactStripeWidth * 2}px)`,
             }}
@@ -384,7 +393,7 @@ function ChartCaption({ compact = false }: { compact?: boolean }) {
       <div className="mt-2 space-y-1.5 font-mono text-[10px] leading-relaxed text-zinc-400">
         <div><span className="text-zinc-200">X axis</span>: 8-bit input pixel value, 0 to 255.</div>
         <div><span className="text-zinc-200">Y axis</span>: normalized transfer-table output, 0 to 1.</div>
-        <div><span className="text-cyan-200">GSDF-Optimized</span>: full GSDF table blended by the filter amount.</div>
+        <div><span className="text-cyan-200">GSDF-Optimized</span>: gamma target first, then full GSDF table blended by the filter amount.</div>
         <div><span className="text-zinc-200">Standard sRGB</span>: neutral reference line for comparison.</div>
       </div>
     </div>
@@ -493,7 +502,7 @@ export function DraggablePanel({
     setSettings((prev) => ({ ...prev, colorModel: value }));
   };
 
-  const setNumericSetting = (key: keyof Pick<AppSettings, 'strength' | 'blackPoint' | 'whitePoint' | 'sharpness' | 'temperature'>, value: number) => {
+  const setNumericSetting = (key: keyof Pick<AppSettings, 'gammaTarget' | 'strength' | 'blackPoint' | 'whitePoint' | 'sharpness' | 'temperature'>, value: number) => {
     setSettings((prev) => {
       const next = { ...prev, [key]: value };
       if (key === 'blackPoint' && next.whitePoint <= value + 10) {
@@ -508,6 +517,10 @@ export function DraggablePanel({
 
   const resetToDefault = () => {
     setSettings((prev) => ({ ...DEFAULT_APP_SETTINGS, enabled: prev.enabled }));
+  };
+  const gammaCorrection = gammaTargetToCorrection(settings.gammaTarget);
+  const setGammaCorrection = (value: number) => {
+    setNumericSetting('gammaTarget', gammaCorrectionToTarget(value));
   };
 
   const handleHeaderPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -624,7 +637,7 @@ export function DraggablePanel({
                   <button
                     onClick={resetToDefault}
                     className="rounded p-1.5 text-zinc-500 transition-colors hover:bg-white/[0.06] hover:text-cyan-300"
-                    title={`重設為 ${DEFAULT_TARGET_LUMINANCE_NITS} nits、80% filter 總量與預設影像參數。`}
+                    title={`重設為 ${DEFAULT_TARGET_LUMINANCE_NITS} nits、Gamma ${DEFAULT_GAMMA_TARGET.toFixed(1)}、80% filter 總量與預設影像參數。`}
                   >
                     <RotateCcw size={14} />
                   </button>
@@ -645,9 +658,22 @@ export function DraggablePanel({
               </section>
 
               <SliderControl
+                icon={<Activity size={14} />}
+                label="Gamma 補償"
+                title="中央 0 為 γ2.2 無調整；往左補償更暗觀影環境到 γ3.0，往右補償到 γ1.0 線性。"
+                valueText={`${gammaCorrection > 0 ? '+' : ''}${gammaCorrection} · γ ${settings.gammaTarget.toFixed(1)}`}
+                minLabel="-100"
+                maxLabel="+100"
+                min={GAMMA_CORRECTION_MIN}
+                max={GAMMA_CORRECTION_MAX}
+                value={gammaCorrection}
+                onChange={setGammaCorrection}
+              />
+
+              <SliderControl
                 icon={<Gauge size={14} />}
                 label="Filter 總量"
-                title="完整 GSDF table 先算出來，再用此總量混合回原訊號；0% 原訊號，100% 完整 GSDF。"
+                title="完整 GSDF table 先算出來，再用此總量混合回 gamma-adjusted baseline；0% 為 gamma-adjusted baseline，100% 為完整 GSDF。"
                 valueText={`${settings.strength}%`}
                 minLabel="0"
                 maxLabel="100"
@@ -657,30 +683,6 @@ export function DraggablePanel({
                 value={settings.strength}
                 onChange={(value) => setNumericSetting('strength', value)}
               />
-
-              <section className={`grid grid-cols-2 gap-2 transition-opacity ${settings.enabled ? 'opacity-100' : 'opacity-75'}`}>
-                <button
-                  type="button"
-                  title="完整 GSDF 路徑：不使用特定亮度中性點，也不做低亮度相對補償。"
-                  className="flex h-11 cursor-default items-center justify-center gap-2 rounded-md border border-cyan-300/40 bg-cyan-300/12 text-[12px] font-semibold text-cyan-100"
-                >
-                  <Gauge size={14} />
-                  GSDF
-                </button>
-                <button
-                  type="button"
-                  title="轉成 YCbCr 後只調整 Y 亮度"
-                  onClick={() => setColorModel(settings.colorModel === 'rgb' ? 'ycbcr' : 'rgb')}
-                  className={`flex h-11 items-center justify-center gap-2 rounded-md border text-[12px] font-semibold transition-colors ${
-                    settings.colorModel === 'ycbcr'
-                      ? 'border-amber-300/35 bg-amber-300/10 text-amber-100'
-                      : 'border-white/10 bg-white/[0.03] text-zinc-400 hover:bg-white/[0.06] hover:text-zinc-100'
-                  }`}
-                >
-                  <BarChart3 size={14} />
-                  {settings.colorModel === 'ycbcr' ? 'YCbCr' : 'RGB'}
-                </button>
-              </section>
 
               <GSDFStripeTest settings={settings} />
             </>
@@ -702,9 +704,23 @@ export function DraggablePanel({
 
               <SliderControl
                 disabled={!settings.enabled}
+                icon={<Activity size={14} />}
+                label="Gamma 補償"
+                title="中央 0 為 γ2.2 無調整；往左補償更暗觀影環境到 γ3.0，往右補償到 γ1.0 線性。"
+                valueText={`${gammaCorrection > 0 ? '+' : ''}${gammaCorrection} · γ ${settings.gammaTarget.toFixed(1)}`}
+                minLabel="-100"
+                maxLabel="+100"
+                min={GAMMA_CORRECTION_MIN}
+                max={GAMMA_CORRECTION_MAX}
+                value={gammaCorrection}
+                onChange={setGammaCorrection}
+              />
+
+              <SliderControl
+                disabled={!settings.enabled}
                 icon={<Gauge size={14} />}
                 label="Filter 總量"
-                title="完整 GSDF table 先算出來，再用此總量混合回原訊號；0% 原訊號，100% 完整 GSDF。"
+                title="完整 GSDF table 先算出來，再用此總量混合回 gamma-adjusted baseline；0% 為 gamma-adjusted baseline，100% 為完整 GSDF。"
                 valueText={`${settings.strength}%`}
                 minLabel="0"
                 maxLabel="100"

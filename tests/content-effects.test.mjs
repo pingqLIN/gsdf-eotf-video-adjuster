@@ -144,6 +144,7 @@ test('derives a richer GSDF tone profile from luminance and image controls', () 
   const profile = hooks.deriveToneProfile({
     enabled: true,
     lmax: 180,
+    gammaTarget: 1.8,
     strength: 80,
     blackPoint: 6,
     whitePoint: 96,
@@ -222,6 +223,18 @@ test('maps target luminance on a 10 to 500 nits logarithmic slider', () => {
   assert.equal(hooks.normalizeSettings({}).blackPoint, 0);
   assert.equal(hooks.normalizeSettings({}).whitePoint, 100);
   assert.equal(hooks.normalizeSettings({}).sharpness, 0);
+  assert.equal(hooks.normalizeSettings({}).gammaTarget, 2.2);
+  assert.equal(hooks.normalizeSettings({ gammaTarget: 0.5 }).gammaTarget, 1.0);
+  assert.equal(hooks.normalizeSettings({ gammaTarget: 4 }).gammaTarget, 3.0);
+  assert.equal(hooks.normalizeSettings({ gammaTarget: 1.2367 }).gammaTarget, 1.237);
+  assert.equal(hooks.gammaCorrectionToTarget(-100), 3.0);
+  assert.equal(hooks.gammaCorrectionToTarget(0), 2.2);
+  assert.equal(hooks.gammaCorrectionToTarget(100), 1.0);
+  assert.notEqual(hooks.gammaCorrectionToTarget(-49), hooks.gammaCorrectionToTarget(-50));
+  assert.notEqual(hooks.gammaCorrectionToTarget(49), hooks.gammaCorrectionToTarget(50));
+  assert.equal(hooks.gammaTargetToCorrection(3.0), -100);
+  assert.equal(hooks.gammaTargetToCorrection(2.2), 0);
+  assert.equal(hooks.gammaTargetToCorrection(1.0), 100);
   assert.equal(hooks.normalizeSettings({ curveMode: 'pure' }).curveMode, 'relative');
   assert.equal(hooks.normalizeSettings({ curveMode: 'unknown' }).curveMode, 'relative');
   assert.equal(hooks.normalizeSettings({ colorModel: 'ycbcr' }).colorModel, 'ycbcr');
@@ -294,6 +307,23 @@ test('strength controls the full GSDF filter amount', () => {
   assert.ok(fullDelta > mediumDelta);
   assert.equal(fullTable[0], 0);
   assert.equal(fullTable[255], 1);
+});
+
+test('gamma target is applied before the GSDF filter amount blend', () => {
+  const hooks = loadContentHooks();
+  const identityMid = Number((128 / 255).toFixed(5));
+  const defaultGamma = hooks.buildGsdfTableValues({ lmax: 350, strength: 0, gammaTarget: 2.2 });
+  const liftedGamma = hooks.buildGsdfTableValues({ lmax: 350, strength: 0, gammaTarget: 1.0 });
+  const deepenedGamma = hooks.buildGsdfTableValues({ lmax: 350, strength: 0, gammaTarget: 3.0 });
+  const liftedGsdf = hooks.buildGsdfTableValues({ lmax: 350, strength: 100, gammaTarget: 1.0 });
+  const defaultGsdf = hooks.buildGsdfTableValues({ lmax: 350, strength: 100, gammaTarget: 2.2 });
+
+  assert.equal(defaultGamma[128], identityMid);
+  assert.ok(hooks.getGammaAdjustedInputLevel(0.5, 1.0) > 0.5);
+  assert.ok(hooks.getGammaAdjustedInputLevel(0.5, 3.0) < 0.5);
+  assert.ok(liftedGamma[128] > identityMid, 'gamma 1.0 should lift mid-level code values before GSDF');
+  assert.ok(deepenedGamma[128] < identityMid, 'gamma 3.0 should deepen mid-level code values before GSDF');
+  assert.notEqual(liftedGsdf[128], defaultGsdf[128], 'GSDF should consume the gamma-adjusted input level');
 });
 
 test('YCbCr mode selects the luma-only managed filter', () => {

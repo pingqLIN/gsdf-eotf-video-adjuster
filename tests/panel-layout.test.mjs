@@ -18,6 +18,11 @@ test('control panel is split into basic and advanced tabs', () => {
   assert.match(panelSource, /Grid3X3/);
   assert.match(panelSource, /GSDF_PATTERN_VIEW_CHANGED/);
   assert.match(panelSource, /Filter 總量/);
+  assert.match(panelSource, /Gamma 補償/);
+  assert.match(panelSource, /gammaTarget/);
+  assert.match(panelSource, /gammaCorrectionToTarget/);
+  assert.match(panelSource, /gammaTargetToCorrection/);
+  assert.match(panelSource, /DEFAULT_GAMMA_TARGET/);
   assert.match(panelSource, /色彩模型/);
   assert.match(panelSource, /YCbCr/);
   assert.match(panelSource, /完整圖表/);
@@ -25,7 +30,6 @@ test('control panel is split into basic and advanced tabs', () => {
   assert.match(panelSource, /圖說/);
   assert.match(panelSource, /h-\[420px\]/);
   assert.match(panelSource, /DEFAULT_TARGET_LUMINANCE_NITS/);
-  assert.match(panelSource, /不使用特定亮度中性點/);
   assert.match(panelSource, /完整 GSDF table 先算出來/);
   assert.match(panelSource, /React\.lazy/);
   assert.match(panelSource, /React\.Suspense/);
@@ -37,8 +41,6 @@ test('control panel is split into basic and advanced tabs', () => {
   assert.doesNotMatch(panelSource, /曲線模式/);
   assert.doesNotMatch(panelSource, /onSaveDefault/);
   assert.doesNotMatch(panelSource, /儲存預設偏好設定/);
-  assert.doesNotMatch(panelSource, /起始 Gamma/);
-  assert.doesNotMatch(panelSource, /inputGamma/);
 
   const basicIndex = panelSource.indexOf("activeTab === 'basic'");
   const advancedIndex = panelSource.indexOf("activeTab === 'advanced'");
@@ -74,11 +76,15 @@ test('basic tab stripe test follows the active transfer table', () => {
   assert.match(panelSource, /buildGsdfCalibrationStripeRows\(\)/);
   assert.match(panelSource, /renderFrequencyMatrix/);
   assert.match(panelSource, /compactStripeWidth = 18/);
-  assert.match(panelSource, /h-7/);
+  assert.match(panelSource, /h-6/);
   assert.match(panelSource, /minmax\(72px,1fr\)/);
   assert.match(panelSource, /stripeWidth: 40/);
   assert.match(panelSource, /frequency\.stripeWidth \* 2/);
   assert.match(typesSource, /const transferTable = buildGsdfTableValues\(normalized\)/);
+  assert.match(typesSource, /getGammaAdjustedInputLevel/);
+  assert.match(typesSource, /gammaLevel = getGammaAdjustedInputLevel\(inputLevel, normalized\.gammaTarget\)/);
+  assert.match(typesSource, /gammaCorrectionToTarget/);
+  assert.match(typesSource, /gammaTargetToCorrection/);
   assert.match(typesSource, /sampleTableValue\(transferTable, baseRatio\)/);
   assert.match(typesSource, /sampleTableValue\(transferTable, nextRatio\)/);
   assert.match(typesSource, /export function buildGsdfCalibrationStripeRows/);

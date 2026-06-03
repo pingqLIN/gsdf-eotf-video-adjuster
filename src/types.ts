@@ -2,6 +2,7 @@ export interface AppSettings {
   enabled: boolean;
   lmax: number;
   curveMode: GsdfCurveMode;
+  gammaTarget: number;
   colorModel: GsdfColorModel;
   strength: number;
   blackPoint: number;
@@ -17,6 +18,11 @@ export const LUMINANCE_MIN_NITS = 10;
 export const LUMINANCE_MAX_NITS = 500;
 export const DEFAULT_TARGET_LUMINANCE_NITS = 350;
 export const LUMINANCE_SLIDER_MAX = 1000;
+export const GAMMA_TARGET_MIN = 1.0;
+export const GAMMA_TARGET_MAX = 3.0;
+export const DEFAULT_GAMMA_TARGET = 2.2;
+export const GAMMA_CORRECTION_MIN = -100;
+export const GAMMA_CORRECTION_MAX = 100;
 const LUMINANCE_LOG_RANGE = Math.log(LUMINANCE_MAX_NITS / LUMINANCE_MIN_NITS);
 const GSDF_DISPLAY_LMIN_NITS = 0.05;
 const GSDF_JND_MIN = 1;
@@ -38,6 +44,7 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   enabled: false,
   lmax: DEFAULT_TARGET_LUMINANCE_NITS,
   curveMode: 'relative',
+  gammaTarget: DEFAULT_GAMMA_TARGET,
   colorModel: 'rgb',
   strength: 80,
   blackPoint: 0,
@@ -65,6 +72,36 @@ function normalizeCurveMode(_value: unknown): GsdfCurveMode {
 
 function normalizeColorModel(value: unknown): GsdfColorModel {
   return value === 'ycbcr' ? 'ycbcr' : DEFAULT_APP_SETTINGS.colorModel;
+}
+
+function normalizeGammaTarget(value: unknown): number {
+  return Number(clampNumber(value, GAMMA_TARGET_MIN, GAMMA_TARGET_MAX, DEFAULT_APP_SETTINGS.gammaTarget).toFixed(3));
+}
+
+export function gammaCorrectionToTarget(value: unknown): number {
+  const correction = clampNumber(value, GAMMA_CORRECTION_MIN, GAMMA_CORRECTION_MAX, 0);
+
+  if (correction < 0) {
+    const ratio = Math.abs(correction) / Math.abs(GAMMA_CORRECTION_MIN);
+    return normalizeGammaTarget(DEFAULT_GAMMA_TARGET + (GAMMA_TARGET_MAX - DEFAULT_GAMMA_TARGET) * ratio);
+  }
+
+  const ratio = correction / GAMMA_CORRECTION_MAX;
+  return normalizeGammaTarget(DEFAULT_GAMMA_TARGET - (DEFAULT_GAMMA_TARGET - GAMMA_TARGET_MIN) * ratio);
+}
+
+export function gammaTargetToCorrection(value: unknown): number {
+  const target = normalizeGammaTarget(value);
+
+  if (target > DEFAULT_GAMMA_TARGET) {
+    return Math.round(-((target - DEFAULT_GAMMA_TARGET) / (GAMMA_TARGET_MAX - DEFAULT_GAMMA_TARGET)) * Math.abs(GAMMA_CORRECTION_MIN));
+  }
+
+  if (target < DEFAULT_GAMMA_TARGET) {
+    return Math.round(((DEFAULT_GAMMA_TARGET - target) / (DEFAULT_GAMMA_TARGET - GAMMA_TARGET_MIN)) * GAMMA_CORRECTION_MAX);
+  }
+
+  return 0;
 }
 
 export function clampLuminance(value: unknown): number {
@@ -144,14 +181,23 @@ export function getGsdfDisplayCode(inputLevel: number, lmax: number): number {
   return clampNumber(Math.pow(linearDisplayLevel, 1 / 2.2), 0, 1, normalized);
 }
 
+export function getGammaAdjustedInputLevel(inputLevel: number, gammaTarget: number): number {
+  const normalized = clampNumber(inputLevel, 0, 1, 0);
+  const targetGamma = normalizeGammaTarget(gammaTarget);
+  const exponent = targetGamma / DEFAULT_GAMMA_TARGET;
+
+  return clampNumber(Math.pow(normalized, exponent), 0, 1, normalized);
+}
+
 export function buildGsdfTableValues(settings: Partial<AppSettings>, tableSize = 256): number[] {
   const normalized = normalizeAppSettings(settings);
   const filterAmount = normalized.strength / 100;
 
   return Array.from({ length: tableSize }, (_, index) => {
     const inputLevel = index / Math.max(1, tableSize - 1);
-    const gsdfLevel = getGsdfDisplayCode(inputLevel, normalized.lmax);
-    const mixedLevel = inputLevel + (gsdfLevel - inputLevel) * filterAmount;
+    const gammaLevel = getGammaAdjustedInputLevel(inputLevel, normalized.gammaTarget);
+    const gsdfLevel = getGsdfDisplayCode(gammaLevel, normalized.lmax);
+    const mixedLevel = gammaLevel + (gsdfLevel - gammaLevel) * filterAmount;
 
     return Number(clampNumber(mixedLevel, 0, 1, inputLevel).toFixed(5));
   });
@@ -232,6 +278,7 @@ export function normalizeAppSettings(value: Partial<AppSettings> | null | undefi
     enabled: settings.enabled === true,
     lmax: clampLuminance(settings.lmax),
     curveMode: normalizeCurveMode(settings.curveMode),
+    gammaTarget: normalizeGammaTarget(settings.gammaTarget),
     colorModel: normalizeColorModel(settings.colorModel),
     strength: clampNumber(settings.strength, 0, 100, DEFAULT_APP_SETTINGS.strength),
     blackPoint: clampNumber(settings.blackPoint, 0, 20, DEFAULT_APP_SETTINGS.blackPoint),

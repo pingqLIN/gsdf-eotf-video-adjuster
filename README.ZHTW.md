@@ -1,17 +1,23 @@
 # GSDF EOTF Video Adjuster
 
-GSDF EOTF Video Adjuster 是一個 Vite/React 控制面板與 Chrome Manifest V3 extension，用來在網頁影片上套用感知亮度修正。它適合已知螢幕峰值亮度的檢視情境，讓影片反應更接近 DICOM GSDF 式的對比表現。
+把影片灰階重新整理成更穩定的 JND 階調，讓細微亮度差更容易分辨。
 
-此專案可以作為本機 standalone preview 執行；正式 extension 路徑則會把同一份 UI 打包成 Chrome extension iframe，並在偵測到的 video element 上注入受控 SVG filter。
+GSDF EOTF Video Adjuster 是一個精簡的 Chrome Manifest V3 extension 與本機 preview 工具，專注於顯示端感知亮度補救。當影片因後期調整不佳、螢幕 EOTF 不準確，或觀看環境不匹配而顯得暗部壓死、亮部不穩或階調不均時，它提供 Gamma 補償、目標亮度與 GSDF-inspired 灰階重新分布控制，讓亮度差異維持更穩定的可分辨性。
 
-## 功能
+本專案的立論基礎是顯示端處理：它最佳化的是已經進入顯示路徑的訊號，而不是重新詮釋素材來源 coding。在一般 gamma 觀影基準之後，GSDF 階段會把可用灰階訊號處理成更接近人眼感知等距的 JND 階調，涵蓋暗部、中間調到亮部。
 
+它適合作為特殊情境下的實用觀影補救工具，不取代正確調色、校正後的 mastering 或醫療顯示認證。此專案可以作為本機 standalone preview 執行；正式 extension 路徑則會把同一份 UI 打包成 Chrome extension iframe，並在偵測到的 video element 上注入受控 SVG filter。
+
+## 它提供什麼
+
+- 針對暗部、中間調或亮部階調分離不足的影片，提供顯示端 tonal rescue。
+- 以 JND 為導向的 GSDF 灰階重新分布，讓細節分辨更穩定。
+- GSDF 之前的 Gamma 補償控制：中央 `0 = gamma 2.2`，往左可到 gamma 3.0 的暗環境補償，往右可到 gamma 1.0 線性補償。
 - 10 到 500 nits 的對數式目標亮度控制。
-- 依所選目標亮度產生完整 GSDF table。
-- Filter 總量控制：決定完整 GSDF output 與原訊號的混合比例。
-- RGB 與 YCbCr/luma-only filter 路徑。
-- 黑位、白位、細節銳化與色溫偏移控制。
-- 精簡與展開版 GSDF 條紋測試視圖。
+- Filter 總量控制：決定完整 GSDF output 與 gamma-adjusted signal 的混合比例。
+- RGB 與 YCbCr/luma-only filter 路徑，可依觀影優先順序選擇。
+- 黑位、白位、細節銳化與色溫偏移控制，用於實務補救微調。
+- 精簡與展開版 GSDF 條紋測試視圖，方便視覺檢查。
 - Chrome extension action fallback：頁面重載或 content script 尚未就緒時仍可嘗試啟動。
 
 ## 需求

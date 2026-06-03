@@ -1,17 +1,23 @@
 # GSDF EOTF Video Adjuster
 
-GSDF EOTF Video Adjuster is a Vite/React control panel and Chrome Manifest V3 extension for applying perceptual luminance correction to web video. It targets workflows where a display is being reviewed at a known peak luminance and the video response should be shaped toward DICOM GSDF-style contrast behavior.
+Reshape video grayscale into steadier JND steps so subtle tonal detail stays easier to tell apart.
 
-The app can run as a standalone local preview, and the production path packages the same UI into a Chrome extension iframe that injects managed SVG filters onto detected video elements.
+GSDF EOTF Video Adjuster is a compact Chrome Manifest V3 extension and local preview tool for display-side perceptual luminance rescue. When a video looks crushed, washed out, or uneven because the grading, display EOTF, or viewing environment does not line up, it gives you direct control over gamma compensation, target luminance, and GSDF-inspired grayscale redistribution that helps brightness differences remain consistently distinguishable.
 
-## Capabilities
+The premise is deliberately display-side: the tool optimizes the signal that has already reached the display path, rather than reinterpreting the source material's coding. After the normal gamma viewing baseline, the GSDF stage reshapes the available grayscale signal into more perceptually even JND steps across dark, mid, and bright ranges.
 
+Use it as a practical viewing aid for special cases, not as a replacement for proper color grading, calibrated mastering, or medical display certification. The app can run as a standalone local preview, and the production path packages the same UI into a Chrome extension iframe that injects managed SVG filters onto detected video elements.
+
+## What It Gives You
+
+- Display-side tonal rescue for video that loses shadow, midtone, or highlight separation.
+- JND-oriented GSDF redistribution for steadier grayscale detail discrimination.
+- Pre-GSDF gamma compensation centered at `0 = gamma 2.2`, with left-side dark-environment compensation up to gamma 3.0 and right-side linear compensation down to gamma 1.0.
 - Logarithmic target-luminance control from 10 to 500 nits.
-- Full GSDF table generation for the selected target luminance.
-- Filter amount control for blending the full GSDF output with the original signal.
-- RGB and YCbCr/luma-only filter paths.
-- Black point, white point, sharpness, and color-temperature controls.
-- Compact and expanded GSDF stripe test views.
+- Filter amount control for blending the full GSDF output with the gamma-adjusted signal.
+- RGB and YCbCr/luma-only filter paths for different viewing priorities.
+- Black point, white point, sharpness, and color-temperature controls for practical rescue tuning.
+- Compact and expanded GSDF stripe test views for visual inspection.
 - Chrome extension fallback activation when a page reloads or the content script is not ready.
 
 ## Requirements
