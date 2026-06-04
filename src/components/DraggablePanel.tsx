@@ -113,9 +113,9 @@ function ModePill({
 }) {
   const toneClass =
     tone === 'active'
-      ? 'border-cyan-400/45 bg-cyan-400/12 text-cyan-100'
+      ? 'border-white/15 bg-white/[0.08] text-zinc-100'
       : tone === 'amber'
-        ? 'border-amber-300/35 bg-amber-300/10 text-amber-100'
+        ? 'border-stone-300/20 bg-stone-300/10 text-stone-200'
         : 'border-white/10 bg-white/[0.04] text-zinc-300';
 
   return (
@@ -136,7 +136,7 @@ function SegmentedControl<T extends string>({
   return (
     <div className={`space-y-2.5 transition-opacity ${disabled ? 'opacity-45 pointer-events-none' : 'opacity-100'}`}>
       <label className="flex items-center gap-2 text-[11px] font-semibold text-zinc-300">
-        <span className="flex h-6 w-6 items-center justify-center rounded-md bg-white/[0.05] text-cyan-300">
+        <span className="flex h-6 w-6 items-center justify-center rounded-md bg-white/[0.05] text-zinc-200">
           {icon ?? <SlidersHorizontal size={14} />}
         </span>
         {label}
@@ -152,7 +152,7 @@ function SegmentedControl<T extends string>({
             onClick={() => onChange(option.value)}
             className={`h-9 rounded text-[12px] font-semibold transition-colors ${
               value === option.value
-                ? 'bg-cyan-400 text-[#061116] shadow-[0_0_18px_rgba(34,211,238,0.16)]'
+                ? 'bg-zinc-100 text-[#0f1419] shadow-[0_10px_28px_rgba(0,0,0,0.28)]'
                 : 'text-zinc-400 hover:bg-white/[0.06] hover:text-zinc-100 disabled:hover:bg-transparent disabled:hover:text-zinc-400'
             }`}
           >
@@ -182,12 +182,12 @@ function SliderControl({
     <div className={`space-y-2.5 transition-opacity ${disabled ? 'opacity-45 pointer-events-none' : 'opacity-100'}`}>
       <div className="flex items-center justify-between gap-3">
         <label title={title} className="flex min-w-0 items-center gap-2 text-[11px] font-semibold text-zinc-300">
-          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-white/[0.05] text-cyan-300">
+          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-white/[0.05] text-zinc-200">
             {icon}
           </span>
           <span className="truncate">{label}</span>
         </label>
-        <div className="shrink-0 font-mono text-[16px] font-semibold tabular-nums text-cyan-200">
+        <div className="shrink-0 font-mono text-[16px] font-semibold tabular-nums text-zinc-100">
           {valueText}
         </div>
       </div>
@@ -402,7 +402,7 @@ function FloatingOverlayWindow({
   return createPortal(
     <div className="fixed inset-0 z-[80] pointer-events-none select-none">
       <div
-        className="pointer-events-auto absolute flex flex-col overflow-hidden rounded-md border border-white/10 bg-[#0b0e12] shadow-2xl"
+        className="gsdf-floating-window pointer-events-auto absolute flex flex-col overflow-hidden rounded-md border border-white/10 bg-[#0b0e12] shadow-2xl"
         style={{
           left: `${layout.x}px`,
           top: `${layout.y}px`,
@@ -412,7 +412,7 @@ function FloatingOverlayWindow({
         data-no-drag
       >
         <div
-          className="flex cursor-move items-center justify-between gap-3 border-b border-white/10 bg-[#111820] px-4 py-3"
+          className="gsdf-floating-window__header flex cursor-move items-center justify-between gap-3 border-b border-white/10 bg-[#111820] px-4 py-3"
           onPointerDown={startDrag}
           onPointerMove={handleDragMove}
           onPointerUp={stopDrag}
@@ -428,7 +428,7 @@ function FloatingOverlayWindow({
               type="button"
               title="關閉"
               onClick={onClose}
-              className="rounded p-1.5 text-zinc-500 transition-colors hover:bg-white/10 hover:text-white"
+              className="gsdf-icon-button rounded p-1.5 text-zinc-500 transition-colors hover:bg-white/10 hover:text-zinc-100"
             >
               <X size={15} />
             </button>
@@ -477,11 +477,11 @@ function StatusDeck({ settings }: { settings: AppSettings }) {
   const statusLabel = settings.enabled ? 'ACTIVE' : 'STANDBY';
 
   return (
-    <section className="rounded-md border border-white/10 bg-[#0a0e13] p-3 shadow-inner">
+    <section className="gsdf-status-deck rounded-md border border-white/10 bg-[#0a0e13] p-3 shadow-inner">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2 text-[11px] font-semibold text-zinc-400">
-            {settings.enabled ? <CheckCircle2 size={14} className="text-emerald-300" /> : <CircleOff size={14} className="text-zinc-500" />}
+            {settings.enabled ? <CheckCircle2 size={14} className="text-zinc-200" /> : <CircleOff size={14} className="text-zinc-500" />}
             <span>{statusLabel}</span>
           </div>
           <div className="mt-1 flex items-baseline gap-2">
@@ -499,11 +499,13 @@ function StatusDeck({ settings }: { settings: AppSettings }) {
           </ModePill>
           <ModePill title="Gamma 補償會先於 GSDF table 套用；0 為 γ2.2，左側到 γ3.0，右側到 γ1.0。">
             <Activity size={13} />
-            γ{settings.gammaTarget.toFixed(1)}
+            <span className="gsdf-pill-label">gamma</span>
+            <span className="gsdf-pill-metric">{settings.gammaTarget.toFixed(1)}</span>
           </ModePill>
           <ModePill title="Filter 總量控制完整 GSDF 結果的混入比例；0% 為 gamma-adjusted baseline，100% 為完整 GSDF table。">
             <Gauge size={13} />
-            {settings.strength}%
+            <span className="gsdf-pill-label">mix</span>
+            <span className="gsdf-pill-metric">{settings.strength}%</span>
           </ModePill>
           <ModePill tone={settings.colorModel === 'ycbcr' ? 'amber' : 'neutral'}>
             <BarChart3 size={13} />
@@ -728,14 +730,14 @@ function PatternLuminanceControl({
   setSettings: React.Dispatch<React.SetStateAction<AppSettings>>;
 }) {
   return (
-    <div className="shrink-0 border-b border-white/10 bg-[#0b1016] px-4 py-3">
+    <div className="shrink-0 border-b border-white/10 bg-[#0c1014] px-4 py-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
           <div className="text-[11px] font-semibold text-zinc-200">GSDF 亮度調整</div>
           <div className="font-mono text-[9px] text-zinc-500">大圖顯示時仍可直接調整目標亮度</div>
         </div>
         <div className="flex items-baseline gap-2">
-          <span className="font-mono text-[22px] font-semibold leading-none tabular-nums text-cyan-200">
+          <span className="font-mono text-[22px] font-semibold leading-none tabular-nums text-zinc-100">
             {formatLuminance(settings.lmax)}
           </span>
           <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-zinc-500">nits</span>
@@ -798,7 +800,7 @@ function GSDFStripeTest({
           title="輸出預覽使用完整 GSDF table 加上目前 filter 總量生成；大圖請開啟完整多頻率條紋圖。"
           className="flex items-center gap-2 text-[11px] font-semibold text-zinc-300"
         >
-          <span className="flex h-6 w-6 items-center justify-center rounded-md bg-white/[0.05] text-cyan-300">
+          <span className="flex h-6 w-6 items-center justify-center rounded-md bg-white/[0.05] text-zinc-200">
             <Eye size={14} />
           </span>
           GSDF 條紋測試
@@ -817,7 +819,7 @@ function GSDFStripeTest({
             type="button"
             title="開啟完整多頻率條紋圖"
             onClick={() => setShowFullPattern(true)}
-            className="rounded p-1.5 text-zinc-500 transition-colors hover:bg-white/[0.06] hover:text-cyan-300"
+            className="rounded p-1.5 text-zinc-500 transition-colors hover:bg-white/[0.06] hover:text-zinc-100"
             data-no-drag
           >
             <Grid3X3 size={14} />
@@ -848,7 +850,7 @@ function GSDFStripeTest({
               type="button"
               title="重設縮放為 100%"
               onClick={() => setPatternZoom(1)}
-              className="rounded-md border border-white/10 bg-white/[0.04] px-2 py-1 font-mono text-[10px] text-cyan-200 transition-colors hover:border-cyan-300/35 hover:bg-cyan-300/10"
+              className="rounded-md border border-white/10 bg-white/[0.04] px-2 py-1 font-mono text-[10px] text-zinc-100 transition-colors hover:border-white/15 hover:bg-white/[0.08]"
             >
               {Math.round(patternZoom * 100)}%
             </button>
@@ -880,7 +882,7 @@ function ContrastChartPanel({ settings }: { settings: AppSettings }) {
     <section className="space-y-3">
       <div className="flex items-center justify-between gap-3">
         <label className="flex items-center gap-2 text-[11px] font-semibold text-zinc-300">
-          <span className="flex h-6 w-6 items-center justify-center rounded-md bg-white/[0.05] text-cyan-300">
+          <span className="flex h-6 w-6 items-center justify-center rounded-md bg-white/[0.05] text-zinc-200">
             <Activity size={14} />
           </span>
           即時對比度分析視圖
@@ -889,7 +891,7 @@ function ContrastChartPanel({ settings }: { settings: AppSettings }) {
           type="button"
           title="開啟完整曲線圖"
           onClick={() => setShowFullChart(true)}
-          className="flex h-8 items-center gap-1.5 rounded-md border border-white/10 bg-white/[0.04] px-2.5 text-[11px] font-semibold text-zinc-300 transition-colors hover:border-cyan-300/35 hover:bg-cyan-300/10 hover:text-cyan-100"
+          className="flex h-8 items-center gap-1.5 rounded-md border border-white/10 bg-white/[0.04] px-2.5 text-[11px] font-semibold text-zinc-300 transition-colors hover:border-white/15 hover:bg-white/[0.08] hover:text-zinc-100"
           data-no-drag
         >
           <Maximize2 size={13} />
@@ -899,9 +901,9 @@ function ContrastChartPanel({ settings }: { settings: AppSettings }) {
       <div className="rounded-md border border-white/10 bg-[#080b0f] p-3">
         <div className="flex items-center justify-between gap-3 font-mono text-[10px] text-zinc-400">
           <span>Transfer curve preview</span>
-          <span className="text-cyan-200">{settings.enabled ? 'active table' : 'standby reference'}</span>
+          <span className="text-zinc-100">{settings.enabled ? 'active table' : 'standby reference'}</span>
         </div>
-        <div className="mt-2 h-16 rounded border border-white/[0.06] bg-[linear-gradient(135deg,rgba(34,211,238,0.18),rgba(245,158,11,0.10)),linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(0deg,rgba(255,255,255,0.04)_1px,transparent_1px)] bg-[length:100%_100%,32px_32px,32px_32px]" />
+        <div className="mt-2 h-16 rounded border border-white/[0.06] bg-[linear-gradient(135deg,rgba(255,255,255,0.08),rgba(148,163,184,0.08)),linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(0deg,rgba(255,255,255,0.04)_1px,transparent_1px)] bg-[length:100%_100%,32px_32px,32px_32px]" />
       </div>
       {showFullChart && (
         <FloatingOverlayWindow
@@ -1014,17 +1016,17 @@ export function DraggablePanel({
       dragMomentum={false}
       initial={extensionMode ? false : { x: 24, y: 24 }}
       data-panel-theme={panelTheme}
-      className={`${extensionMode ? 'relative' : 'absolute'} gsdf-panel theme-${panelTheme} top-0 left-0 z-50 flex h-[720px] max-h-[calc(100vh-16px)] w-[420px] flex-col overflow-hidden rounded-lg border border-white/10 bg-[#111418] font-sans text-zinc-200 shadow-2xl`}
+      className={`${extensionMode ? 'relative' : 'absolute'} gsdf-panel gsdf-panel-shell theme-${panelTheme} top-0 left-0 z-50 flex h-[720px] max-h-[calc(100vh-16px)] w-[420px] flex-col overflow-hidden rounded-lg border border-white/10 bg-[#111418] font-sans text-zinc-200 shadow-2xl`}
     >
       <div
-        className="flex cursor-grab select-none items-center justify-between border-b border-white/10 bg-[#181c21] px-4 py-3 active:cursor-grabbing"
+        className="gsdf-panel-header flex cursor-grab select-none items-center justify-between border-b border-white/10 bg-[#181c21] px-4 py-3 active:cursor-grabbing"
         onPointerDown={handleHeaderPointerDown}
         onPointerMove={handleHeaderPointerMove}
         onPointerUp={handleHeaderPointerUp}
         onPointerCancel={handleHeaderPointerUp}
       >
         <div className="flex min-w-0 items-center gap-3">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-cyan-300/25 bg-cyan-300/10 text-cyan-300">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-white/10 bg-white/[0.05] text-zinc-200">
             <Settings size={16} />
           </div>
           <div className="min-w-0">
@@ -1039,7 +1041,7 @@ export function DraggablePanel({
               title="關閉面板"
               aria-label="關閉面板"
               onClick={onExtensionClose}
-              className="flex h-8 w-8 items-center justify-center rounded-md border border-white/10 bg-[#0b0d10] text-zinc-400 transition-colors hover:bg-white/[0.06] hover:text-white"
+              className="gsdf-icon-button flex h-8 w-8 items-center justify-center rounded-md border border-white/10 bg-[#0b0d10] text-zinc-400 transition-colors hover:bg-white/[0.06] hover:text-zinc-100"
             >
               <X size={14} />
             </button>
@@ -1049,7 +1051,7 @@ export function DraggablePanel({
             title={panelTheme === 'light' ? '切換到暗色面板' : '切換到明亮面板'}
             aria-label={panelTheme === 'light' ? '切換到暗色面板' : '切換到明亮面板'}
             onClick={() => setPanelTheme((theme) => (theme === 'light' ? 'dark' : 'light'))}
-            className="flex h-8 w-8 items-center justify-center rounded-md border border-white/10 bg-[#0b0d10] text-zinc-400 transition-colors hover:bg-white/[0.06] hover:text-cyan-300"
+            className="gsdf-icon-button flex h-8 w-8 items-center justify-center rounded-md border border-white/10 bg-[#0b0d10] text-zinc-400 transition-colors hover:bg-white/[0.06] hover:text-zinc-100"
           >
             {panelTheme === 'light' ? <Moon size={14} /> : <Sun size={14} />}
           </button>
@@ -1066,8 +1068,8 @@ export function DraggablePanel({
               onChange={handleEnabledChange}
               className="peer sr-only"
             />
-            <span className="pointer-events-none absolute inset-1 rounded bg-white/[0.04] transition-colors peer-checked:bg-cyan-400/20" />
-            <span className="relative z-10 flex h-6 w-6 translate-x-0 items-center justify-center rounded bg-zinc-500 text-[#0b0d10] transition-transform peer-checked:translate-x-6 peer-checked:bg-cyan-300">
+            <span className="pointer-events-none absolute inset-1 rounded bg-white/[0.04] transition-colors peer-checked:bg-white/[0.10]" />
+            <span className="relative z-10 flex h-6 w-6 translate-x-0 items-center justify-center rounded bg-zinc-500 text-[#0b0d10] transition-transform peer-checked:translate-x-6 peer-checked:bg-zinc-100">
               <Power size={13} />
             </span>
           </label>
@@ -1076,13 +1078,13 @@ export function DraggablePanel({
 
       <div className="flex min-h-0 flex-1 flex-col">
         <div className="px-4 pt-3">
-          <div className="grid grid-cols-2 gap-1 rounded-md border border-white/10 bg-[#090c10] p-1">
+          <div className="gsdf-tab-bar grid grid-cols-2 gap-1 rounded-md border border-white/10 bg-[#090c10] p-1">
             {(['basic', 'advanced'] as PanelTab[]).map((tab) => (
               <button
                 key={tab}
                 type="button"
                 onClick={() => setActiveTab(tab)}
-                className={`h-9 rounded text-[12px] font-semibold transition-colors ${
+                className={`gsdf-tab-button h-9 rounded text-[12px] font-semibold transition-colors ${
                   activeTab === tab
                     ? 'bg-zinc-100 text-[#111418]'
                     : 'text-zinc-400 hover:bg-white/[0.06] hover:text-zinc-100'
@@ -1105,14 +1107,14 @@ export function DraggablePanel({
                     title="完整 GSDF table 會依此目標峰值亮度建立，不再把任何亮度當作中性不補償點。"
                     className="flex items-center gap-2 text-[11px] font-semibold text-zinc-300"
                   >
-                    <span className="flex h-6 w-6 items-center justify-center rounded-md bg-white/[0.05] text-cyan-300">
+                    <span className="flex h-6 w-6 items-center justify-center rounded-md bg-white/[0.05] text-zinc-200">
                       <Sun size={14} />
                     </span>
                     目標螢幕亮度 (Lmax)
                   </label>
                   <button
                     onClick={resetToDefault}
-                    className="rounded p-1.5 text-zinc-500 transition-colors hover:bg-white/[0.06] hover:text-cyan-300"
+                    className="rounded p-1.5 text-zinc-500 transition-colors hover:bg-white/[0.06] hover:text-zinc-100"
                     title={`重設為 ${DEFAULT_TARGET_LUMINANCE_NITS} nits、Gamma ${DEFAULT_GAMMA_TARGET.toFixed(1)}、80% filter 總量與預設影像參數。`}
                   >
                     <RotateCcw size={14} />
@@ -1160,7 +1162,7 @@ export function DraggablePanel({
                 onChange={(value) => setNumericSetting('strength', value)}
               />
 
-                    <GSDFStripeTest settings={settings} setSettings={setSettings} />
+              <GSDFStripeTest settings={settings} setSettings={setSettings} />
             </>
           )}
 
