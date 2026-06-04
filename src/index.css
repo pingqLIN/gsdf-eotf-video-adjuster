@@ -71,73 +71,106 @@
 }
 
 .gsdf-panel-shell,
-.gsdf-floating-window {
+.gsdf-inspection-mode {
+  position: relative;
   color: oklch(0.91 0.015 224);
   background:
     radial-gradient(circle at top, rgba(255, 255, 255, 0.05), transparent 34%),
     linear-gradient(180deg, rgba(24, 28, 34, 0.985), rgba(11, 14, 18, 0.985)) !important;
-  border-color: rgba(148, 163, 184, 0.13) !important;
+  border-color: rgba(148, 163, 184, 0.1) !important;
   box-shadow:
     0 30px 96px rgba(2, 8, 18, 0.64),
     inset 0 1px 0 rgba(255, 255, 255, 0.045),
     inset 0 0 0 1px rgba(255, 255, 255, 0.018);
 }
 
+.gsdf-inspection-mode::after {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  border-radius: 4px;
+  pointer-events: none;
+  z-index: 1;
+}
+
 .gsdf-panel-header,
-.gsdf-floating-window__header {
+.gsdf-inspection-header {
   background:
     linear-gradient(180deg, rgba(31, 36, 43, 0.965), rgba(18, 22, 28, 0.965)) !important;
-  border-bottom-color: rgba(148, 163, 184, 0.14) !important;
+  border-bottom-color: rgba(148, 163, 184, 0.1) !important;
+}
+
+.gsdf-inspection-mode--pattern {
+  background:
+    linear-gradient(180deg, rgba(5, 7, 9, 0.992), rgba(0, 0, 0, 0.992)) !important;
+  border-color: rgba(229, 231, 235, 0.12) !important;
+}
+
+.gsdf-inspection-mode--pattern .gsdf-inspection-header {
+  background:
+    linear-gradient(180deg, rgba(15, 18, 22, 0.985), rgba(4, 6, 8, 0.985)) !important;
+}
+
+.gsdf-inspection-mode--chart {
+  background:
+    linear-gradient(180deg, rgba(23, 29, 35, 0.985), rgba(15, 20, 26, 0.985)) !important;
+  border-color: rgba(203, 213, 225, 0.14) !important;
+}
+
+.gsdf-inspection-mode--chart .gsdf-inspection-header {
+  background:
+    linear-gradient(180deg, rgba(37, 45, 54, 0.97), rgba(24, 31, 39, 0.97)) !important;
 }
 
 .gsdf-panel-header .text-\[14px\],
-.gsdf-floating-window__header .text-\[12px\] {
+.gsdf-inspection-header .text-\[12px\] {
   letter-spacing: 0.012em;
 }
 
 .gsdf-panel-header .text-\[9px\],
-.gsdf-floating-window__header .text-\[9px\] {
+.gsdf-inspection-header .text-\[9px\] {
   letter-spacing: 0.18em;
 }
 
 .gsdf-status-deck {
   background:
     linear-gradient(180deg, rgba(12, 16, 20, 0.965), rgba(8, 11, 15, 0.965)) !important;
-  border-color: rgba(148, 163, 184, 0.13) !important;
+  border-color: rgba(148, 163, 184, 0.1) !important;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.025),
     inset 0 0 0 1px rgba(255, 255, 255, 0.018);
 }
 
 .gsdf-panel .rounded-md.border,
-.gsdf-floating-window .rounded-md.border {
-  border-color: rgba(148, 163, 184, 0.12) !important;
+.gsdf-inspection-mode .rounded-md.border {
+  border-color: rgba(148, 163, 184, 0.09) !important;
 }
 
 .gsdf-panel .text-zinc-500,
-.gsdf-floating-window .text-zinc-500 {
+.gsdf-inspection-mode .text-zinc-500 {
   color: oklch(0.63 0.018 230) !important;
 }
 
 .gsdf-panel .text-zinc-400,
-.gsdf-floating-window .text-zinc-400 {
+.gsdf-inspection-mode .text-zinc-400 {
   color: oklch(0.71 0.018 228) !important;
 }
 
 .gsdf-panel .text-zinc-300,
-.gsdf-floating-window .text-zinc-300 {
+.gsdf-inspection-mode .text-zinc-300 {
   color: oklch(0.83 0.014 226) !important;
 }
 
 .gsdf-panel .text-zinc-200,
-.gsdf-floating-window .text-zinc-200 {
+.gsdf-inspection-mode .text-zinc-200 {
   color: oklch(0.88 0.012 224) !important;
 }
 
 .gsdf-panel .text-zinc-100,
 .gsdf-panel .text-zinc-50,
-.gsdf-floating-window .text-zinc-100,
-.gsdf-floating-window .text-zinc-50 {
+.gsdf-inspection-mode .text-zinc-100,
+.gsdf-inspection-mode .text-zinc-50 {
   color: oklch(0.94 0.01 222) !important;
 }
 
@@ -145,24 +178,24 @@
 .gsdf-panel .text-cyan-300,
 .gsdf-panel .text-cyan-400,
 .gsdf-panel .text-cyan-100,
-.gsdf-floating-window .text-cyan-200,
-.gsdf-floating-window .text-cyan-300,
-.gsdf-floating-window .text-cyan-400,
-.gsdf-floating-window .text-cyan-100 {
+.gsdf-inspection-mode .text-cyan-200,
+.gsdf-inspection-mode .text-cyan-300,
+.gsdf-inspection-mode .text-cyan-400,
+.gsdf-inspection-mode .text-cyan-100 {
   color: oklch(0.9 0.012 225) !important;
 }
 
 .gsdf-panel .text-amber-100,
-.gsdf-floating-window .text-amber-100 {
+.gsdf-inspection-mode .text-amber-100 {
   color: oklch(0.86 0.02 75) !important;
 }
 
 .gsdf-panel .bg-cyan-400,
-.gsdf-floating-window .bg-cyan-400,
+.gsdf-inspection-mode .bg-cyan-400,
 .gsdf-panel .bg-cyan-400\/12,
-.gsdf-floating-window .bg-cyan-400\/12,
+.gsdf-inspection-mode .bg-cyan-400\/12,
 .gsdf-panel .bg-cyan-300\/10,
-.gsdf-floating-window .bg-cyan-300\/10 {
+.gsdf-inspection-mode .bg-cyan-300\/10 {
   background:
     linear-gradient(180deg, rgba(236, 241, 246, 0.92), rgba(201, 210, 220, 0.92)) !important;
   color: #10151b !important;
@@ -171,19 +204,19 @@
 .gsdf-panel .border-cyan-400\/45,
 .gsdf-panel .border-cyan-300\/35,
 .gsdf-panel .border-cyan-300\/25,
-.gsdf-floating-window .border-cyan-400\/45,
-.gsdf-floating-window .border-cyan-300\/35,
-.gsdf-floating-window .border-cyan-300\/25 {
+.gsdf-inspection-mode .border-cyan-400\/45,
+.gsdf-inspection-mode .border-cyan-300\/35,
+.gsdf-inspection-mode .border-cyan-300\/25 {
   border-color: rgba(203, 213, 225, 0.22) !important;
 }
 
 .gsdf-panel .bg-amber-300\/10,
-.gsdf-floating-window .bg-amber-300\/10 {
+.gsdf-inspection-mode .bg-amber-300\/10 {
   background: rgba(191, 180, 163, 0.12) !important;
 }
 
 .gsdf-panel .border-amber-300\/35,
-.gsdf-floating-window .border-amber-300\/35 {
+.gsdf-inspection-mode .border-amber-300\/35 {
   border-color: rgba(191, 180, 163, 0.2) !important;
 }
 
@@ -231,40 +264,59 @@
 }
 
 .gsdf-panel .font-mono,
-.gsdf-floating-window .font-mono {
+.gsdf-inspection-mode .font-mono {
   font-feature-settings: "tnum" 1, "ss01" 1;
 }
 
 .gsdf-panel .font-mono.text-\[30px\],
 .gsdf-panel .font-mono.text-\[22px\],
-.gsdf-floating-window .font-mono.text-\[22px\] {
+.gsdf-inspection-mode .font-mono.text-\[22px\] {
   letter-spacing: -0.04em;
-  font-weight: 650;
+  font-weight: 520;
 }
 
 .gsdf-panel .font-mono.text-\[16px\],
-.gsdf-floating-window .font-mono.text-\[16px\] {
+.gsdf-inspection-mode .font-mono.text-\[16px\] {
   letter-spacing: -0.025em;
+  font-weight: 520;
 }
 
 .gsdf-panel .font-mono.text-\[11px\],
 .gsdf-panel .font-mono.text-\[10px\],
 .gsdf-panel .font-mono.text-\[9px\],
-.gsdf-floating-window .font-mono.text-\[11px\],
-.gsdf-floating-window .font-mono.text-\[10px\],
-.gsdf-floating-window .font-mono.text-\[9px\] {
+.gsdf-inspection-mode .font-mono.text-\[11px\],
+.gsdf-inspection-mode .font-mono.text-\[10px\],
+.gsdf-inspection-mode .font-mono.text-\[9px\] {
   letter-spacing: 0.03em;
 }
 
 .gsdf-panel .text-\[11px\].font-semibold,
 .gsdf-panel .text-\[12px\].font-semibold,
-.gsdf-floating-window .text-\[11px\].font-semibold,
-.gsdf-floating-window .text-\[12px\].font-semibold {
+.gsdf-inspection-mode .text-\[11px\].font-semibold,
+.gsdf-inspection-mode .text-\[12px\].font-semibold {
   letter-spacing: 0.015em;
+  font-weight: 500;
+}
+
+.gsdf-panel .font-semibold,
+.gsdf-inspection-mode .font-semibold {
+  font-weight: 500 !important;
+}
+
+.gsdf-panel .font-bold,
+.gsdf-inspection-mode .font-bold {
+  font-weight: 540 !important;
+}
+
+.gsdf-panel button,
+.gsdf-inspection-mode button,
+.gsdf-panel label,
+.gsdf-inspection-mode label {
+  font-weight: 500;
 }
 
 .gsdf-panel input[type='range'],
-.gsdf-floating-window input[type='range'] {
+.gsdf-inspection-mode input[type='range'] {
   filter: saturate(0.74);
 }
 

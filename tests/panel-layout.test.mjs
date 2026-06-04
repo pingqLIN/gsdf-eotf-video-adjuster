@@ -17,9 +17,13 @@ test('control panel is split into basic and advanced tabs', () => {
   assert.match(panelSource, /完整多頻率條紋圖/);
   assert.match(panelSource, /GSDF-QC 全域測試圖/);
   assert.match(panelSource, /FullDiagnosticPattern/);
-  assert.match(panelSource, /PatternLuminanceControl/);
-  assert.match(panelSource, /GSDF 亮度調整/);
-  assert.match(panelSource, /大圖顯示時仍可直接調整目標亮度/);
+  assert.match(panelSource, /InspectionModeView/);
+  assert.match(panelSource, /InspectionModeHeader/);
+  assert.match(panelSource, /InspectionMode = 'pattern' \| 'chart' \| null/);
+  assert.match(panelSource, /inspectionMode \?/);
+  assert.match(panelSource, /setInspectionMode\('pattern'\)/);
+  assert.match(panelSource, /setInspectionMode\('chart'\)/);
+  assert.match(panelSource, /setInspectionMode\(null\)/);
   assert.match(panelSource, /drawDiagnosticPattern/);
   assert.match(panelSource, /drawLinePairBand/);
   assert.match(panelSource, /drawVerticalGradient/);
@@ -40,10 +44,15 @@ test('control panel is split into basic and advanced tabs', () => {
   assert.match(panelSource, /色彩模型/);
   assert.match(panelSource, /YCbCr/);
   assert.match(panelSource, /完整圖表/);
-  assert.match(panelSource, /完整 GSDF transfer curve/);
-  assert.match(panelSource, /FloatingOverlayWindow/);
-  assert.match(panelSource, /cursor-nwse-resize/);
-  assert.match(panelSource, /cursor-nesw-resize/);
+  assert.match(panelSource, /即時對比度分析視圖/);
+  assert.match(panelSource, /EffectSwitch/);
+  assert.match(panelSource, /role="switch"/);
+  assert.match(panelSource, /aria-checked=\{enabled\}/);
+  assert.match(panelSource, /啟動 EOTF 修正/);
+  assert.match(panelSource, /效果應用/);
+  assert.match(panelSource, /title="關閉"/);
+  assert.match(panelSource, /hidden=\{activeTab !== 'basic'\}/);
+  assert.match(panelSource, /hidden=\{activeTab !== 'advanced'\}/);
   assert.match(panelSource, /DEFAULT_TARGET_LUMINANCE_NITS/);
   assert.match(panelSource, /完整 GSDF table 先算出來/);
   assert.match(panelSource, /React\.lazy/);
@@ -56,10 +65,27 @@ test('control panel is split into basic and advanced tabs', () => {
   assert.doesNotMatch(panelSource, /曲線模式/);
   assert.doesNotMatch(panelSource, /onSaveDefault/);
   assert.doesNotMatch(panelSource, /儲存預設偏好設定/);
+  assert.doesNotMatch(panelSource, /Math\.round\(\(viewport\.width - width\) \/ 2\)/);
+  assert.doesNotMatch(panelSource, /FloatingOverlayWindow/);
 
-  const basicIndex = panelSource.indexOf("activeTab === 'basic'");
-  const advancedIndex = panelSource.indexOf("activeTab === 'advanced'");
+  const basicIndex = panelSource.indexOf("activeTab !== 'basic'");
+  const advancedIndex = panelSource.indexOf("activeTab !== 'advanced'");
   assert.ok(basicIndex >= 0 && advancedIndex > basicIndex);
+});
+
+test('inspection modes use an inset hairline frame and lighter UI typography', () => {
+  const cssSource = readFileSync(new URL('../src/index.css', import.meta.url), 'utf8');
+
+  assert.match(cssSource, /\.gsdf-inspection-mode::after/);
+  assert.match(cssSource, /\.gsdf-inspection-header/);
+  assert.match(cssSource, /inset: 2px/);
+  assert.match(cssSource, /border: 1px solid rgba\(255, 255, 255, 0\.72\)/);
+  assert.match(cssSource, /pointer-events: none/);
+  assert.match(cssSource, /border-color: rgba\(148, 163, 184, 0\.09\)/);
+  assert.match(cssSource, /font-weight: 500 !important/);
+  assert.match(cssSource, /font-weight: 520/);
+  assert.doesNotMatch(cssSource, /font-weight: 650/);
+  assert.doesNotMatch(cssSource, /gsdf-floating-window/);
 });
 
 test('header drag handling does not intercept interactive controls', () => {

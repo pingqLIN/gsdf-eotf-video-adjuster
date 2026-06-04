@@ -190,7 +190,7 @@ test('content script widens the iframe for the full GSDF pattern view', () => {
 
   const iframe = context.__testState.bodyChildren[0];
   const messageListener = context.__testState.listeners.find((listener) => listener.type === 'message');
-  assert.equal(iframe.style.width, '400px');
+  assert.equal(iframe.style.width, '420px');
   assert.ok(messageListener, 'message listener should be registered');
 
   messageListener.callback({
@@ -201,8 +201,10 @@ test('content script widens the iframe for the full GSDF pattern view', () => {
     }
   });
 
-  assert.equal(iframe.style.width, '960px');
+  assert.equal(iframe.style.width, '1264px');
   assert.equal(iframe.style.height, '704px');
+  assert.equal(iframe.style.left, '8px');
+  assert.equal(iframe.style.top, '8px');
 
   messageListener.callback({
     source: iframe.contentWindow,
@@ -212,7 +214,7 @@ test('content script widens the iframe for the full GSDF pattern view', () => {
     }
   });
 
-  assert.equal(iframe.style.width, '400px');
+  assert.equal(iframe.style.width, '420px');
 });
 
 test('maps target luminance on a 10 to 500 nits logarithmic slider', () => {
