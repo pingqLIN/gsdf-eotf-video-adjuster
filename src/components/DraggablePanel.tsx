@@ -47,12 +47,35 @@ type PanelTab = 'basic' | 'advanced';
 type PanelTheme = 'dark' | 'light';
 
 const PANEL_THEME_STORAGE_KEY = 'gsdf_panel_theme';
+const FLOATING_WINDOW_MARGIN = 12;
+let expandedOverlayCount = 0;
 
 interface DraggablePanelProps {
   settings: AppSettings;
   setSettings: React.Dispatch<React.SetStateAction<AppSettings>>;
   extensionMode?: boolean;
   onExtensionDrag?: (deltaX: number, deltaY: number) => void;
+  onExtensionClose?: () => void;
+}
+
+interface FloatingWindowLayout {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+interface FloatingOverlayWindowProps {
+  title: string;
+  subtitle: string;
+  onClose: () => void;
+  defaultWidth: number;
+  defaultHeight: number;
+  minWidth: number;
+  minHeight: number;
+  headerExtras?: React.ReactNode;
+  bodyClassName?: string;
+  children: React.ReactNode;
 }
 
 interface SliderControlProps {
@@ -197,6 +220,259 @@ function isInteractiveDragTarget(target: EventTarget | null): boolean {
   return Boolean(target.closest('button, input, label, select, textarea, a, [role="button"], [data-no-drag]'));
 }
 
+function clampValue(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
+}
+
+function getViewportSize() {
+  return {
+    width: Math.max(320, Number(window.innerWidth || 1280)),
+    height: Math.max(320, Number(window.innerHeight || 720)),
+  };
+}
+
+function clampFloatingLayout(layout: FloatingWindowLayout, minWidth: number, minHeight: number): FloatingWindowLayout {
+  const viewport = getViewportSize();
+  const maxWidth = Math.max(minWidth, viewport.width - FLOATING_WINDOW_MARGIN * 2);
+  const maxHeight = Math.max(minHeight, viewport.height - FLOATING_WINDOW_MARGIN * 2);
+  const width = clampValue(layout.width, minWidth, maxWidth);
+  const height = clampValue(layout.height, minHeight, maxHeight);
+  const maxX = Math.max(FLOATING_WINDOW_MARGIN, viewport.width - width - FLOATING_WINDOW_MARGIN);
+  const maxY = Math.max(FLOATING_WINDOW_MARGIN, viewport.height - height - FLOATING_WINDOW_MARGIN);
+
+  return {
+    x: clampValue(layout.x, FLOATING_WINDOW_MARGIN, maxX),
+    y: clampValue(layout.y, FLOATING_WINDOW_MARGIN, maxY),
+    width,
+    height,
+  };
+}
+
+function getInitialFloatingLayout(defaultWidth: number, defaultHeight: number, minWidth: number, minHeight: number): FloatingWindowLayout {
+  const viewport = getViewportSize();
+  const width = Math.min(defaultWidth, viewport.width - FLOATING_WINDOW_MARGIN * 2);
+  const height = Math.min(defaultHeight, viewport.height - FLOATING_WINDOW_MARGIN * 2);
+
+  return clampFloatingLayout({
+    x: Math.round((viewport.width - width) / 2),
+    y: Math.round((viewport.height - height) / 2),
+    width,
+    height,
+  }, minWidth, minHeight);
+}
+
+function postExpandedOverlayState(open: boolean) {
+  if (!window.parent || window.parent === window) {
+    return;
+  }
+
+  window.parent.postMessage({
+    type: 'GSDF_PATTERN_VIEW_CHANGED',
+    payload: { open },
+  }, '*');
+}
+
+function useExpandedOverlayViewport(open: boolean) {
+  React.useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    expandedOverlayCount += 1;
+    postExpandedOverlayState(true);
+
+    return () => {
+      expandedOverlayCount = Math.max(0, expandedOverlayCount - 1);
+      postExpandedOverlayState(expandedOverlayCount > 0);
+    };
+  }, [open]);
+}
+
+function FloatingOverlayWindow({
+  title,
+  subtitle,
+  onClose,
+  defaultWidth,
+  defaultHeight,
+  minWidth,
+  minHeight,
+  headerExtras,
+  bodyClassName = 'min-h-0 flex-1 overflow-hidden bg-[#080b0f]',
+  children,
+}: FloatingOverlayWindowProps) {
+  const [layout, setLayout] = React.useState(() => getInitialFloatingLayout(defaultWidth, defaultHeight, minWidth, minHeight));
+  const dragStateRef = React.useRef<{ pointerId: number; startX: number; startY: number; layout: FloatingWindowLayout } | null>(null);
+  const resizeStateRef = React.useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    layout: FloatingWindowLayout;
+    corner: 'nw' | 'ne' | 'sw' | 'se';
+  } | null>(null);
+
+  React.useEffect(() => {
+    const handleViewportResize = () => {
+      setLayout((current) => clampFloatingLayout(current, minWidth, minHeight));
+    };
+
+    window.addEventListener('resize', handleViewportResize);
+    return () => window.removeEventListener('resize', handleViewportResize);
+  }, [minHeight, minWidth]);
+
+  const startDrag = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (isInteractiveDragTarget(e.target)) {
+      return;
+    }
+
+    dragStateRef.current = {
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      startY: e.clientY,
+      layout,
+    };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+
+  const handleDragMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const dragState = dragStateRef.current;
+    if (!dragState || dragState.pointerId !== e.pointerId) {
+      return;
+    }
+
+    const nextLayout = {
+      ...dragState.layout,
+      x: dragState.layout.x + (e.clientX - dragState.startX),
+      y: dragState.layout.y + (e.clientY - dragState.startY),
+    };
+    setLayout(clampFloatingLayout(nextLayout, minWidth, minHeight));
+  };
+
+  const stopDrag = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (dragStateRef.current?.pointerId === e.pointerId) {
+      dragStateRef.current = null;
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }
+  };
+
+  const startResize = (corner: 'nw' | 'ne' | 'sw' | 'se') => (e: React.PointerEvent<HTMLDivElement>) => {
+    resizeStateRef.current = {
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      startY: e.clientY,
+      layout,
+      corner,
+    };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+
+  const handleResizeMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const resizeState = resizeStateRef.current;
+    if (!resizeState || resizeState.pointerId !== e.pointerId) {
+      return;
+    }
+
+    const deltaX = e.clientX - resizeState.startX;
+    const deltaY = e.clientY - resizeState.startY;
+    const nextLayout = { ...resizeState.layout };
+
+    if (resizeState.corner === 'ne' || resizeState.corner === 'se') {
+      nextLayout.width = resizeState.layout.width + deltaX;
+    } else {
+      nextLayout.width = resizeState.layout.width - deltaX;
+      nextLayout.x = resizeState.layout.x + deltaX;
+    }
+
+    if (resizeState.corner === 'sw' || resizeState.corner === 'se') {
+      nextLayout.height = resizeState.layout.height + deltaY;
+    } else {
+      nextLayout.height = resizeState.layout.height - deltaY;
+      nextLayout.y = resizeState.layout.y + deltaY;
+    }
+
+    setLayout(clampFloatingLayout(nextLayout, minWidth, minHeight));
+  };
+
+  const stopResize = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (resizeStateRef.current?.pointerId === e.pointerId) {
+      resizeStateRef.current = null;
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }
+  };
+
+  return createPortal(
+    <div className="fixed inset-0 z-[80] pointer-events-none select-none">
+      <div
+        className="pointer-events-auto absolute flex flex-col overflow-hidden rounded-md border border-white/10 bg-[#0b0e12] shadow-2xl"
+        style={{
+          left: `${layout.x}px`,
+          top: `${layout.y}px`,
+          width: `${layout.width}px`,
+          height: `${layout.height}px`,
+        }}
+        data-no-drag
+      >
+        <div
+          className="flex cursor-move items-center justify-between gap-3 border-b border-white/10 bg-[#111820] px-4 py-3"
+          onPointerDown={startDrag}
+          onPointerMove={handleDragMove}
+          onPointerUp={stopDrag}
+          onPointerCancel={stopDrag}
+        >
+          <div className="min-w-0">
+            <div className="text-[12px] font-semibold text-zinc-100">{title}</div>
+            <div className="font-mono text-[9px] text-zinc-500">{subtitle}</div>
+          </div>
+          <div className="flex items-center gap-2">
+            {headerExtras}
+            <button
+              type="button"
+              title="關閉"
+              onClick={onClose}
+              className="rounded p-1.5 text-zinc-500 transition-colors hover:bg-white/10 hover:text-white"
+            >
+              <X size={15} />
+            </button>
+          </div>
+        </div>
+        <div className={bodyClassName}>{children}</div>
+        <div
+          className="absolute left-0 top-0 h-4 w-4 cursor-nwse-resize"
+          onPointerDown={startResize('nw')}
+          onPointerMove={handleResizeMove}
+          onPointerUp={stopResize}
+          onPointerCancel={stopResize}
+          data-no-drag
+        />
+        <div
+          className="absolute right-0 top-0 h-4 w-4 cursor-nesw-resize"
+          onPointerDown={startResize('ne')}
+          onPointerMove={handleResizeMove}
+          onPointerUp={stopResize}
+          onPointerCancel={stopResize}
+          data-no-drag
+        />
+        <div
+          className="absolute bottom-0 left-0 h-4 w-4 cursor-nesw-resize"
+          onPointerDown={startResize('sw')}
+          onPointerMove={handleResizeMove}
+          onPointerUp={stopResize}
+          onPointerCancel={stopResize}
+          data-no-drag
+        />
+        <div
+          className="absolute bottom-0 right-0 h-4 w-4 cursor-nwse-resize"
+          onPointerDown={startResize('se')}
+          onPointerMove={handleResizeMove}
+          onPointerUp={stopResize}
+          onPointerCancel={stopResize}
+          data-no-drag
+        />
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
 function StatusDeck({ settings }: { settings: AppSettings }) {
   const statusLabel = settings.enabled ? 'ACTIVE' : 'STANDBY';
 
@@ -239,7 +515,13 @@ function StatusDeck({ settings }: { settings: AppSettings }) {
   );
 }
 
-function FullDiagnosticPattern({ settings }: { settings: AppSettings }) {
+function FullDiagnosticPattern({
+  settings,
+  zoom = 1,
+}: {
+  settings: AppSettings;
+  zoom?: number;
+}) {
   const canvasRef = React.useRef<HTMLCanvasElement | null>(null);
 
   React.useEffect(() => {
@@ -266,7 +548,7 @@ function FullDiagnosticPattern({ settings }: { settings: AppSettings }) {
 
       const designWidth = 1800;
       const designHeight = 1200;
-      const scale = Math.min(rect.width / designWidth, rect.height / designHeight);
+      const scale = Math.min(rect.width / designWidth, rect.height / designHeight) * zoom;
       const offsetX = (rect.width - designWidth * scale) / 2;
       const offsetY = (rect.height - designHeight * scale) / 2;
 
@@ -282,7 +564,7 @@ function FullDiagnosticPattern({ settings }: { settings: AppSettings }) {
     draw();
 
     return () => observer.disconnect();
-  }, [settings]);
+  }, [settings, zoom]);
 
   return <canvas ref={canvasRef} className="h-full w-full bg-black" aria-label="GSDF QC diagnostic pattern" />;
 }
@@ -487,27 +769,11 @@ function GSDFStripeTest({
 }) {
   const [showDetails, setShowDetails] = React.useState(false);
   const [showFullPattern, setShowFullPattern] = React.useState(false);
+  const [patternZoom, setPatternZoom] = React.useState(1);
   const compactStripeWidth = 18;
   const outputRows = React.useMemo(() => buildGsdfStripeRows(settings), [settings]);
   const calibrationRows = React.useMemo(() => buildGsdfCalibrationStripeRows(), []);
-
-  React.useEffect(() => {
-    if (!window.parent || window.parent === window) {
-      return;
-    }
-
-    window.parent.postMessage({
-      type: 'GSDF_PATTERN_VIEW_CHANGED',
-      payload: { open: showFullPattern },
-    }, '*');
-
-    return () => {
-      window.parent.postMessage({
-        type: 'GSDF_PATTERN_VIEW_CHANGED',
-        payload: { open: false },
-      }, '*');
-    };
-  }, [showFullPattern]);
+  useExpandedOverlayViewport(showFullPattern);
 
   const renderRows = (rows: ReturnType<typeof buildGsdfStripeRows>, condensed = false) => (
     <div className={`space-y-1.5 overflow-hidden rounded-md border border-white/10 bg-[#080b0f] ${condensed ? 'p-2' : 'p-3'}`}>
@@ -568,66 +834,47 @@ function GSDFStripeTest({
           {renderRows(calibrationRows)}
         </div>
       )}
-      {showFullPattern && createPortal((
-        <div className="fixed inset-3 z-[80] flex flex-col overflow-hidden rounded-md border border-white/10 bg-[#0b0e12] shadow-2xl" data-no-drag>
-          <div className="shrink-0 flex items-center justify-between gap-3 border-b border-white/10 bg-[#111820] px-4 py-3">
-            <div>
-              <div className="text-[11px] font-semibold text-zinc-200">GSDF-QC 全域測試圖</div>
-              <div className="font-mono text-[9px] text-zinc-500">full-field grayscale, modulation, line-pair and gradient pattern</div>
-            </div>
+      {showFullPattern && (
+        <FloatingOverlayWindow
+          title="GSDF-QC 全域測試圖"
+          subtitle="full-field grayscale, modulation, line-pair and gradient pattern"
+          onClose={() => setShowFullPattern(false)}
+          defaultWidth={1180}
+          defaultHeight={760}
+          minWidth={560}
+          minHeight={420}
+          headerExtras={(
             <button
               type="button"
-              title="關閉"
-              onClick={() => setShowFullPattern(false)}
-              className="rounded p-1.5 text-zinc-500 transition-colors hover:bg-white/10 hover:text-white"
+              title="重設縮放為 100%"
+              onClick={() => setPatternZoom(1)}
+              className="rounded-md border border-white/10 bg-white/[0.04] px-2 py-1 font-mono text-[10px] text-cyan-200 transition-colors hover:border-cyan-300/35 hover:bg-cyan-300/10"
             >
-              <X size={15} />
+              {Math.round(patternZoom * 100)}%
             </button>
-          </div>
+          )}
+          bodyClassName="min-h-0 flex h-full flex-col overflow-hidden bg-black"
+        >
           <PatternLuminanceControl settings={settings} setSettings={setSettings} />
-          <div className="min-h-0 flex-1 overflow-hidden bg-black p-2">
-            <FullDiagnosticPattern settings={settings} />
+          <div
+            className="min-h-0 flex-1 overflow-hidden bg-black p-2"
+            onWheel={(event) => {
+              event.preventDefault();
+              const scaleFactor = event.deltaY < 0 ? 1.08 : 0.92;
+              setPatternZoom((value) => clampValue(Number((value * scaleFactor).toFixed(3)), 0.5, 3));
+            }}
+          >
+            <FullDiagnosticPattern settings={settings} zoom={patternZoom} />
           </div>
-        </div>
-      ), document.body)}
+        </FloatingOverlayWindow>
+      )}
     </section>
-  );
-}
-
-function ChartCaption({ compact = false }: { compact?: boolean }) {
-  return (
-    <div className={`rounded-md border border-white/10 bg-white/[0.03] ${compact ? 'p-3' : 'p-4'}`}>
-      <div className="text-[11px] font-semibold text-zinc-200">圖說</div>
-      <div className="mt-2 space-y-1.5 font-mono text-[10px] leading-relaxed text-zinc-400">
-        <div><span className="text-zinc-200">X axis</span>: 8-bit input pixel value, 0 to 255.</div>
-        <div><span className="text-zinc-200">Y axis</span>: normalized transfer-table output, 0 to 1.</div>
-        <div><span className="text-cyan-200">GSDF-Optimized</span>: gamma target first, then full GSDF table blended by the filter amount.</div>
-        <div><span className="text-zinc-200">Standard sRGB</span>: neutral reference line for comparison.</div>
-      </div>
-    </div>
   );
 }
 
 function ContrastChartPanel({ settings }: { settings: AppSettings }) {
   const [showFullChart, setShowFullChart] = React.useState(false);
-
-  React.useEffect(() => {
-    if (!window.parent || window.parent === window) {
-      return;
-    }
-
-    window.parent.postMessage({
-      type: 'GSDF_PATTERN_VIEW_CHANGED',
-      payload: { open: showFullChart },
-    }, '*');
-
-    return () => {
-      window.parent.postMessage({
-        type: 'GSDF_PATTERN_VIEW_CHANGED',
-        payload: { open: false },
-      }, '*');
-    };
-  }, [showFullChart]);
+  useExpandedOverlayViewport(showFullChart);
 
   return (
     <section className="space-y-3">
@@ -657,32 +904,22 @@ function ContrastChartPanel({ settings }: { settings: AppSettings }) {
         <div className="mt-2 h-16 rounded border border-white/[0.06] bg-[linear-gradient(135deg,rgba(34,211,238,0.18),rgba(245,158,11,0.10)),linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(0deg,rgba(255,255,255,0.04)_1px,transparent_1px)] bg-[length:100%_100%,32px_32px,32px_32px]" />
       </div>
       {showFullChart && (
-        <div className="fixed inset-3 z-[80] flex flex-col overflow-hidden rounded-md border border-white/10 bg-[#0b0e12] shadow-2xl" data-no-drag>
-          <div className="shrink-0 flex items-center justify-between gap-3 border-b border-white/10 bg-[#111820] px-4 py-3">
-            <div>
-              <div className="text-[12px] font-semibold text-zinc-100">完整 GSDF transfer curve</div>
-              <div className="font-mono text-[9px] text-zinc-500">input pixel value vs normalized table output</div>
-            </div>
-            <button
-              type="button"
-              title="關閉"
-              onClick={() => setShowFullChart(false)}
-              className="rounded p-1.5 text-zinc-500 transition-colors hover:bg-white/10 hover:text-white"
-            >
-              <X size={15} />
-            </button>
+        <FloatingOverlayWindow
+          title="完整 GSDF transfer curve"
+          subtitle="input pixel value vs normalized table output"
+          onClose={() => setShowFullChart(false)}
+          defaultWidth={560}
+          defaultHeight={300}
+          minWidth={360}
+          minHeight={220}
+          bodyClassName="min-h-0 flex-1 overflow-hidden bg-[#080b0f] p-3"
+        >
+          <div className="h-full rounded-md border border-white/10 bg-[#080b0f] p-2">
+            <React.Suspense fallback={<div className="h-full min-h-[180px]" />}>
+              <GSDFChart settings={settings} className="h-full min-h-[180px]" />
+            </React.Suspense>
           </div>
-          <div className="flex-1 overflow-y-auto p-4">
-            <div className="grid min-h-full grid-cols-[minmax(0,1fr)_260px] gap-4">
-              <div className="rounded-md border border-white/10 bg-[#080b0f] p-4">
-                <React.Suspense fallback={<div className="h-[420px]" />}>
-                  <GSDFChart settings={settings} className="h-[420px]" />
-                </React.Suspense>
-              </div>
-              <ChartCaption />
-            </div>
-          </div>
-        </div>
+        </FloatingOverlayWindow>
       )}
     </section>
   );
@@ -693,11 +930,10 @@ export function DraggablePanel({
   setSettings,
   extensionMode = false,
   onExtensionDrag,
+  onExtensionClose,
 }: DraggablePanelProps) {
   const dragControls = useDragControls();
   const dragStartRef = React.useRef<{ x: number; y: number } | null>(null);
-  const pendingDragRef = React.useRef({ deltaX: 0, deltaY: 0 });
-  const dragFrameRef = React.useRef<number | null>(null);
   const [activeTab, setActiveTab] = React.useState<PanelTab>('basic');
   const [panelTheme, setPanelTheme] = React.useState<PanelTheme>(() => {
     const savedTheme = localStorage.getItem(PANEL_THEME_STORAGE_KEY);
@@ -707,14 +943,6 @@ export function DraggablePanel({
   React.useEffect(() => {
     localStorage.setItem(PANEL_THEME_STORAGE_KEY, panelTheme);
   }, [panelTheme]);
-
-  React.useEffect(() => {
-    return () => {
-      if (dragFrameRef.current !== null) {
-        window.cancelAnimationFrame(dragFrameRef.current);
-      }
-    };
-  }, []);
 
   const handleEnabledChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSettings((prev) => ({ ...prev, enabled: e.target.checked }));
@@ -771,19 +999,7 @@ export function DraggablePanel({
     const deltaX = e.clientX - dragStartRef.current.x;
     const deltaY = e.clientY - dragStartRef.current.y;
     dragStartRef.current = { x: e.clientX, y: e.clientY };
-    pendingDragRef.current.deltaX += deltaX;
-    pendingDragRef.current.deltaY += deltaY;
-
-    if (dragFrameRef.current !== null) {
-      return;
-    }
-
-    dragFrameRef.current = window.requestAnimationFrame(() => {
-      dragFrameRef.current = null;
-      const drag = pendingDragRef.current;
-      pendingDragRef.current = { deltaX: 0, deltaY: 0 };
-      onExtensionDrag?.(drag.deltaX, drag.deltaY);
-    });
+    onExtensionDrag?.(deltaX, deltaY);
   };
 
   const handleHeaderPointerUp = () => {
@@ -817,6 +1033,17 @@ export function DraggablePanel({
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2" data-no-drag>
+          {extensionMode && (
+            <button
+              type="button"
+              title="關閉面板"
+              aria-label="關閉面板"
+              onClick={onExtensionClose}
+              className="flex h-8 w-8 items-center justify-center rounded-md border border-white/10 bg-[#0b0d10] text-zinc-400 transition-colors hover:bg-white/[0.06] hover:text-white"
+            >
+              <X size={14} />
+            </button>
+          )}
           <button
             type="button"
             title={panelTheme === 'light' ? '切換到暗色面板' : '切換到明亮面板'}

@@ -58,10 +58,9 @@ const MANAGED_FILTER_RE =
   /\s*url\((["']?)#gsdf-eotf-(?:gamma|ycbcr|levels|temp|sharpen-[123])\1\)\s*/g;
 const MIN_VISIBLE_AREA = 8000;
 const PANEL_VIEWPORT_MARGIN = 16;
-const PANEL_DEFAULT_WIDTH = 400;
-const PANEL_DEFAULT_MAX_HEIGHT = 680;
-const PANEL_PATTERN_WIDTH = 960;
-const PANEL_PATTERN_MAX_HEIGHT = 820;
+const PANEL_DEFAULT_WIDTH = 420;
+const PANEL_DEFAULT_MAX_HEIGHT = 720;
+const PANEL_PATTERN_MARGIN = 8;
 
 let uiIframe = null;
 let svgFilterInjected = false;
@@ -690,12 +689,19 @@ function startVideoObservers() {
 function getPanelFrameSize(expanded = panelExpandedForPattern) {
   const viewportWidth = Math.max(PANEL_DEFAULT_WIDTH, Number(window.innerWidth || PANEL_DEFAULT_WIDTH));
   const viewportHeight = Math.max(PANEL_DEFAULT_MAX_HEIGHT, Number(window.innerHeight || PANEL_DEFAULT_MAX_HEIGHT));
+  if (expanded) {
+    return {
+      width: Math.max(PANEL_DEFAULT_WIDTH, viewportWidth - PANEL_PATTERN_MARGIN * 2),
+      height: Math.max(320, viewportHeight - PANEL_PATTERN_MARGIN * 2)
+    };
+  }
+
   const width = Math.min(
-    expanded ? PANEL_PATTERN_WIDTH : PANEL_DEFAULT_WIDTH,
+    PANEL_DEFAULT_WIDTH,
     Math.max(PANEL_DEFAULT_WIDTH, viewportWidth - PANEL_VIEWPORT_MARGIN)
   );
   const height = Math.min(
-    expanded ? PANEL_PATTERN_MAX_HEIGHT : PANEL_DEFAULT_MAX_HEIGHT,
+    PANEL_DEFAULT_MAX_HEIGHT,
     Math.max(320, viewportHeight - PANEL_VIEWPORT_MARGIN)
   );
 
@@ -710,6 +716,14 @@ function applyPanelFrameLayout() {
   const { width, height } = getPanelFrameSize();
   const maxX = Math.max(0, Number(window.innerWidth || width) - width);
   const maxY = Math.max(0, Number(window.innerHeight || height) - height);
+  if (panelExpandedForPattern) {
+    uiIframe.style.width = `${width}px`;
+    uiIframe.style.height = `${height}px`;
+    uiIframe.style.left = `${Math.min(PANEL_PATTERN_MARGIN, maxX)}px`;
+    uiIframe.style.top = `${Math.min(PANEL_PATTERN_MARGIN, maxY)}px`;
+    return;
+  }
+
   panelPosition = {
     x: Math.min(Math.max(0, panelPosition.x), maxX),
     y: Math.min(Math.max(0, panelPosition.y), maxY),
@@ -718,6 +732,34 @@ function applyPanelFrameLayout() {
   uiIframe.style.height = `${height}px`;
   uiIframe.style.left = `${panelPosition.x}px`;
   uiIframe.style.top = `${panelPosition.y}px`;
+}
+
+function applyPanelDrag(deltaX, deltaY) {
+  if (!uiIframe) {
+    return;
+  }
+
+  const { width, height } = getPanelFrameSize();
+  const maxX = Math.max(0, window.innerWidth - width);
+  const maxY = Math.max(0, window.innerHeight - height);
+  panelPosition = {
+    x: Math.min(Math.max(0, panelPosition.x + deltaX), maxX),
+    y: Math.min(Math.max(0, panelPosition.y + deltaY), maxY),
+  };
+  uiIframe.style.left = `${panelPosition.x}px`;
+  uiIframe.style.top = `${panelPosition.y}px`;
+}
+
+function schedulePanelDrag(deltaX, deltaY) {
+  applyPanelDrag(deltaX, deltaY);
+}
+
+function closeUI() {
+  if (!uiIframe) {
+    return;
+  }
+
+  uiIframe.style.display = 'none';
 }
 
 function toggleUI() {
@@ -774,15 +816,11 @@ window.addEventListener('message', (event) => {
 
   if (event.data && event.data.type === 'GSDF_PANEL_DRAGGED' && uiIframe) {
     const { deltaX, deltaY } = event.data.payload;
-    const { width, height } = getPanelFrameSize();
-    const maxX = Math.max(0, window.innerWidth - width);
-    const maxY = Math.max(0, window.innerHeight - height);
-    panelPosition = {
-      x: Math.min(Math.max(0, panelPosition.x + deltaX), maxX),
-      y: Math.min(Math.max(0, panelPosition.y + deltaY), maxY),
-    };
-    uiIframe.style.left = `${panelPosition.x}px`;
-    uiIframe.style.top = `${panelPosition.y}px`;
+    schedulePanelDrag(deltaX, deltaY);
+  }
+
+  if (event.data && event.data.type === 'GSDF_CLOSE_PANEL') {
+    closeUI();
   }
 
   if (event.data && event.data.type === 'GSDF_PATTERN_VIEW_CHANGED') {
@@ -800,6 +838,7 @@ setInterval(() => {
 globalThis.__GSDF_EOTF_CONTENT__ = {
   status: 'ready',
   toggleUI,
+  closeUI,
   updateVideoFilters,
   getState() {
     return {

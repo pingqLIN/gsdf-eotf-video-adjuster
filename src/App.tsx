@@ -94,9 +94,23 @@ export default function App() {
       return;
     }
 
+    if (deltaX === 0 && deltaY === 0) {
+      return;
+    }
+
     window.parent.postMessage({
       type: 'GSDF_PANEL_DRAGGED',
       payload: { deltaX, deltaY }
+    }, '*');
+  };
+
+  const handlePanelClose = () => {
+    if (!isExtension || !window.parent || window.parent === window) {
+      return;
+    }
+
+    window.parent.postMessage({
+      type: 'GSDF_CLOSE_PANEL'
     }, '*');
   };
 
@@ -110,6 +124,7 @@ export default function App() {
           setSettings={setSettings} 
           extensionMode={isExtension}
           onExtensionDrag={handlePanelDrag}
+          onExtensionClose={handlePanelClose}
         />
       </div>
       

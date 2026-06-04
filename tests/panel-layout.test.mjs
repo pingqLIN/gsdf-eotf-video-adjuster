@@ -30,6 +30,7 @@ test('control panel is split into basic and advanced tabs', () => {
   assert.match(panelSource, /PANEL_THEME_STORAGE_KEY/);
   assert.match(panelSource, /theme-\$\{panelTheme\}/);
   assert.match(panelSource, /切換到明亮面板/);
+  assert.match(panelSource, /關閉面板/);
   assert.match(panelSource, /Filter 總量/);
   assert.match(panelSource, /Gamma 補償/);
   assert.match(panelSource, /gammaTarget/);
@@ -40,8 +41,9 @@ test('control panel is split into basic and advanced tabs', () => {
   assert.match(panelSource, /YCbCr/);
   assert.match(panelSource, /完整圖表/);
   assert.match(panelSource, /完整 GSDF transfer curve/);
-  assert.match(panelSource, /圖說/);
-  assert.match(panelSource, /h-\[420px\]/);
+  assert.match(panelSource, /FloatingOverlayWindow/);
+  assert.match(panelSource, /cursor-nwse-resize/);
+  assert.match(panelSource, /cursor-nesw-resize/);
   assert.match(panelSource, /DEFAULT_TARGET_LUMINANCE_NITS/);
   assert.match(panelSource, /完整 GSDF table 先算出來/);
   assert.match(panelSource, /React\.lazy/);
@@ -65,8 +67,8 @@ test('header drag handling does not intercept interactive controls', () => {
   assert.match(panelSource, /button, input, label, select, textarea, a/);
   assert.match(panelSource, /data-no-drag/);
   assert.match(panelSource, /isInteractiveDragTarget\(e\.target\)/);
-  assert.match(panelSource, /requestAnimationFrame/);
-  assert.match(panelSource, /pendingDragRef/);
+  assert.match(panelSource, /onExtensionDrag\?\.\(deltaX, deltaY\)/);
+  assert.match(appSource, /type: 'GSDF_CLOSE_PANEL'/);
 });
 
 test('standalone video preview uses the shared GSDF table model', () => {
