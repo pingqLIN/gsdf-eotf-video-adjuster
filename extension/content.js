@@ -61,11 +61,16 @@ const PANEL_VIEWPORT_MARGIN = 16;
 const PANEL_DEFAULT_WIDTH = 420;
 const PANEL_DEFAULT_MAX_HEIGHT = 720;
 const PANEL_PATTERN_MARGIN = 8;
+const PANEL_PATTERN_DEFAULT_WIDTH = 1040;
+const PANEL_PATTERN_DEFAULT_HEIGHT = 640;
+const PANEL_PATTERN_MIN_WIDTH = 560;
+const PANEL_PATTERN_MIN_HEIGHT = 420;
 
 let uiIframe = null;
 let svgFilterInjected = false;
 let currentSettings = { ...DEFAULT_SETTINGS };
 let panelPosition = { x: 24, y: 24 };
+let panelPatternFrame = null;
 let panelExpandedForPattern = false;
 let scanTimer = null;
 let mutationObserver = null;
@@ -686,14 +691,50 @@ function startVideoObservers() {
   });
 }
 
-function getPanelFrameSize(expanded = panelExpandedForPattern) {
+function getViewportFrame() {
   const viewportWidth = Math.max(PANEL_DEFAULT_WIDTH, Number(window.innerWidth || PANEL_DEFAULT_WIDTH));
   const viewportHeight = Math.max(PANEL_DEFAULT_MAX_HEIGHT, Number(window.innerHeight || PANEL_DEFAULT_MAX_HEIGHT));
+
+  return { viewportWidth, viewportHeight };
+}
+
+function clampPanelPatternFrame(frame) {
+  const { viewportWidth, viewportHeight } = getViewportFrame();
+  const maxWidth = Math.max(PANEL_PATTERN_MIN_WIDTH, viewportWidth - PANEL_PATTERN_MARGIN * 2);
+  const maxHeight = Math.max(PANEL_PATTERN_MIN_HEIGHT, viewportHeight - PANEL_PATTERN_MARGIN * 2);
+  const width = clampNumber(frame.width, PANEL_PATTERN_MIN_WIDTH, maxWidth, PANEL_PATTERN_DEFAULT_WIDTH);
+  const height = clampNumber(frame.height, PANEL_PATTERN_MIN_HEIGHT, maxHeight, PANEL_PATTERN_DEFAULT_HEIGHT);
+  const maxX = Math.max(0, viewportWidth - width);
+  const maxY = Math.max(0, viewportHeight - height);
+
+  return {
+    width,
+    height,
+    x: clampNumber(frame.x, 0, maxX, PANEL_PATTERN_MARGIN),
+    y: clampNumber(frame.y, 0, maxY, PANEL_PATTERN_MARGIN)
+  };
+}
+
+function getDefaultPanelPatternFrame() {
+  const { viewportWidth, viewportHeight } = getViewportFrame();
+  return clampPanelPatternFrame({
+    x: PANEL_PATTERN_MARGIN,
+    y: PANEL_PATTERN_MARGIN,
+    width: Math.min(PANEL_PATTERN_DEFAULT_WIDTH, viewportWidth - PANEL_PATTERN_MARGIN * 2),
+    height: Math.min(PANEL_PATTERN_DEFAULT_HEIGHT, viewportHeight - PANEL_PATTERN_MARGIN * 2)
+  });
+}
+
+function ensurePanelPatternFrame() {
+  panelPatternFrame = clampPanelPatternFrame(panelPatternFrame ?? getDefaultPanelPatternFrame());
+  return panelPatternFrame;
+}
+
+function getPanelFrameSize(expanded = panelExpandedForPattern) {
+  const { viewportWidth, viewportHeight } = getViewportFrame();
   if (expanded) {
-    return {
-      width: Math.max(PANEL_DEFAULT_WIDTH, viewportWidth - PANEL_PATTERN_MARGIN * 2),
-      height: Math.max(320, viewportHeight - PANEL_PATTERN_MARGIN * 2)
-    };
+    const patternFrame = ensurePanelPatternFrame();
+    return { width: patternFrame.width, height: patternFrame.height };
   }
 
   const width = Math.min(
@@ -717,10 +758,11 @@ function applyPanelFrameLayout() {
   const maxX = Math.max(0, Number(window.innerWidth || width) - width);
   const maxY = Math.max(0, Number(window.innerHeight || height) - height);
   if (panelExpandedForPattern) {
+    const patternFrame = ensurePanelPatternFrame();
     uiIframe.style.width = `${width}px`;
     uiIframe.style.height = `${height}px`;
-    uiIframe.style.left = `${Math.min(PANEL_PATTERN_MARGIN, maxX)}px`;
-    uiIframe.style.top = `${Math.min(PANEL_PATTERN_MARGIN, maxY)}px`;
+    uiIframe.style.left = `${patternFrame.x}px`;
+    uiIframe.style.top = `${patternFrame.y}px`;
     return;
   }
 
@@ -739,9 +781,24 @@ function applyPanelDrag(deltaX, deltaY) {
     return;
   }
 
+  if (!Number.isFinite(deltaX) || !Number.isFinite(deltaY) || (deltaX === 0 && deltaY === 0)) {
+    return;
+  }
+
   const { width, height } = getPanelFrameSize();
   const maxX = Math.max(0, window.innerWidth - width);
   const maxY = Math.max(0, window.innerHeight - height);
+  if (panelExpandedForPattern) {
+    const patternFrame = ensurePanelPatternFrame();
+    panelPatternFrame = clampPanelPatternFrame({
+      ...patternFrame,
+      x: patternFrame.x + deltaX,
+      y: patternFrame.y + deltaY
+    });
+    applyPanelFrameLayout();
+    return;
+  }
+
   panelPosition = {
     x: Math.min(Math.max(0, panelPosition.x + deltaX), maxX),
     y: Math.min(Math.max(0, panelPosition.y + deltaY), maxY),
@@ -752,6 +809,24 @@ function applyPanelDrag(deltaX, deltaY) {
 
 function schedulePanelDrag(deltaX, deltaY) {
   applyPanelDrag(deltaX, deltaY);
+}
+
+function applyPanelResize(deltaWidth, deltaHeight) {
+  if (!uiIframe || !panelExpandedForPattern) {
+    return;
+  }
+
+  if (!Number.isFinite(deltaWidth) || !Number.isFinite(deltaHeight) || (deltaWidth === 0 && deltaHeight === 0)) {
+    return;
+  }
+
+  const patternFrame = ensurePanelPatternFrame();
+  panelPatternFrame = clampPanelPatternFrame({
+    ...patternFrame,
+    width: patternFrame.width + deltaWidth,
+    height: patternFrame.height + deltaHeight
+  });
+  applyPanelFrameLayout();
 }
 
 function closeUI() {
@@ -819,12 +894,20 @@ window.addEventListener('message', (event) => {
     schedulePanelDrag(deltaX, deltaY);
   }
 
+  if (event.data && event.data.type === 'GSDF_PANEL_RESIZED' && uiIframe) {
+    const { deltaWidth, deltaHeight } = event.data.payload;
+    applyPanelResize(deltaWidth, deltaHeight);
+  }
+
   if (event.data && event.data.type === 'GSDF_CLOSE_PANEL') {
     closeUI();
   }
 
   if (event.data && event.data.type === 'GSDF_PATTERN_VIEW_CHANGED') {
     panelExpandedForPattern = event.data.payload?.open === true;
+    if (panelExpandedForPattern) {
+      ensurePanelPatternFrame();
+    }
     applyPanelFrameLayout();
   }
 });

@@ -24,6 +24,17 @@ test('control panel is split into basic and advanced tabs', () => {
   assert.match(panelSource, /setInspectionMode\('pattern'\)/);
   assert.match(panelSource, /setInspectionMode\('chart'\)/);
   assert.match(panelSource, /setInspectionMode\(null\)/);
+  assert.match(panelSource, /PanelTabSwitch/);
+  assert.match(panelSource, /role="tablist"/);
+  assert.match(panelSource, /role="tab"/);
+  assert.match(panelSource, /aria-selected=\{value === tab\}/);
+  assert.match(panelSource, /gsdf-control-strip/);
+  assert.match(panelSource, /grid grid-cols-\[minmax\(0,1fr\)_auto_auto\]/);
+  assert.match(panelSource, /grid grid-cols-4 gap-1\.5/);
+  assert.match(panelSource, /text-\[24px\]/);
+  assert.match(panelSource, /justify-center gap-1 rounded-md border px-2 text-\[10px\]/);
+  assert.match(panelSource, /效果開啟/);
+  assert.match(panelSource, /效果關閉/);
   assert.match(panelSource, /drawDiagnosticPattern/);
   assert.match(panelSource, /drawLinePairBand/);
   assert.match(panelSource, /drawVerticalGradient/);
@@ -35,6 +46,9 @@ test('control panel is split into basic and advanced tabs', () => {
   assert.match(panelSource, /theme-\$\{panelTheme\}/);
   assert.match(panelSource, /切換到明亮面板/);
   assert.match(panelSource, /關閉面板/);
+  assert.match(panelSource, /panelClosed/);
+  assert.match(panelSource, /handlePanelClose/);
+  assert.match(panelSource, /setPanelClosed\(true\)/);
   assert.match(panelSource, /Filter 總量/);
   assert.match(panelSource, /Gamma 補償/);
   assert.match(panelSource, /gammaTarget/);
@@ -51,6 +65,15 @@ test('control panel is split into basic and advanced tabs', () => {
   assert.match(panelSource, /啟動 EOTF 修正/);
   assert.match(panelSource, /效果應用/);
   assert.match(panelSource, /title="關閉"/);
+  assert.match(panelSource, /gsdf-resize-grip/);
+  assert.match(panelSource, /拖曳調整視圖大小/);
+  assert.match(panelSource, /onExtensionResize\?\.\(deltaWidth, deltaHeight\)/);
+  assert.match(panelSource, /standaloneInspectionSize/);
+  assert.match(panelSource, /INSPECTION_MIN_WIDTH/);
+  assert.match(panelSource, /INSPECTION_MIN_HEIGHT/);
+  assert.match(appSource, /GSDF_PANEL_RESIZED/);
+  assert.match(panelSource, /h-screen w-screen/);
+  assert.match(panelSource, /cursor-nwse-resize/);
   assert.match(panelSource, /hidden=\{activeTab !== 'basic'\}/);
   assert.match(panelSource, /hidden=\{activeTab !== 'advanced'\}/);
   assert.match(panelSource, /DEFAULT_TARGET_LUMINANCE_NITS/);
@@ -67,6 +90,8 @@ test('control panel is split into basic and advanced tabs', () => {
   assert.doesNotMatch(panelSource, /儲存預設偏好設定/);
   assert.doesNotMatch(panelSource, /Math\.round\(\(viewport\.width - width\) \/ 2\)/);
   assert.doesNotMatch(panelSource, /FloatingOverlayWindow/);
+  assert.doesNotMatch(panelSource, /gsdf-tab-bar grid grid-cols-2/);
+  assert.doesNotMatch(panelSource, /\{extensionMode && \(/);
 
   const basicIndex = panelSource.indexOf("activeTab !== 'basic'");
   const advancedIndex = panelSource.indexOf("activeTab !== 'advanced'");
@@ -84,6 +109,10 @@ test('inspection modes use an inset hairline frame and lighter UI typography', (
   assert.match(cssSource, /border-color: rgba\(148, 163, 184, 0\.09\)/);
   assert.match(cssSource, /font-weight: 500 !important/);
   assert.match(cssSource, /font-weight: 520/);
+  assert.match(cssSource, /\.gsdf-control-strip/);
+  assert.match(cssSource, /\.gsdf-tab-switch/);
+  assert.match(cssSource, /touch-action: manipulation/);
+  assert.match(cssSource, /touch-action: none/);
   assert.doesNotMatch(cssSource, /font-weight: 650/);
   assert.doesNotMatch(cssSource, /gsdf-floating-window/);
 });
@@ -93,8 +122,15 @@ test('header drag handling does not intercept interactive controls', () => {
   assert.match(panelSource, /button, input, label, select, textarea, a/);
   assert.match(panelSource, /data-no-drag/);
   assert.match(panelSource, /isInteractiveDragTarget\(e\.target\)/);
+  assert.match(panelSource, /trySetPointerCapture/);
+  assert.match(panelSource, /tryReleasePointerCapture/);
+  assert.match(panelSource, /dragStartRef\.current\.pointerId !== e\.pointerId/);
+  assert.match(panelSource, /resizeStartRef\.current\.pointerId !== e\.pointerId/);
   assert.match(panelSource, /onExtensionDrag\?\.\(deltaX, deltaY\)/);
+  assert.match(panelSource, /dragHandlers=\{dragHandlers\}/);
+  assert.match(panelSource, /resizeHandlers=\{resizeHandlers\}/);
   assert.match(appSource, /type: 'GSDF_CLOSE_PANEL'/);
+  assert.match(appSource, /type: 'GSDF_PANEL_RESIZED'/);
 });
 
 test('standalone video preview uses the shared GSDF table model', () => {

@@ -182,7 +182,7 @@ test('content script exposes a direct toggle API for fallback activation', () =>
   assert.equal(context.__testState.bodyChildren[0].id, 'gsdf-eotf-ui-iframe');
 });
 
-test('content script widens the iframe for the full GSDF pattern view', () => {
+test('content script opens the full GSDF pattern view as a movable and resizable frame', () => {
   const context = createContentContext();
 
   vm.runInContext(contentSource, context, { filename: 'extension/content.js' });
@@ -201,10 +201,34 @@ test('content script widens the iframe for the full GSDF pattern view', () => {
     }
   });
 
-  assert.equal(iframe.style.width, '1264px');
-  assert.equal(iframe.style.height, '704px');
+  assert.equal(iframe.style.width, '1040px');
+  assert.equal(iframe.style.height, '640px');
   assert.equal(iframe.style.left, '8px');
   assert.equal(iframe.style.top, '8px');
+
+  messageListener.callback({
+    source: iframe.contentWindow,
+    data: {
+      type: 'GSDF_PANEL_DRAGGED',
+      payload: { deltaX: 48, deltaY: 32 }
+    }
+  });
+
+  assert.equal(iframe.style.left, '56px');
+  assert.equal(iframe.style.top, '40px');
+
+  messageListener.callback({
+    source: iframe.contentWindow,
+    data: {
+      type: 'GSDF_PANEL_RESIZED',
+      payload: { deltaWidth: 200, deltaHeight: 120 }
+    }
+  });
+
+  assert.equal(iframe.style.width, '1240px');
+  assert.equal(iframe.style.height, '704px');
+  assert.equal(iframe.style.left, '40px');
+  assert.equal(iframe.style.top, '16px');
 
   messageListener.callback({
     source: iframe.contentWindow,

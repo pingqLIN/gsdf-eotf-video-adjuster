@@ -104,6 +104,21 @@ export default function App() {
     }, '*');
   };
 
+  const handlePanelResize = (deltaWidth: number, deltaHeight: number) => {
+    if (!isExtension || !window.parent || window.parent === window) {
+      return;
+    }
+
+    if (deltaWidth === 0 && deltaHeight === 0) {
+      return;
+    }
+
+    window.parent.postMessage({
+      type: 'GSDF_PANEL_RESIZED',
+      payload: { deltaWidth, deltaHeight }
+    }, '*');
+  };
+
   const handlePanelClose = () => {
     if (!isExtension || !window.parent || window.parent === window) {
       return;
@@ -124,6 +139,7 @@ export default function App() {
           setSettings={setSettings} 
           extensionMode={isExtension}
           onExtensionDrag={handlePanelDrag}
+          onExtensionResize={handlePanelResize}
           onExtensionClose={handlePanelClose}
         />
       </div>

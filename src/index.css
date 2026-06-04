@@ -232,16 +232,17 @@
     0 0 0 1px rgba(226, 232, 240, 0.12);
 }
 
-.gsdf-tab-bar {
+.gsdf-control-strip,
+.gsdf-tab-switch {
   background: rgba(9, 13, 18, 0.92) !important;
   border-color: rgba(148, 163, 184, 0.12) !important;
 }
 
-.gsdf-tab-button {
+.gsdf-tab-switch button {
   letter-spacing: 0.012em;
 }
 
-.gsdf-tab-button.bg-zinc-100 {
+.gsdf-tab-switch .bg-zinc-100 {
   background:
     linear-gradient(180deg, rgba(235, 239, 244, 0.96), rgba(201, 207, 216, 0.96)) !important;
   box-shadow:
@@ -313,6 +314,17 @@
 .gsdf-panel label,
 .gsdf-inspection-mode label {
   font-weight: 500;
+}
+
+.gsdf-panel button,
+.gsdf-inspection-mode button {
+  touch-action: manipulation;
+}
+
+.gsdf-panel-header,
+.gsdf-inspection-header,
+.gsdf-resize-grip {
+  touch-action: none;
 }
 
 .gsdf-panel input[type='range'],
@@ -434,11 +446,12 @@
     linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(244, 247, 251, 0.96)) !important;
 }
 
-.gsdf-panel.theme-light .gsdf-tab-bar {
+.gsdf-panel.theme-light .gsdf-control-strip,
+.gsdf-panel.theme-light .gsdf-tab-switch {
   background: rgba(243, 247, 251, 0.94) !important;
 }
 
-.gsdf-panel.theme-light .gsdf-tab-button.bg-zinc-100 {
+.gsdf-panel.theme-light .gsdf-tab-switch .bg-zinc-100 {
   background:
     linear-gradient(180deg, rgba(15, 23, 42, 0.96), rgba(30, 41, 59, 0.96)) !important;
   box-shadow:

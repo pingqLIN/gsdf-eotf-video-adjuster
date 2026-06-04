@@ -47,6 +47,10 @@ type PanelTheme = 'dark' | 'light';
 type InspectionMode = 'pattern' | 'chart' | null;
 
 const PANEL_THEME_STORAGE_KEY = 'gsdf_panel_theme';
+const INSPECTION_MIN_WIDTH = 560;
+const INSPECTION_MIN_HEIGHT = 420;
+const INSPECTION_DEFAULT_WIDTH = 960;
+const INSPECTION_DEFAULT_HEIGHT = 720;
 let expandedOverlayCount = 0;
 
 interface DraggablePanelProps {
@@ -54,6 +58,7 @@ interface DraggablePanelProps {
   setSettings: React.Dispatch<React.SetStateAction<AppSettings>>;
   extensionMode?: boolean;
   onExtensionDrag?: (deltaX: number, deltaY: number) => void;
+  onExtensionResize?: (deltaWidth: number, deltaHeight: number) => void;
   onExtensionClose?: () => void;
 }
 
@@ -81,6 +86,13 @@ interface SegmentedControlProps<T extends string> {
   onChange: (value: T) => void;
 }
 
+interface PointerHandlers {
+  onPointerDown: (event: React.PointerEvent<HTMLDivElement>) => void;
+  onPointerMove: (event: React.PointerEvent<HTMLDivElement>) => void;
+  onPointerUp: (event: React.PointerEvent<HTMLDivElement>) => void;
+  onPointerCancel: (event: React.PointerEvent<HTMLDivElement>) => void;
+}
+
 function ModePill({
   children,
   tone = 'neutral',
@@ -98,7 +110,7 @@ function ModePill({
         : 'border-white/10 bg-white/[0.04] text-zinc-300';
 
   return (
-    <span title={title} className={`inline-flex h-7 items-center gap-1.5 rounded-md border px-2.5 text-[11px] font-semibold ${toneClass}`}>
+    <span title={title} className={`inline-flex h-7 min-w-0 items-center justify-center gap-1 rounded-md border px-2 text-[10px] font-semibold ${toneClass}`}>
       {children}
     </span>
   );
@@ -203,6 +215,26 @@ function clampValue(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
 }
 
+function trySetPointerCapture(element: Element, pointerId: number) {
+  try {
+    if ('setPointerCapture' in element) {
+      element.setPointerCapture(pointerId);
+    }
+  } catch {
+    // Synthetic pointer events used by tests may not have an active pointer.
+  }
+}
+
+function tryReleasePointerCapture(element: Element, pointerId: number) {
+  try {
+    if ('hasPointerCapture' in element && element.hasPointerCapture(pointerId)) {
+      element.releasePointerCapture(pointerId);
+    }
+  } catch {
+    // Pointer capture can already be released by the browser on pointerup.
+  }
+}
+
 function postExpandedOverlayState(open: boolean) {
   if (!window.parent || window.parent === window) {
     return;
@@ -258,23 +290,59 @@ function EffectSwitch({
   );
 }
 
+function PanelTabSwitch({
+  value,
+  onChange,
+}: {
+  value: PanelTab;
+  onChange: (value: PanelTab) => void;
+}) {
+  return (
+    <div
+      role="tablist"
+      aria-label="面板模式"
+      className="gsdf-tab-switch relative grid h-8 w-28 shrink-0 grid-cols-2 rounded-md border border-white/10 bg-[#080b0f] p-1"
+      data-no-drag
+    >
+      <span
+        className={`pointer-events-none absolute top-1 bottom-1 left-1 w-[calc(50%-4px)] rounded bg-zinc-100 shadow transition-transform ${value === 'advanced' ? 'translate-x-[calc(100%+4px)]' : 'translate-x-0'}`}
+      />
+      {(['basic', 'advanced'] as PanelTab[]).map((tab) => (
+        <button
+          key={tab}
+          type="button"
+          role="tab"
+          aria-selected={value === tab}
+          title={tab === 'basic' ? '切換到基礎控制' : '切換到進階控制'}
+          onClick={() => onChange(tab)}
+          className={`relative z-10 rounded text-[11px] font-semibold transition-colors ${
+            value === tab ? 'text-[#111418]' : 'text-zinc-400 hover:text-zinc-100'
+          }`}
+        >
+          {tab === 'basic' ? '基礎' : '進階'}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function StatusDeck({ settings }: { settings: AppSettings }) {
   const statusLabel = settings.enabled ? 'ACTIVE' : 'STANDBY';
 
   return (
     <section className="gsdf-status-deck rounded-md border border-white/10 bg-[#0a0e13] p-3 shadow-inner">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
+      <div className="space-y-3">
+        <div className="flex items-end justify-between gap-3">
           <div className="flex items-center gap-2 text-[11px] font-semibold text-zinc-400">
             {settings.enabled ? <CheckCircle2 size={14} className="text-zinc-200" /> : <CircleOff size={14} className="text-zinc-500" />}
             <span>{statusLabel}</span>
           </div>
-          <div className="mt-1 flex items-baseline gap-2">
-            <span className="font-mono text-[30px] leading-none text-zinc-50 tabular-nums">{formatLuminance(settings.lmax)}</span>
+          <div className="flex shrink-0 items-baseline gap-2">
+            <span className="font-mono text-[24px] leading-none text-zinc-50 tabular-nums">{formatLuminance(settings.lmax)}</span>
             <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-zinc-500">nits</span>
           </div>
         </div>
-        <div className="flex flex-wrap justify-end gap-1.5">
+        <div className="grid grid-cols-4 gap-1.5">
           <ModePill
             tone={settings.enabled ? 'active' : 'neutral'}
             title="完整 GSDF transfer table 先依目標亮度計算，再由 filter 總量混合回 gamma-adjusted baseline。"
@@ -284,7 +352,7 @@ function StatusDeck({ settings }: { settings: AppSettings }) {
           </ModePill>
           <ModePill title="Gamma 補償會先於 GSDF table 套用；0 為 γ2.2，左側到 γ3.0，右側到 γ1.0。">
             <Activity size={13} />
-            <span className="gsdf-pill-label">gamma</span>
+            <span className="gsdf-pill-label">γ</span>
             <span className="gsdf-pill-metric">{settings.gammaTarget.toFixed(1)}</span>
           </ModePill>
           <ModePill title="Filter 總量控制完整 GSDF 結果的混入比例；0% 為 gamma-adjusted baseline，100% 為完整 GSDF table。">
@@ -513,31 +581,26 @@ function InspectionModeHeader({
   settings,
   setSettings,
   onClose,
+  dragHandlers,
 }: {
   title: string;
   subtitle: string;
   settings: AppSettings;
   setSettings: React.Dispatch<React.SetStateAction<AppSettings>>;
   onClose: () => void;
+  dragHandlers: PointerHandlers;
 }) {
   return (
-    <div className="gsdf-inspection-header shrink-0 border-b border-white/10 bg-[#0c1014] px-4 py-3" data-no-drag>
+    <div
+      className="gsdf-inspection-header shrink-0 cursor-grab select-none border-b border-white/10 bg-[#0c1014] px-4 py-3 active:cursor-grabbing"
+      {...dragHandlers}
+    >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
           <div className="text-[12px] font-semibold text-zinc-100">{title}</div>
           <div className="font-mono text-[9px] text-zinc-500">{subtitle}</div>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <div className="flex items-baseline gap-2 pr-1">
-            <span className="font-mono text-[22px] font-semibold leading-none tabular-nums text-zinc-100">
-              {formatLuminance(settings.lmax)}
-            </span>
-            <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-zinc-500">nits</span>
-          </div>
-          <EffectSwitch
-            enabled={settings.enabled}
-            onToggle={() => setSettings((prev) => ({ ...prev, enabled: !prev.enabled }))}
-          />
+        <div className="flex shrink-0 items-center gap-2" data-no-drag>
           <button
             type="button"
             title="關閉"
@@ -550,6 +613,9 @@ function InspectionModeHeader({
         </div>
       </div>
       <div className="mt-3 flex items-center gap-3">
+        <span className="min-w-[58px] text-right font-mono text-[18px] font-semibold leading-none tabular-nums text-zinc-100">
+          {formatLuminance(settings.lmax)}
+        </span>
         <span className="w-8 text-right font-mono text-[10px] text-zinc-500">{LUMINANCE_MIN_NITS}</span>
         <input
           type="range"
@@ -563,6 +629,7 @@ function InspectionModeHeader({
           className="gsdf-range flex-1"
         />
         <span className="w-8 text-left font-mono text-[10px] text-zinc-500">{LUMINANCE_MAX_NITS}</span>
+        <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-zinc-500">nits</span>
       </div>
     </div>
   );
@@ -573,11 +640,15 @@ function InspectionModeView({
   settings,
   setSettings,
   onClose,
+  dragHandlers,
+  resizeHandlers,
 }: {
   mode: Exclude<InspectionMode, null>;
   settings: AppSettings;
   setSettings: React.Dispatch<React.SetStateAction<AppSettings>>;
   onClose: () => void;
+  dragHandlers: PointerHandlers;
+  resizeHandlers: PointerHandlers;
 }) {
   const [patternZoom, setPatternZoom] = React.useState(1);
 
@@ -589,6 +660,7 @@ function InspectionModeView({
         settings={settings}
         setSettings={setSettings}
         onClose={onClose}
+        dragHandlers={dragHandlers}
       />
       {mode === 'pattern' ? (
         <div
@@ -610,6 +682,14 @@ function InspectionModeView({
           </div>
         </div>
       )}
+      <div
+        className="gsdf-resize-grip absolute right-1.5 bottom-1.5 z-10 h-5 w-5 cursor-nwse-resize rounded-sm border-r border-b border-white/35 opacity-70 transition-opacity hover:opacity-100"
+        title="拖曳調整視圖大小"
+        aria-label="拖曳調整視圖大小"
+        role="separator"
+        data-no-drag
+        {...resizeHandlers}
+      />
     </div>
   );
 }
@@ -732,12 +812,19 @@ export function DraggablePanel({
   setSettings,
   extensionMode = false,
   onExtensionDrag,
+  onExtensionResize,
   onExtensionClose,
 }: DraggablePanelProps) {
   const dragControls = useDragControls();
-  const dragStartRef = React.useRef<{ x: number; y: number } | null>(null);
+  const dragStartRef = React.useRef<{ pointerId: number; x: number; y: number } | null>(null);
+  const resizeStartRef = React.useRef<{ pointerId: number; x: number; y: number } | null>(null);
   const [activeTab, setActiveTab] = React.useState<PanelTab>('basic');
   const [inspectionMode, setInspectionMode] = React.useState<InspectionMode>(null);
+  const [panelClosed, setPanelClosed] = React.useState(false);
+  const [standaloneInspectionSize, setStandaloneInspectionSize] = React.useState({
+    width: INSPECTION_DEFAULT_WIDTH,
+    height: INSPECTION_DEFAULT_HEIGHT,
+  });
   const [panelTheme, setPanelTheme] = React.useState<PanelTheme>(() => {
     const savedTheme = localStorage.getItem(PANEL_THEME_STORAGE_KEY);
     return savedTheme === 'light' ? 'light' : 'dark';
@@ -776,6 +863,14 @@ export function DraggablePanel({
   const resetToDefault = () => {
     setSettings((prev) => ({ ...DEFAULT_APP_SETTINGS, enabled: prev.enabled }));
   };
+  const handlePanelClose = () => {
+    if (extensionMode) {
+      onExtensionClose?.();
+      return;
+    }
+
+    setPanelClosed(true);
+  };
   const gammaCorrection = gammaTargetToCorrection(settings.gammaTarget);
   const setGammaCorrection = (value: number) => {
     setNumericSetting('gammaTarget', gammaCorrectionToTarget(value));
@@ -791,24 +886,87 @@ export function DraggablePanel({
       return;
     }
 
-    dragStartRef.current = { x: e.clientX, y: e.clientY };
-    e.currentTarget.setPointerCapture(e.pointerId);
+    e.preventDefault();
+    dragStartRef.current = { pointerId: e.pointerId, x: e.clientX, y: e.clientY };
+    trySetPointerCapture(e.currentTarget, e.pointerId);
   };
 
   const handleHeaderPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!extensionMode || !dragStartRef.current) {
+    if (!extensionMode || !dragStartRef.current || dragStartRef.current.pointerId !== e.pointerId) {
       return;
     }
 
+    e.preventDefault();
     const deltaX = e.clientX - dragStartRef.current.x;
     const deltaY = e.clientY - dragStartRef.current.y;
-    dragStartRef.current = { x: e.clientX, y: e.clientY };
+    dragStartRef.current = { pointerId: e.pointerId, x: e.clientX, y: e.clientY };
     onExtensionDrag?.(deltaX, deltaY);
   };
 
-  const handleHeaderPointerUp = () => {
+  const handleHeaderPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (dragStartRef.current?.pointerId === e.pointerId) {
+      tryReleasePointerCapture(e.currentTarget, e.pointerId);
+    }
     dragStartRef.current = null;
   };
+
+  const handleResizePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.stopPropagation();
+    e.preventDefault();
+    resizeStartRef.current = { pointerId: e.pointerId, x: e.clientX, y: e.clientY };
+    trySetPointerCapture(e.currentTarget, e.pointerId);
+  };
+
+  const handleResizePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!resizeStartRef.current || resizeStartRef.current.pointerId !== e.pointerId) {
+      return;
+    }
+
+    e.preventDefault();
+    const deltaWidth = e.clientX - resizeStartRef.current.x;
+    const deltaHeight = e.clientY - resizeStartRef.current.y;
+    resizeStartRef.current = { pointerId: e.pointerId, x: e.clientX, y: e.clientY };
+
+    if (!extensionMode) {
+      setStandaloneInspectionSize((current) => ({
+        width: clampValue(current.width + deltaWidth, INSPECTION_MIN_WIDTH, Math.max(INSPECTION_MIN_WIDTH, window.innerWidth - 16)),
+        height: clampValue(current.height + deltaHeight, INSPECTION_MIN_HEIGHT, Math.max(INSPECTION_MIN_HEIGHT, window.innerHeight - 16)),
+      }));
+      return;
+    }
+
+    onExtensionResize?.(deltaWidth, deltaHeight);
+  };
+
+  const handleResizePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (resizeStartRef.current?.pointerId === e.pointerId) {
+      tryReleasePointerCapture(e.currentTarget, e.pointerId);
+    }
+    resizeStartRef.current = null;
+  };
+
+  const dragHandlers = {
+    onPointerDown: handleHeaderPointerDown,
+    onPointerMove: handleHeaderPointerMove,
+    onPointerUp: handleHeaderPointerUp,
+    onPointerCancel: handleHeaderPointerUp,
+  };
+  const resizeHandlers = {
+    onPointerDown: handleResizePointerDown,
+    onPointerMove: handleResizePointerMove,
+    onPointerUp: handleResizePointerUp,
+    onPointerCancel: handleResizePointerUp,
+  };
+  const panelSizeClass = inspectionMode
+    ? `${extensionMode ? 'relative h-screen w-screen max-h-screen' : 'absolute h-[720px] max-h-[calc(100vh-16px)] w-[960px] max-w-[calc(100vw-16px)]'}`
+    : `${extensionMode ? 'relative' : 'absolute'} h-[720px] max-h-[calc(100vh-16px)] w-[420px]`;
+  const panelStyle = inspectionMode && !extensionMode
+    ? { width: standaloneInspectionSize.width, height: standaloneInspectionSize.height }
+    : undefined;
+
+  if (panelClosed) {
+    return null;
+  }
 
   return (
     <motion.div
@@ -817,8 +975,9 @@ export function DraggablePanel({
       dragListener={false}
       dragMomentum={false}
       initial={extensionMode ? false : { x: 24, y: 24 }}
+      style={panelStyle}
       data-panel-theme={panelTheme}
-      className={`${extensionMode ? 'relative' : 'absolute'} gsdf-panel gsdf-panel-shell theme-${panelTheme} top-0 left-0 z-50 flex h-[720px] max-h-[calc(100vh-16px)] w-[420px] flex-col overflow-hidden rounded-lg border border-white/10 bg-[#111418] font-sans text-zinc-200 shadow-2xl`}
+      className={`${panelSizeClass} gsdf-panel gsdf-panel-shell theme-${panelTheme} top-0 left-0 z-50 flex flex-col overflow-hidden rounded-lg border border-white/10 bg-[#111418] font-sans text-zinc-200 shadow-2xl`}
     >
       {inspectionMode ? (
         <InspectionModeView
@@ -826,6 +985,8 @@ export function DraggablePanel({
           settings={settings}
           setSettings={setSettings}
           onClose={() => setInspectionMode(null)}
+          dragHandlers={dragHandlers}
+          resizeHandlers={resizeHandlers}
         />
       ) : (
         <>
@@ -846,47 +1007,36 @@ export function DraggablePanel({
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2" data-no-drag>
-          {extensionMode && (
-            <button
-              type="button"
-              title="關閉面板"
-              aria-label="關閉面板"
-              onClick={onExtensionClose}
-              className="gsdf-icon-button flex h-8 w-8 items-center justify-center rounded-md border border-white/10 bg-[#0b0d10] text-zinc-400 transition-colors hover:bg-white/[0.06] hover:text-zinc-100"
-            >
-              <X size={14} />
-            </button>
-          )}
           <button
             type="button"
-            title={panelTheme === 'light' ? '切換到暗色面板' : '切換到明亮面板'}
-            aria-label={panelTheme === 'light' ? '切換到暗色面板' : '切換到明亮面板'}
-            onClick={() => setPanelTheme((theme) => (theme === 'light' ? 'dark' : 'light'))}
+            title="關閉面板"
+            aria-label="關閉面板"
+            onClick={handlePanelClose}
             className="gsdf-icon-button flex h-8 w-8 items-center justify-center rounded-md border border-white/10 bg-[#0b0d10] text-zinc-400 transition-colors hover:bg-white/[0.06] hover:text-zinc-100"
           >
-            {panelTheme === 'light' ? <Moon size={14} /> : <Sun size={14} />}
+            <X size={14} />
           </button>
-          <EffectSwitch enabled={settings.enabled} onToggle={toggleEnabled} label="啟動 EOTF 修正" />
         </div>
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col">
         <div className="px-4 pt-3">
-          <div className="gsdf-tab-bar grid grid-cols-2 gap-1 rounded-md border border-white/10 bg-[#090c10] p-1">
-            {(['basic', 'advanced'] as PanelTab[]).map((tab) => (
-              <button
-                key={tab}
-                type="button"
-                onClick={() => setActiveTab(tab)}
-                className={`gsdf-tab-button h-9 rounded text-[12px] font-semibold transition-colors ${
-                  activeTab === tab
-                    ? 'bg-zinc-100 text-[#111418]'
-                    : 'text-zinc-400 hover:bg-white/[0.06] hover:text-zinc-100'
-                }`}
-              >
-                {tab === 'basic' ? '基礎' : '進階'}
-              </button>
-            ))}
+          <div className="gsdf-control-strip grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 rounded-md border border-white/10 bg-[#090c10] p-1.5">
+            <div className="flex min-w-0 items-center gap-2.5" data-no-drag>
+              <EffectSwitch enabled={settings.enabled} onToggle={toggleEnabled} label="啟動 EOTF 修正" />
+              <span className="truncate text-[11px] font-semibold text-zinc-300">{settings.enabled ? '效果開啟' : '效果關閉'}</span>
+            </div>
+            <PanelTabSwitch value={activeTab} onChange={setActiveTab} />
+            <button
+              type="button"
+              title={panelTheme === 'light' ? '切換到暗色面板' : '切換到明亮面板'}
+              aria-label={panelTheme === 'light' ? '切換到暗色面板' : '切換到明亮面板'}
+              onClick={() => setPanelTheme((theme) => (theme === 'light' ? 'dark' : 'light'))}
+              className="gsdf-icon-button flex h-8 w-8 items-center justify-center rounded-md border border-white/10 bg-[#0b0d10] text-zinc-400 transition-colors hover:bg-white/[0.06] hover:text-zinc-100"
+              data-no-drag
+            >
+              {panelTheme === 'light' ? <Moon size={14} /> : <Sun size={14} />}
+            </button>
           </div>
         </div>
 
