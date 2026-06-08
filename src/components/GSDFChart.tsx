@@ -4,13 +4,42 @@ import { AppSettings, buildGsdfTableValues } from '../types';
 
 interface GSDFChartProps {
   settings: AppSettings;
+  panelTheme?: 'dark' | 'light';
   className?: string;
 }
 
-export function GSDFChart({ settings, className = 'h-48' }: GSDFChartProps) {
+export function GSDFChart({ settings, panelTheme = 'dark', className = 'h-48' }: GSDFChartProps) {
   const [layoutReady, setLayoutReady] = useState(false);
   const containerRef = React.useRef<HTMLDivElement | null>(null);
   const [chartSize, setChartSize] = useState({ width: 0, height: 192 });
+  const isLightTheme = panelTheme === 'light';
+  const palette = isLightTheme
+    ? {
+        grid: 'rgba(15, 23, 42, 0.24)',
+        axis: '#334155',
+        axisText: '#1f2937',
+        tooltipBg: '#f8fafc',
+        tooltipText: '#0f172a',
+        tooltipBorder: 'rgba(15, 23, 42, 0.3)',
+        srgbLine: '#475569',
+        gsdfLine: '#0284c7',
+        srgbLineWidth: 1.9,
+        gsdfLineWidth: 2.6,
+        legendText: '#1f2937',
+      }
+    : {
+        grid: 'rgba(255,255,255,0.05)',
+        axis: '#52525b',
+        axisText: '#71717a',
+        tooltipBg: '#121417',
+        tooltipText: '#f8fafc',
+        tooltipBorder: 'rgba(255,255,255,0.1)',
+        srgbLine: '#334155',
+        gsdfLine: '#22d3ee',
+        srgbLineWidth: 1.5,
+        gsdfLineWidth: 2,
+        legendText: '#a1a1aa',
+      };
   const data = useMemo(() => {
     const arr = [];
     const table = buildGsdfTableValues(settings);
@@ -61,53 +90,60 @@ export function GSDFChart({ settings, className = 'h-48' }: GSDFChartProps) {
   return (
     <div ref={containerRef} className={`w-full text-xs select-none ${className}`}>
       {layoutReady && chartSize.width > 1 && chartSize.height > 1 && (
-          <LineChart width={chartSize.width} height={chartSize.height} data={data} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={true} />
-            <XAxis
-              dataKey="pixelValue"
-              type="number"
-              domain={[0, 255]}
-              tickCount={5}
-              stroke="#52525b"
-              tick={{ fill: '#71717a', fontSize: 10 }}
-              axisLine={{ stroke: 'rgba(255,255,255,0.1)' }}
-              tickLine={{ stroke: 'rgba(255,255,255,0.1)' }}
-            />
-            <YAxis
-              domain={[0, 1]}
-              tickCount={5}
-              stroke="#52525b"
-              tick={{ fill: '#71717a', fontSize: 10 }}
-              axisLine={{ stroke: 'rgba(255,255,255,0.1)' }}
-              tickLine={{ stroke: 'rgba(255,255,255,0.1)' }}
-            />
-            <Tooltip
-              contentStyle={{ backgroundColor: '#121417', color: '#f8fafc', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', fontSize: '11px', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.5)' }}
-              itemStyle={{ fontSize: '11px' }}
-              labelStyle={{ display: 'none' }}
-            />
-            <Legend iconType="circle" wrapperStyle={{ fontSize: '10px', color: '#a1a1aa', paddingTop: '10px' }} />
+        <LineChart width={chartSize.width} height={chartSize.height} data={data} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke={palette.grid} vertical={true} />
+          <XAxis
+            dataKey="pixelValue"
+            type="number"
+            domain={[0, 255]}
+            tickCount={5}
+            stroke={palette.axis}
+            tick={{ fill: palette.axisText, fontSize: 10 }}
+            axisLine={{ stroke: palette.axis }}
+            tickLine={{ stroke: palette.axis }}
+          />
+          <YAxis
+            domain={[0, 1]}
+            tickCount={5}
+            stroke={palette.axis}
+            tick={{ fill: palette.axisText, fontSize: 10 }}
+            axisLine={{ stroke: palette.axis }}
+            tickLine={{ stroke: palette.axis }}
+          />
+          <Tooltip
+            contentStyle={{
+              backgroundColor: palette.tooltipBg,
+              color: palette.tooltipText,
+              border: `1px solid ${palette.tooltipBorder}`,
+              borderRadius: '6px',
+              fontSize: '11px',
+              boxShadow: '0 10px 15px -3px rgba(0,0,0,0.5)',
+            }}
+            itemStyle={{ fontSize: '11px' }}
+            labelStyle={{ display: 'none' }}
+          />
+          <Legend iconType="circle" wrapperStyle={{ fontSize: '10px', color: palette.legendText, paddingTop: '10px' }} />
+          <Line
+            type="monotone"
+            dataKey="sRGB"
+            stroke={palette.srgbLine}
+            strokeWidth={palette.srgbLineWidth}
+            dot={false}
+            name="Standard sRGB"
+            isAnimationActive={false}
+          />
+          {settings.enabled && (
             <Line
               type="monotone"
-              dataKey="sRGB"
-              stroke="rgba(255,255,255,0.18)"
-              strokeWidth={1.5}
+              dataKey="GSDF_Simulated"
+              stroke={palette.gsdfLine}
+              strokeWidth={palette.gsdfLineWidth}
               dot={false}
-              name="Standard sRGB"
+              name="GSDF-Optimized"
               isAnimationActive={false}
             />
-            {settings.enabled && (
-              <Line
-                type="monotone"
-                dataKey="GSDF_Simulated"
-                stroke="#22d3ee"
-                strokeWidth={2}
-                dot={false}
-                name="GSDF-Optimized"
-                isAnimationActive={false}
-              />
-            )}
-          </LineChart>
+          )}
+        </LineChart>
       )}
     </div>
   );

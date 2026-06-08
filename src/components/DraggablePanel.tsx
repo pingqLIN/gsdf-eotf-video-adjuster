@@ -640,6 +640,7 @@ function InspectionModeView({
   settings,
   setSettings,
   onClose,
+  panelTheme,
   dragHandlers,
   resizeHandlers,
 }: {
@@ -647,6 +648,7 @@ function InspectionModeView({
   settings: AppSettings;
   setSettings: React.Dispatch<React.SetStateAction<AppSettings>>;
   onClose: () => void;
+  panelTheme: PanelTheme;
   dragHandlers: PointerHandlers;
   resizeHandlers: PointerHandlers;
 }) {
@@ -677,7 +679,7 @@ function InspectionModeView({
         <div className="min-h-0 flex-1 bg-[#10151b] p-4">
           <div className="h-full rounded-md border border-white/10 bg-[#080b0f] p-3">
             <React.Suspense fallback={<div className="h-full min-h-[240px]" />}>
-              <GSDFChart settings={settings} className="h-full min-h-[240px]" />
+              <GSDFChart settings={settings} panelTheme={panelTheme} className="h-full min-h-[240px]" />
             </React.Suspense>
           </div>
         </div>
@@ -984,6 +986,7 @@ export function DraggablePanel({
           mode={inspectionMode}
           settings={settings}
           setSettings={setSettings}
+          panelTheme={panelTheme}
           onClose={() => setInspectionMode(null)}
           dragHandlers={dragHandlers}
           resizeHandlers={resizeHandlers}
