@@ -93,7 +93,7 @@ Packaging is possible, but it is not the recommended default yet. Right now the 
 
 - Node.js 22 or newer is recommended.
 - npm.
-- Google Chrome is required only for `npm run smoke:ext`.
+- Chrome or Chromium is required only for `npm run smoke:ext`.
 
 No Gemini or other cloud API key is required for the current app.
 
@@ -152,6 +152,13 @@ npm run smoke:ext
 
 `smoke:ext` launches Chromium or Chrome with a temporary profile, loads the unpacked extension, toggles the panel, and writes a screenshot under `output/playwright`. It uses `CHROME_PATH` when set, otherwise it tries the newest local Playwright Chromium before falling back to the default Google Chrome path.
 
+On this Windows setup, the recommended extension smoke environment is the bundled Playwright Chromium because managed Google Chrome can reject command-line unpacked extension loading. Dot-source the helper when you want the environment variables to persist in the current PowerShell session:
+
+```powershell
+. .\scripts\useChromeExtensionEnv.ps1
+npm run smoke:ext
+```
+
 If the browser is installed somewhere else, set `CHROME_PATH` first:
 
 ```powershell
@@ -159,9 +166,9 @@ $env:CHROME_PATH = 'C:\Path\To\chrome.exe'
 npm run smoke:ext
 ```
 
-On machines where managed Google Chrome blocks command-line unpacked extension loading, point `CHROME_PATH` at a local Chromium build instead:
+On machines where managed Google Chrome blocks command-line unpacked extension loading, either leave `CHROME_PATH` unset or point it at a local Chromium build:
 
 ```powershell
-$env:CHROME_PATH = "$env:LOCALAPPDATA\ms-playwright\chromium-1217\chrome-win64\chrome.exe"
+Remove-Item Env:\CHROME_PATH -ErrorAction SilentlyContinue
 npm run smoke:ext
 ```

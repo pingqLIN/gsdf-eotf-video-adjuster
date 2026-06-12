@@ -93,7 +93,7 @@ flowchart TD
 
 - 建議使用 Node.js 22 或更新版本。
 - npm。
-- 只有執行 `npm run smoke:ext` 時需要 Google Chrome。
+- 只有執行 `npm run smoke:ext` 時需要 Chrome 或 Chromium。
 
 目前的 app 不需要 Gemini 或其他雲端 API key。
 
@@ -152,6 +152,13 @@ npm run smoke:ext
 
 `smoke:ext` 會用暫存 profile 啟動 Chromium 或 Chrome、載入 unpacked extension、切換控制面板，並把截圖寫到 `output/playwright`。它會優先使用 `CHROME_PATH`；若未設定，會先嘗試最新的本機 Playwright Chromium，再退回預設 Google Chrome 路徑。
 
+在這台 Windows 環境，建議 extension smoke 使用 bundled Playwright Chromium，因為受管理的 Google Chrome 可能會拒絕 command-line unpacked extension loading。若希望環境變數留在目前 PowerShell session，請用 dot-source 載入 helper：
+
+```powershell
+. .\scripts\useChromeExtensionEnv.ps1
+npm run smoke:ext
+```
+
 如果 browser 安裝在其他位置，請先設定 `CHROME_PATH`：
 
 ```powershell
@@ -159,9 +166,9 @@ $env:CHROME_PATH = 'C:\Path\To\chrome.exe'
 npm run smoke:ext
 ```
 
-如果受管理的 Google Chrome 擋下 command-line unpacked extension loading，可以把 `CHROME_PATH` 指到本機 Chromium build：
+如果受管理的 Google Chrome 擋下 command-line unpacked extension loading，可以不要設定 `CHROME_PATH`，或把它指到本機 Chromium build：
 
 ```powershell
-$env:CHROME_PATH = "$env:LOCALAPPDATA\ms-playwright\chromium-1217\chrome-win64\chrome.exe"
+Remove-Item Env:\CHROME_PATH -ErrorAction SilentlyContinue
 npm run smoke:ext
 ```
