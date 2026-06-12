@@ -76,6 +76,8 @@ test('control panel is split into basic and advanced tabs', () => {
   assert.match(panelSource, /gammaTarget/);
   assert.match(panelSource, /gammaCorrectionToTarget/);
   assert.match(panelSource, /gammaTargetToCorrection/);
+  assert.equal((panelSource.match(/valueVariant="label"/g) ?? []).length, 2);
+  assert.match(panelSource, /w-24 text-right font-sans text-\[11px\] font-semibold text-zinc-300/);
   assert.match(panelSource, /DEFAULT_GAMMA_TARGET/);
   assert.match(panelSource, /gsdf-lmax-range-row/);
   assert.match(panelSource, /className="gsdf-range w-full"/);

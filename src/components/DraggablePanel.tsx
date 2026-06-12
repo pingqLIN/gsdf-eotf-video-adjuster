@@ -88,6 +88,7 @@ interface SliderControlProps {
   label: string;
   title?: string;
   valueText: string;
+  valueVariant?: 'metric' | 'label';
   minLabel?: string;
   maxLabel?: string;
   min: number;
@@ -187,6 +188,7 @@ function SliderControl({
   label,
   title,
   valueText,
+  valueVariant = 'metric',
   minLabel,
   maxLabel,
   min,
@@ -196,6 +198,11 @@ function SliderControl({
   disabled = false,
   onChange,
 }: SliderControlProps) {
+  const valueTextClass =
+    valueVariant === 'label'
+      ? 'w-24 text-right font-sans text-[11px] font-semibold text-zinc-300'
+      : 'font-mono text-[16px] font-semibold tabular-nums text-zinc-100';
+
   return (
     <div className={`space-y-2.5 transition-opacity ${disabled ? 'opacity-45 pointer-events-none' : 'opacity-100'}`}>
       <div className="flex items-center justify-between gap-3">
@@ -205,7 +212,7 @@ function SliderControl({
           </span>
           <span className="truncate">{label}</span>
         </label>
-        <div className="shrink-0 font-mono text-[16px] font-semibold tabular-nums text-zinc-100">
+        <div className={`shrink-0 ${valueTextClass}`}>
           {valueText}
         </div>
       </div>
@@ -1075,6 +1082,7 @@ export function DraggablePanel({
         label="Gamma 補償"
         title="中央 0 為 γ2.2 無調整；往左補償更暗觀影環境到 γ3.0，往右補償到 γ1.0 線性。"
         valueText={`${gammaCorrection > 0 ? '+' : ''}${gammaCorrection} · γ ${settings.gammaTarget.toFixed(1)}`}
+        valueVariant="label"
         minLabel="-100"
         maxLabel="+100"
         min={GAMMA_CORRECTION_MIN}
@@ -1088,6 +1096,7 @@ export function DraggablePanel({
         label="Filter 總量"
         title="完整 GSDF table 先算出來，再用此總量混合回 gamma-adjusted baseline；0% 為 gamma-adjusted baseline，100% 為完整 GSDF。"
         valueText={`${settings.strength}%`}
+        valueVariant="label"
         minLabel="0"
         maxLabel="100"
         min={0}
