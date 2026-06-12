@@ -16,6 +16,8 @@ export function VideoBackground({ settings }: VideoBackgroundProps) {
   const redGain = Math.max(0.78, Math.min(1.22, 1 + temperatureRatio * 0.16));
   const greenGain = Math.max(0.92, Math.min(1.08, 1 + temperatureRatio * 0.035));
   const blueGain = Math.max(0.78, Math.min(1.22, 1 - temperatureRatio * 0.16));
+  const saturation = Math.max(0, Math.min(2, settings.saturation / 100));
+  const hue = Math.max(-180, Math.min(180, settings.hue));
   const sharpnessFilter = settings.sharpness < 15 ? '' : settings.sharpness < 35 ? 'url(#eotf-sharpen-1)' : settings.sharpness < 65 ? 'url(#eotf-sharpen-2)' : 'url(#eotf-sharpen-3)';
 
   return (
@@ -58,6 +60,10 @@ export function VideoBackground({ settings }: VideoBackgroundProps) {
             values={`${redGain} 0 0 0 0  0 ${greenGain} 0 0 0  0 0 ${blueGain} 0 0  0 0 0 1 0`}
           />
         </filter>
+        <filter id="eotf-color" colorInterpolationFilters="sRGB">
+          <feColorMatrix type="saturate" values={String(saturation)} />
+          <feColorMatrix type="hueRotate" values={String(hue)} />
+        </filter>
         <filter id="eotf-sharpen-1">
           <feConvolveMatrix order="3" kernelMatrix="0 -0.22 0 -0.22 1.88 -0.22 0 -0.22 0" />
         </filter>
@@ -78,7 +84,7 @@ export function VideoBackground({ settings }: VideoBackgroundProps) {
         className="w-full h-full object-cover"
         style={{
           filter: settings.enabled
-            ? `${sharpnessFilter} url(#eotf-levels) url(#${settings.colorModel === 'ycbcr' ? 'eotf-ycbcr' : 'eotf-filter'}) url(#eotf-temp)`.trim()
+            ? `${sharpnessFilter} url(#eotf-levels) url(#${settings.colorModel === 'ycbcr' ? 'eotf-ycbcr' : 'eotf-filter'}) url(#eotf-temp) url(#eotf-color)`.trim()
             : 'none',
           transition: 'filter 0.3s ease-in-out'
         }}

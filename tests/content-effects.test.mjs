@@ -149,13 +149,17 @@ test('derives a richer GSDF tone profile from luminance and image controls', () 
     blackPoint: 6,
     whitePoint: 96,
     sharpness: 55,
-    temperature: 35
+    temperature: 35,
+    saturation: 125,
+    hue: -15
   });
 
   assert.notEqual(profile.gsdfTableValues[128], Number((128 / 255).toFixed(5)), 'low target luminance should bend the GSDF table');
   assert.ok(profile.levelSlope > 1, 'black/white point compression should increase slope');
   assert.equal(profile.sharpenFilterId, 'gsdf-eotf-sharpen-2');
   assert.ok(profile.temperatureMatrix[0] > profile.temperatureMatrix[10], 'warm temperature should lift red over blue');
+  assert.equal(profile.saturationValue, 1.25);
+  assert.equal(profile.hueValue, -15);
 });
 
 test('content script can be injected repeatedly without redeclaring globals', () => {
@@ -241,18 +245,72 @@ test('content script opens the full GSDF pattern view as a movable and resizable
   assert.equal(iframe.style.width, '420px');
 });
 
+test('content script resizes the iframe for A B C panel modes', () => {
+  const context = createContentContext();
+
+  vm.runInContext(contentSource, context, { filename: 'extension/content.js' });
+  context.window.__GSDF_EOTF_CONTENT__.toggleUI();
+
+  const iframe = context.__testState.bodyChildren[0];
+  const messageListener = context.__testState.listeners.find((listener) => listener.type === 'message');
+  assert.equal(iframe.style.width, '420px');
+  assert.ok(messageListener, 'message listener should be registered');
+
+  messageListener.callback({
+    source: iframe.contentWindow,
+    data: {
+      type: 'GSDF_PANEL_MODE_CHANGED',
+      payload: { mode: 'b' }
+    }
+  });
+
+  assert.equal(iframe.style.width, '820px');
+  assert.equal(iframe.style.height, '704px');
+
+  messageListener.callback({
+    source: iframe.contentWindow,
+    data: {
+      type: 'GSDF_PANEL_MODE_CHANGED',
+      payload: { mode: 'c' }
+    }
+  });
+
+  assert.equal(iframe.style.width, '1240px');
+  assert.equal(iframe.style.height, '704px');
+
+  messageListener.callback({
+    source: iframe.contentWindow,
+    data: {
+      type: 'GSDF_PANEL_MODE_CHANGED',
+      payload: { mode: 'a' }
+    }
+  });
+
+  assert.equal(iframe.style.width, '420px');
+});
+
 test('maps target luminance on a 10 to 500 nits logarithmic slider', () => {
   const hooks = loadContentHooks();
 
   assert.equal(hooks.normalizeSettings({ lmax: 1 }).lmax, 10);
   assert.equal(hooks.normalizeSettings({ lmax: 900 }).lmax, 500);
-  assert.equal(hooks.normalizeSettings({}).blackPoint, 0);
-  assert.equal(hooks.normalizeSettings({}).whitePoint, 100);
-  assert.equal(hooks.normalizeSettings({}).sharpness, 0);
+  assert.equal(hooks.normalizeSettings({}).lmax, 100);
+  assert.equal(hooks.normalizeSettings({}).blackPoint, 5);
+  assert.equal(hooks.normalizeSettings({}).whitePoint, 92);
+  assert.equal(hooks.normalizeSettings({}).sharpness, 5);
   assert.equal(hooks.normalizeSettings({}).gammaTarget, 2.2);
+  assert.equal(hooks.normalizeSettings({}).colorModel, 'ycbcr');
+  assert.equal(hooks.normalizeSettings({}).strength, 90);
+  assert.equal(hooks.normalizeSettings({}).saturation, 100);
+  assert.equal(hooks.normalizeSettings({}).hue, 0);
+  assert.equal(hooks.normalizeSettings({ colorModel: 'rgb' }).colorModel, 'rgb');
   assert.equal(hooks.normalizeSettings({ gammaTarget: 0.5 }).gammaTarget, 1.0);
   assert.equal(hooks.normalizeSettings({ gammaTarget: 4 }).gammaTarget, 3.0);
   assert.equal(hooks.normalizeSettings({ gammaTarget: 1.2367 }).gammaTarget, 1.237);
+  assert.equal(hooks.normalizeSettings({ saturation: -20 }).saturation, 0);
+  assert.equal(hooks.normalizeSettings({ saturation: 240 }).saturation, 200);
+  assert.equal(hooks.normalizeSettings({ hue: -220 }).hue, -180);
+  assert.equal(hooks.normalizeSettings({ hue: 220 }).hue, 180);
   assert.equal(hooks.gammaCorrectionToTarget(-100), 3.0);
   assert.equal(hooks.gammaCorrectionToTarget(0), 2.2);
   assert.equal(hooks.gammaCorrectionToTarget(100), 1.0);
@@ -264,7 +322,7 @@ test('maps target luminance on a 10 to 500 nits logarithmic slider', () => {
   assert.equal(hooks.normalizeSettings({ curveMode: 'pure' }).curveMode, 'relative');
   assert.equal(hooks.normalizeSettings({ curveMode: 'unknown' }).curveMode, 'relative');
   assert.equal(hooks.normalizeSettings({ colorModel: 'ycbcr' }).colorModel, 'ycbcr');
-  assert.equal(hooks.normalizeSettings({ colorModel: 'ictcp' }).colorModel, 'rgb');
+  assert.equal(hooks.normalizeSettings({ colorModel: 'ictcp' }).colorModel, 'ycbcr');
   assert.equal(hooks.sliderValueToLuminance(0), 10);
   assert.equal(hooks.sliderValueToLuminance(1000), 500);
 
@@ -373,6 +431,7 @@ test('replaces stale GSDF filters while preserving host page filter tokens', () 
     enabled: true,
     lmax: 800,
     strength: 70,
+    colorModel: 'rgb',
     blackPoint: 2,
     whitePoint: 98,
     sharpness: 20,
@@ -389,6 +448,7 @@ test('replaces stale GSDF filters while preserving host page filter tokens', () 
   assert.doesNotMatch(filter, /saturate\(/);
   assert.equal((filter.match(/gsdf-eotf-gamma/g) ?? []).length, 1);
   assert.match(filter, /url\("#gsdf-eotf-temp"\)/);
+  assert.match(filter, /url\("#gsdf-eotf-color"\)/);
 });
 
 test('selects the YouTube watch player over muted preview videos', () => {

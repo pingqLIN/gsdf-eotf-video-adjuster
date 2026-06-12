@@ -25,6 +25,13 @@ test('control panel is split into basic and advanced tabs', () => {
   assert.match(panelSource, /setInspectionMode\('chart'\)/);
   assert.match(panelSource, /setInspectionMode\(null\)/);
   assert.match(panelSource, /PanelTabSwitch/);
+  assert.match(panelSource, /PanelLayoutModeSwitch/);
+  assert.match(panelSource, /PANEL_MODE_OPTIONS/);
+  assert.match(panelSource, /GSDF_PANEL_MODE_CHANGED/);
+  assert.match(panelSource, /panelMode === 'b'/);
+  assert.match(panelSource, /panelMode === 'c'/);
+  assert.match(panelSource, /grid-cols-\[300px_minmax\(0,1fr\)_300px\]/);
+  assert.match(panelSource, /CenterWorkspaceMode = 'pattern' \| 'chart' \| 'both'/);
   assert.match(panelSource, /role="tablist"/);
   assert.match(panelSource, /role="tab"/);
   assert.match(panelSource, /aria-selected=\{value === tab\}/);
@@ -57,8 +64,14 @@ test('control panel is split into basic and advanced tabs', () => {
   assert.match(panelSource, /DEFAULT_GAMMA_TARGET/);
   assert.match(panelSource, /色彩模型/);
   assert.match(panelSource, /YCbCr/);
+  assert.match(panelSource, /白點/);
+  assert.match(panelSource, /飽和度/);
+  assert.match(panelSource, /色調/);
+  assert.match(panelSource, /Palette/);
   assert.match(panelSource, /完整圖表/);
   assert.match(panelSource, /即時對比度分析視圖/);
+  assert.match(panelSource, /中央視圖/);
+  assert.match(panelSource, /C\+D/);
   assert.match(panelSource, /EffectSwitch/);
   assert.match(panelSource, /role="switch"/);
   assert.match(panelSource, /aria-checked=\{enabled\}/);
@@ -86,6 +99,7 @@ test('control panel is split into basic and advanced tabs', () => {
   assert.doesNotMatch(panelSource, /import \{ GSDFChart \} from '\.\/GSDFChart'/);
   assert.doesNotMatch(panelSource, /純 GSDF/);
   assert.doesNotMatch(panelSource, /曲線模式/);
+  assert.doesNotMatch(panelSource, /白位/);
   assert.doesNotMatch(panelSource, /onSaveDefault/);
   assert.doesNotMatch(panelSource, /儲存預設偏好設定/);
   assert.doesNotMatch(panelSource, /Math\.round\(\(viewport\.width - width\) \/ 2\)/);
@@ -137,6 +151,9 @@ test('standalone video preview uses the shared GSDF table model', () => {
   assert.match(videoBackgroundSource, /buildGsdfTableValues\(settings\)/);
   assert.match(videoBackgroundSource, /tableValues=\{gsdfTableValues\}/);
   assert.match(videoBackgroundSource, /eotf-ycbcr/);
+  assert.match(videoBackgroundSource, /eotf-color/);
+  assert.match(videoBackgroundSource, /hueRotate/);
+  assert.match(videoBackgroundSource, /settings\.saturation/);
   assert.match(videoBackgroundSource, /settings\.colorModel === 'ycbcr'/);
   assert.doesNotMatch(videoBackgroundSource, /type="gamma"/);
 });

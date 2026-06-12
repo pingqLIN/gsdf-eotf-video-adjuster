@@ -13,6 +13,7 @@ import {
   Maximize2,
   MonitorUp,
   Moon,
+  Palette,
   Power,
   RotateCcw,
   Settings,
@@ -45,12 +46,19 @@ const GSDFChart = React.lazy(() => import('./GSDFChart').then((module) => ({ def
 type PanelTab = 'basic' | 'advanced';
 type PanelTheme = 'dark' | 'light';
 type InspectionMode = 'pattern' | 'chart' | null;
+type PanelLayoutMode = 'a' | 'b' | 'c';
+type CenterWorkspaceMode = 'pattern' | 'chart' | 'both';
 
 const PANEL_THEME_STORAGE_KEY = 'gsdf_panel_theme';
 const INSPECTION_MIN_WIDTH = 560;
 const INSPECTION_MIN_HEIGHT = 420;
 const INSPECTION_DEFAULT_WIDTH = 960;
 const INSPECTION_DEFAULT_HEIGHT = 720;
+const PANEL_MODE_OPTIONS: Array<{ value: PanelLayoutMode; label: string; title: string }> = [
+  { value: 'a', label: 'A', title: 'A 模式：目前預設的單面板狀態' },
+  { value: 'b', label: 'B', title: 'B 模式：基礎 a 在左、進階 b 在右' },
+  { value: 'c', label: 'C', title: 'C 模式：a + 中央 c/d/c+d + b 完整展開' },
+];
 let expandedOverlayCount = 0;
 
 interface DraggablePanelProps {
@@ -246,6 +254,17 @@ function postExpandedOverlayState(open: boolean) {
   }, '*');
 }
 
+function postPanelLayoutMode(mode: PanelLayoutMode) {
+  if (!window.parent || window.parent === window) {
+    return;
+  }
+
+  window.parent.postMessage({
+    type: 'GSDF_PANEL_MODE_CHANGED',
+    payload: { mode },
+  }, '*');
+}
+
 function useExpandedOverlayViewport(open: boolean) {
   React.useEffect(() => {
     if (!open) {
@@ -320,6 +339,36 @@ function PanelTabSwitch({
           }`}
         >
           {tab === 'basic' ? '基礎' : '進階'}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function PanelLayoutModeSwitch({
+  value,
+  onChange,
+}: {
+  value: PanelLayoutMode;
+  onChange: (value: PanelLayoutMode) => void;
+}) {
+  return (
+    <div className="grid h-7 w-[86px] shrink-0 grid-cols-3 rounded-md border border-white/10 bg-[#080b0f] p-0.5" data-no-drag>
+      {PANEL_MODE_OPTIONS.map((mode) => (
+        <button
+          key={mode.value}
+          type="button"
+          title={mode.title}
+          aria-label={mode.title}
+          aria-pressed={value === mode.value}
+          onClick={() => onChange(mode.value)}
+          className={`rounded text-[10px] font-semibold transition-colors ${
+            value === mode.value
+              ? 'bg-zinc-100 text-[#111418] shadow-[0_8px_22px_rgba(0,0,0,0.3)]'
+              : 'text-zinc-500 hover:bg-white/[0.06] hover:text-zinc-100'
+          }`}
+        >
+          {mode.label}
         </button>
       ))}
     </div>
@@ -821,6 +870,8 @@ export function DraggablePanel({
   const dragStartRef = React.useRef<{ pointerId: number; x: number; y: number } | null>(null);
   const resizeStartRef = React.useRef<{ pointerId: number; x: number; y: number } | null>(null);
   const [activeTab, setActiveTab] = React.useState<PanelTab>('basic');
+  const [panelMode, setPanelMode] = React.useState<PanelLayoutMode>('a');
+  const [centerMode, setCenterMode] = React.useState<CenterWorkspaceMode>('pattern');
   const [inspectionMode, setInspectionMode] = React.useState<InspectionMode>(null);
   const [panelClosed, setPanelClosed] = React.useState(false);
   const [standaloneInspectionSize, setStandaloneInspectionSize] = React.useState({
@@ -837,6 +888,15 @@ export function DraggablePanel({
     localStorage.setItem(PANEL_THEME_STORAGE_KEY, panelTheme);
   }, [panelTheme]);
 
+  React.useEffect(() => {
+    postPanelLayoutMode(panelMode);
+  }, [panelMode]);
+
+  const selectPanelMode = (value: PanelLayoutMode) => {
+    setPanelMode(value);
+    setInspectionMode(null);
+  };
+
   const toggleEnabled = () => {
     setSettings((prev) => ({ ...prev, enabled: !prev.enabled }));
   };
@@ -849,7 +909,10 @@ export function DraggablePanel({
     setSettings((prev) => ({ ...prev, colorModel: value }));
   };
 
-  const setNumericSetting = (key: keyof Pick<AppSettings, 'gammaTarget' | 'strength' | 'blackPoint' | 'whitePoint' | 'sharpness' | 'temperature'>, value: number) => {
+  const setNumericSetting = (
+    key: keyof Pick<AppSettings, 'gammaTarget' | 'strength' | 'blackPoint' | 'whitePoint' | 'sharpness' | 'temperature' | 'saturation' | 'hue'>,
+    value: number,
+  ) => {
     setSettings((prev) => {
       const next = { ...prev, [key]: value };
       if (key === 'blackPoint' && next.whitePoint <= value + 10) {
@@ -877,6 +940,218 @@ export function DraggablePanel({
   const setGammaCorrection = (value: number) => {
     setNumericSetting('gammaTarget', gammaCorrectionToTarget(value));
   };
+
+  const renderBasicPanel = () => (
+    <div className="space-y-3">
+      <section className={`space-y-3 transition-opacity ${settings.enabled ? 'opacity-100' : 'opacity-75'}`}>
+        <div className="flex items-center justify-between gap-3">
+          <label
+            title="完整 GSDF table 會依此目標峰值亮度建立，不再把任何亮度當作中性不補償點。"
+            className="flex items-center gap-2 text-[11px] font-semibold text-zinc-300"
+          >
+            <span className="flex h-6 w-6 items-center justify-center rounded-md bg-white/[0.05] text-zinc-200">
+              <Sun size={14} />
+            </span>
+            目標螢幕亮度 (Lmax)
+          </label>
+          <button
+            onClick={resetToDefault}
+            className="rounded p-1.5 text-zinc-500 transition-colors hover:bg-white/[0.06] hover:text-zinc-100"
+            title={`重設為 ${DEFAULT_TARGET_LUMINANCE_NITS} nits、Gamma ${DEFAULT_GAMMA_TARGET.toFixed(1)}、90% filter 總量與預設影像參數。`}
+          >
+            <RotateCcw size={14} />
+          </button>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="w-8 text-right font-mono text-[10px] text-zinc-500">{LUMINANCE_MIN_NITS}</span>
+          <input
+            type="range"
+            min="0"
+            max={LUMINANCE_SLIDER_MAX}
+            step="1"
+            value={luminanceToSliderValue(settings.lmax)}
+            onChange={handleLmaxChange}
+            className="gsdf-range flex-1"
+          />
+          <span className="w-8 text-left font-mono text-[10px] text-zinc-500">{LUMINANCE_MAX_NITS}</span>
+        </div>
+      </section>
+
+      <SliderControl
+        icon={<Activity size={14} />}
+        label="Gamma 補償"
+        title="中央 0 為 γ2.2 無調整；往左補償更暗觀影環境到 γ3.0，往右補償到 γ1.0 線性。"
+        valueText={`${gammaCorrection > 0 ? '+' : ''}${gammaCorrection} · γ ${settings.gammaTarget.toFixed(1)}`}
+        minLabel="-100"
+        maxLabel="+100"
+        min={GAMMA_CORRECTION_MIN}
+        max={GAMMA_CORRECTION_MAX}
+        value={gammaCorrection}
+        onChange={setGammaCorrection}
+      />
+
+      <SliderControl
+        icon={<Gauge size={14} />}
+        label="Filter 總量"
+        title="完整 GSDF table 先算出來，再用此總量混合回 gamma-adjusted baseline；0% 為 gamma-adjusted baseline，100% 為完整 GSDF。"
+        valueText={`${settings.strength}%`}
+        minLabel="0"
+        maxLabel="100"
+        min={0}
+        max={100}
+        step={5}
+        value={settings.strength}
+        onChange={(value) => setNumericSetting('strength', value)}
+      />
+
+      <GSDFStripeTest settings={settings} onOpenFullPattern={() => setInspectionMode('pattern')} />
+    </div>
+  );
+
+  const renderAdvancedPanel = (showContrastPreview = true) => (
+    <div className="space-y-3">
+      <SegmentedControl
+        disabled={!settings.enabled}
+        icon={<BarChart3 size={14} />}
+        label="色彩模型"
+        value={settings.colorModel}
+        options={[
+          { value: 'rgb', label: 'RGB', title: '對 R/G/B 三通道套同一張 GSDF table' },
+          { value: 'ycbcr', label: 'YCbCr', title: '轉成 YCbCr 後只調整 Y 亮度，保留 Cb/Cr 色度' },
+        ]}
+        onChange={(value) => setColorModel(value)}
+      />
+
+      <div className={`grid grid-cols-2 gap-3 transition-opacity ${settings.enabled ? 'opacity-100' : 'opacity-45 pointer-events-none'}`}>
+        <SliderControl
+          icon={<SlidersHorizontal size={14} />}
+          label="黑位"
+          valueText={`${settings.blackPoint}%`}
+          min={0}
+          max={20}
+          value={settings.blackPoint}
+          onChange={(value) => setNumericSetting('blackPoint', value)}
+        />
+        <SliderControl
+          icon={<Sun size={14} />}
+          label="白點"
+          valueText={`${settings.whitePoint}%`}
+          min={80}
+          max={100}
+          value={settings.whitePoint}
+          onChange={(value) => setNumericSetting('whitePoint', value)}
+        />
+      </div>
+
+      <SliderControl
+        disabled={!settings.enabled}
+        icon={<SlidersHorizontal size={14} />}
+        label="細節銳化"
+        valueText={`${settings.sharpness}%`}
+        minLabel="0"
+        maxLabel="100"
+        min={0}
+        max={100}
+        step={5}
+        value={settings.sharpness}
+        onChange={(value) => setNumericSetting('sharpness', value)}
+      />
+
+      <SliderControl
+        disabled={!settings.enabled}
+        icon={<Thermometer size={14} />}
+        label="色溫偏移"
+        valueText={settings.temperature === 0 ? '0' : settings.temperature > 0 ? `+${settings.temperature}` : String(settings.temperature)}
+        minLabel="-50"
+        maxLabel="+50"
+        min={-50}
+        max={50}
+        step={1}
+        value={settings.temperature}
+        onChange={(value) => setNumericSetting('temperature', value)}
+      />
+
+      <div className={`grid grid-cols-2 gap-3 transition-opacity ${settings.enabled ? 'opacity-100' : 'opacity-45 pointer-events-none'}`}>
+        <SliderControl
+          icon={<Palette size={14} />}
+          label="飽和度"
+          valueText={`${settings.saturation}%`}
+          minLabel="0"
+          maxLabel="200"
+          min={0}
+          max={200}
+          step={5}
+          value={settings.saturation}
+          onChange={(value) => setNumericSetting('saturation', value)}
+        />
+        <SliderControl
+          icon={<Activity size={14} />}
+          label="色調"
+          valueText={settings.hue === 0 ? '0' : settings.hue > 0 ? `+${settings.hue}` : String(settings.hue)}
+          minLabel="-180"
+          maxLabel="+180"
+          min={-180}
+          max={180}
+          step={5}
+          value={settings.hue}
+          onChange={(value) => setNumericSetting('hue', value)}
+        />
+      </div>
+
+      {showContrastPreview && <ContrastChartPanel settings={settings} onOpenFullChart={() => setInspectionMode('chart')} />}
+    </div>
+  );
+
+  const renderCenterWorkspace = () => (
+    <section className="flex min-h-0 h-full flex-col overflow-hidden rounded-md border border-white/10 bg-[#080b0f]">
+      <div className="flex h-10 shrink-0 items-center justify-between gap-3 border-b border-white/10 px-3">
+        <label className="flex min-w-0 items-center gap-2 text-[11px] font-semibold text-zinc-300">
+          <span className="flex h-6 w-6 items-center justify-center rounded-md bg-white/[0.05] text-zinc-200">
+            <Grid3X3 size={14} />
+          </span>
+          <span className="truncate">中央視圖</span>
+        </label>
+        <div className="grid h-7 w-[132px] shrink-0 grid-cols-3 rounded-md border border-white/10 bg-[#090c10] p-0.5" data-no-drag>
+          {[
+            { value: 'pattern', label: 'C', title: 'GSDF-QC 全域測試圖' },
+            { value: 'chart', label: 'D', title: '即時對比度分析視圖' },
+            { value: 'both', label: 'C+D', title: '同時顯示 GSDF-QC 與即時對比度分析視圖' },
+          ].map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              title={option.title}
+              aria-pressed={centerMode === option.value}
+              onClick={() => setCenterMode(option.value as CenterWorkspaceMode)}
+              className={`rounded text-[10px] font-semibold transition-colors ${
+                centerMode === option.value
+                  ? 'bg-zinc-100 text-[#111418]'
+                  : 'text-zinc-500 hover:bg-white/[0.06] hover:text-zinc-100'
+              }`}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className={`min-h-0 flex-1 ${centerMode === 'both' ? 'grid grid-rows-2' : 'block'}`}>
+        {(centerMode === 'pattern' || centerMode === 'both') && (
+          <div className="h-full min-h-0 overflow-hidden bg-black p-2">
+            <FullDiagnosticPattern settings={settings} />
+          </div>
+        )}
+        {(centerMode === 'chart' || centerMode === 'both') && (
+          <div className="h-full min-h-0 bg-[#10151b] p-3">
+            <div className="h-full rounded-md border border-white/10 bg-[#080b0f] p-3">
+              <React.Suspense fallback={<div className="h-full min-h-[180px]" />}>
+                <GSDFChart settings={settings} panelTheme={panelTheme} className="h-full min-h-[180px]" />
+              </React.Suspense>
+            </div>
+          </div>
+        )}
+      </div>
+    </section>
+  );
 
   const handleHeaderPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (isInteractiveDragTarget(e.target)) {
@@ -959,9 +1234,17 @@ export function DraggablePanel({
     onPointerUp: handleResizePointerUp,
     onPointerCancel: handleResizePointerUp,
   };
+  const panelWidthClass =
+    panelMode === 'c'
+      ? 'w-[1240px]'
+      : panelMode === 'b'
+        ? 'w-[820px]'
+        : 'w-[420px]';
   const panelSizeClass = inspectionMode
     ? `${extensionMode ? 'relative h-screen w-screen max-h-screen' : 'absolute h-[720px] max-h-[calc(100vh-16px)] w-[960px] max-w-[calc(100vw-16px)]'}`
-    : `${extensionMode ? 'relative' : 'absolute'} h-[720px] max-h-[calc(100vh-16px)] w-[420px]`;
+    : extensionMode
+      ? 'relative h-screen w-screen'
+      : `absolute h-[720px] max-h-[calc(100vh-16px)] ${panelWidthClass} max-w-[calc(100vw-16px)]`;
   const panelStyle = inspectionMode && !extensionMode
     ? { width: standaloneInspectionSize.width, height: standaloneInspectionSize.height }
     : undefined;
@@ -1005,7 +1288,10 @@ export function DraggablePanel({
             <Settings size={16} />
           </div>
           <div className="min-w-0">
-            <div className="truncate text-[14px] font-semibold text-white">GSDF EOTF Adjuster</div>
+            <div className="flex min-w-0 items-center gap-2">
+              <div className="truncate text-[14px] font-semibold text-white">GSDF EOTF Adjuster</div>
+              <PanelLayoutModeSwitch value={panelMode} onChange={selectPanelMode} />
+            </div>
             <div className="font-mono text-[9px] uppercase tracking-[0.16em] text-zinc-500">perceptual video filter</div>
           </div>
         </div>
@@ -1029,7 +1315,7 @@ export function DraggablePanel({
               <EffectSwitch enabled={settings.enabled} onToggle={toggleEnabled} label="啟動 EOTF 修正" />
               <span className="truncate text-[11px] font-semibold text-zinc-300">{settings.enabled ? '效果開啟' : '效果關閉'}</span>
             </div>
-            <PanelTabSwitch value={activeTab} onChange={setActiveTab} />
+            {panelMode === 'a' && <PanelTabSwitch value={activeTab} onChange={setActiveTab} />}
             <button
               type="button"
               title={panelTheme === 'light' ? '切換到暗色面板' : '切換到明亮面板'}
@@ -1046,166 +1332,31 @@ export function DraggablePanel({
         <div className="flex-1 space-y-3 overflow-hidden p-4">
           <StatusDeck settings={settings} />
 
-          <div hidden={activeTab !== 'basic'} aria-hidden={activeTab !== 'basic'} className="space-y-3">
-              <section className={`space-y-3 transition-opacity ${settings.enabled ? 'opacity-100' : 'opacity-75'}`}>
-                <div className="flex items-center justify-between gap-3">
-                  <label
-                    title="完整 GSDF table 會依此目標峰值亮度建立，不再把任何亮度當作中性不補償點。"
-                    className="flex items-center gap-2 text-[11px] font-semibold text-zinc-300"
-                  >
-                    <span className="flex h-6 w-6 items-center justify-center rounded-md bg-white/[0.05] text-zinc-200">
-                      <Sun size={14} />
-                    </span>
-                    目標螢幕亮度 (Lmax)
-                  </label>
-                  <button
-                    onClick={resetToDefault}
-                    className="rounded p-1.5 text-zinc-500 transition-colors hover:bg-white/[0.06] hover:text-zinc-100"
-                    title={`重設為 ${DEFAULT_TARGET_LUMINANCE_NITS} nits、Gamma ${DEFAULT_GAMMA_TARGET.toFixed(1)}、80% filter 總量與預設影像參數。`}
-                  >
-                    <RotateCcw size={14} />
-                  </button>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="w-8 text-right font-mono text-[10px] text-zinc-500">{LUMINANCE_MIN_NITS}</span>
-                  <input
-                    type="range"
-                    min="0"
-                    max={LUMINANCE_SLIDER_MAX}
-                    step="1"
-                    value={luminanceToSliderValue(settings.lmax)}
-                    onChange={handleLmaxChange}
-                    className="gsdf-range flex-1"
-                  />
-                  <span className="w-8 text-left font-mono text-[10px] text-zinc-500">{LUMINANCE_MAX_NITS}</span>
-                </div>
-              </section>
-
-              <SliderControl
-                icon={<Activity size={14} />}
-                label="Gamma 補償"
-                title="中央 0 為 γ2.2 無調整；往左補償更暗觀影環境到 γ3.0，往右補償到 γ1.0 線性。"
-                valueText={`${gammaCorrection > 0 ? '+' : ''}${gammaCorrection} · γ ${settings.gammaTarget.toFixed(1)}`}
-                minLabel="-100"
-                maxLabel="+100"
-                min={GAMMA_CORRECTION_MIN}
-                max={GAMMA_CORRECTION_MAX}
-                value={gammaCorrection}
-                onChange={setGammaCorrection}
-              />
-
-              <SliderControl
-                icon={<Gauge size={14} />}
-                label="Filter 總量"
-                title="完整 GSDF table 先算出來，再用此總量混合回 gamma-adjusted baseline；0% 為 gamma-adjusted baseline，100% 為完整 GSDF。"
-                valueText={`${settings.strength}%`}
-                minLabel="0"
-                maxLabel="100"
-                min={0}
-                max={100}
-                step={5}
-                value={settings.strength}
-                onChange={(value) => setNumericSetting('strength', value)}
-              />
-
-            <GSDFStripeTest settings={settings} onOpenFullPattern={() => setInspectionMode('pattern')} />
-          </div>
-
-          <div hidden={activeTab !== 'advanced'} aria-hidden={activeTab !== 'advanced'} className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <SegmentedControl
-                  disabled={!settings.enabled}
-                  icon={<BarChart3 size={14} />}
-                  label="色彩模型"
-                  value={settings.colorModel}
-                  options={[
-                    { value: 'rgb', label: 'RGB', title: '對 R/G/B 三通道套同一張 GSDF table' },
-                    { value: 'ycbcr', label: 'YCbCr', title: '轉成 YCbCr 後只調整 Y 亮度，保留 Cb/Cr 色度' },
-                  ]}
-                  onChange={(value) => setColorModel(value)}
-                />
-
-                <SliderControl
-                  disabled={!settings.enabled}
-                  icon={<Activity size={14} />}
-                  label="Gamma 補償"
-                  title="中央 0 為 γ2.2 無調整；往左補償更暗觀影環境到 γ3.0，往右補償到 γ1.0 線性。"
-                  valueText={`${gammaCorrection > 0 ? '+' : ''}${gammaCorrection} · γ ${settings.gammaTarget.toFixed(1)}`}
-                  minLabel="-100"
-                  maxLabel="+100"
-                  min={GAMMA_CORRECTION_MIN}
-                  max={GAMMA_CORRECTION_MAX}
-                  value={gammaCorrection}
-                  onChange={setGammaCorrection}
-                />
-
-                <SliderControl
-                  disabled={!settings.enabled}
-                  icon={<Gauge size={14} />}
-                  label="Filter 總量"
-                  title="完整 GSDF table 先算出來，再用此總量混合回 gamma-adjusted baseline；0% 為 gamma-adjusted baseline，100% 為完整 GSDF。"
-                  valueText={`${settings.strength}%`}
-                  minLabel="0"
-                  maxLabel="100"
-                  min={0}
-                  max={100}
-                  step={5}
-                  value={settings.strength}
-                  onChange={(value) => setNumericSetting('strength', value)}
-                />
-
-                <div className={`grid grid-cols-2 gap-3 transition-opacity ${settings.enabled ? 'opacity-100' : 'opacity-45 pointer-events-none'}`}>
-                  <SliderControl
-                    icon={<SlidersHorizontal size={14} />}
-                    label="黑位"
-                    valueText={`${settings.blackPoint}%`}
-                    min={0}
-                    max={20}
-                    value={settings.blackPoint}
-                    onChange={(value) => setNumericSetting('blackPoint', value)}
-                  />
-                  <SliderControl
-                    icon={<Sun size={14} />}
-                    label="白位"
-                    valueText={`${settings.whitePoint}%`}
-                    min={80}
-                    max={100}
-                    value={settings.whitePoint}
-                    onChange={(value) => setNumericSetting('whitePoint', value)}
-                  />
-                </div>
-
-                <SliderControl
-                  disabled={!settings.enabled}
-                  icon={<Activity size={14} />}
-                  label="細節銳化"
-                  valueText={`${settings.sharpness}%`}
-                  minLabel="0"
-                  maxLabel="100"
-                  min={0}
-                  max={100}
-                  step={5}
-                  value={settings.sharpness}
-                  onChange={(value) => setNumericSetting('sharpness', value)}
-                />
-
-                <SliderControl
-                  disabled={!settings.enabled}
-                  icon={<Thermometer size={14} />}
-                  label="色溫偏移"
-                  valueText={settings.temperature === 0 ? '0' : settings.temperature > 0 ? `+${settings.temperature}` : String(settings.temperature)}
-                  minLabel="-50"
-                  maxLabel="+50"
-                  min={-50}
-                  max={50}
-                  step={1}
-                  value={settings.temperature}
-                  onChange={(value) => setNumericSetting('temperature', value)}
-                />
+          {panelMode === 'a' && (
+            <>
+              <div hidden={activeTab !== 'basic'} aria-hidden={activeTab !== 'basic'}>
+                {renderBasicPanel()}
               </div>
+              <div hidden={activeTab !== 'advanced'} aria-hidden={activeTab !== 'advanced'}>
+                {renderAdvancedPanel(true)}
+              </div>
+            </>
+          )}
 
-            <ContrastChartPanel settings={settings} onOpenFullChart={() => setInspectionMode('chart')} />
-          </div>
+          {panelMode === 'b' && (
+            <div className="grid min-h-0 flex-1 grid-cols-2 gap-4 overflow-hidden">
+              <div className="min-h-0 overflow-hidden">{renderBasicPanel()}</div>
+              <div className="min-h-0 overflow-hidden">{renderAdvancedPanel(false)}</div>
+            </div>
+          )}
+
+          {panelMode === 'c' && (
+            <div className="grid min-h-0 flex-1 grid-cols-[300px_minmax(0,1fr)_300px] gap-4 overflow-hidden">
+              <div className="min-h-0 overflow-hidden">{renderBasicPanel()}</div>
+              <div className="min-h-0 overflow-hidden">{renderCenterWorkspace()}</div>
+              <div className="min-h-0 overflow-hidden">{renderAdvancedPanel(false)}</div>
+            </div>
+          )}
         </div>
       </div>
         </>

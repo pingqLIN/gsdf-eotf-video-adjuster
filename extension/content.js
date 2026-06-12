@@ -8,15 +8,17 @@ globalThis.__GSDF_EOTF_CONTENT__ = { status: 'loading' };
 
 const DEFAULT_SETTINGS = {
   enabled: false,
-  lmax: 350,
+  lmax: 100,
   curveMode: 'relative',
   gammaTarget: 2.2,
-  colorModel: 'rgb',
-  strength: 80,
-  blackPoint: 0,
-  whitePoint: 100,
-  sharpness: 0,
-  temperature: 0
+  colorModel: 'ycbcr',
+  strength: 90,
+  blackPoint: 5,
+  whitePoint: 92,
+  sharpness: 5,
+  temperature: 0,
+  saturation: 100,
+  hue: 0
 };
 
 const LUMINANCE_MIN_NITS = 10;
@@ -50,16 +52,19 @@ const FILTER_IDS = {
   ycbcr: 'gsdf-eotf-ycbcr',
   levels: 'gsdf-eotf-levels',
   temperature: 'gsdf-eotf-temp',
+  color: 'gsdf-eotf-color',
   sharpen1: 'gsdf-eotf-sharpen-1',
   sharpen2: 'gsdf-eotf-sharpen-2',
   sharpen3: 'gsdf-eotf-sharpen-3'
 };
 const MANAGED_FILTER_RE =
-  /\s*url\((["']?)#gsdf-eotf-(?:gamma|ycbcr|levels|temp|sharpen-[123])\1\)\s*/g;
+  /\s*url\((["']?)#gsdf-eotf-(?:gamma|ycbcr|levels|temp|color|sharpen-[123])\1\)\s*/g;
 const MIN_VISIBLE_AREA = 8000;
 const PANEL_VIEWPORT_MARGIN = 16;
 const PANEL_DEFAULT_WIDTH = 420;
 const PANEL_DEFAULT_MAX_HEIGHT = 720;
+const PANEL_SPLIT_DEFAULT_WIDTH = 820;
+const PANEL_WORKSPACE_DEFAULT_WIDTH = 1240;
 const PANEL_PATTERN_MARGIN = 8;
 const PANEL_PATTERN_DEFAULT_WIDTH = 1040;
 const PANEL_PATTERN_DEFAULT_HEIGHT = 640;
@@ -72,6 +77,7 @@ let currentSettings = { ...DEFAULT_SETTINGS };
 let panelPosition = { x: 24, y: 24 };
 let panelPatternFrame = null;
 let panelExpandedForPattern = false;
+let panelLayoutMode = 'a';
 let scanTimer = null;
 let mutationObserver = null;
 const managedVideos = new Set();
@@ -95,7 +101,7 @@ function normalizeCurveMode(_value) {
 }
 
 function normalizeColorModel(value) {
-  return value === 'ycbcr' ? 'ycbcr' : DEFAULT_SETTINGS.colorModel;
+  return value === 'rgb' || value === 'ycbcr' ? value : DEFAULT_SETTINGS.colorModel;
 }
 
 function normalizeGammaTarget(value) {
@@ -238,7 +244,9 @@ function normalizeSettings(settings = {}) {
     blackPoint: clampNumber(settings.blackPoint, 0, 20, DEFAULT_SETTINGS.blackPoint),
     whitePoint: clampNumber(settings.whitePoint, 80, 100, DEFAULT_SETTINGS.whitePoint),
     sharpness: clampNumber(settings.sharpness, 0, 100, DEFAULT_SETTINGS.sharpness),
-    temperature: clampNumber(settings.temperature, -50, 50, DEFAULT_SETTINGS.temperature)
+    temperature: clampNumber(settings.temperature, -50, 50, DEFAULT_SETTINGS.temperature),
+    saturation: clampNumber(settings.saturation, 0, 200, DEFAULT_SETTINGS.saturation),
+    hue: clampNumber(settings.hue, -180, 180, DEFAULT_SETTINGS.hue)
   };
 
   if (normalized.whitePoint <= normalized.blackPoint + 10) {
@@ -267,6 +275,8 @@ function deriveToneProfile(settings = currentSettings) {
   const greenGain = clampNumber(1 + temperatureRatio * 0.035, 0.92, 1.08, 1);
   const blueGain = clampNumber(1 - temperatureRatio * 0.16, 0.78, 1.22, 1);
   const gsdfTableValues = buildGsdfTableValues(normalized);
+  const saturationValue = clampNumber(normalized.saturation / 100, 0, 2, 1);
+  const hueValue = clampNumber(normalized.hue, -180, 180, 0);
 
   return {
     ...normalized,
@@ -278,6 +288,8 @@ function deriveToneProfile(settings = currentSettings) {
       0, 0, blueGain, 0, 0,
       0, 0, 0, 1, 0
     ],
+    saturationValue,
+    hueValue,
     sharpenFilterId: getSharpnessFilterId(normalized.sharpness),
     gsdfTableValues
   };
@@ -303,7 +315,8 @@ function buildManagedFilterChain(existingFilter, profile = deriveToneProfile()) 
     profile.sharpenFilterId ? formatFilterUrl(profile.sharpenFilterId) : '',
     formatFilterUrl(FILTER_IDS.levels),
     formatFilterUrl(transferFilterId),
-    formatFilterUrl(FILTER_IDS.temperature)
+    formatFilterUrl(FILTER_IDS.temperature),
+    formatFilterUrl(FILTER_IDS.color)
   ].filter(Boolean);
 
   return [hostFilter, ...managedFilters].filter(Boolean).join(' ');
@@ -363,6 +376,10 @@ function injectSVGFilter() {
       <filter id="${FILTER_IDS.temperature}" color-interpolation-filters="sRGB">
         <feColorMatrix id="${FILTER_IDS.temperature}-matrix" type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 1 0"></feColorMatrix>
       </filter>
+      <filter id="${FILTER_IDS.color}" color-interpolation-filters="sRGB">
+        <feColorMatrix id="${FILTER_IDS.color}-saturation" type="saturate" values="1"></feColorMatrix>
+        <feColorMatrix id="${FILTER_IDS.color}-hue" type="hueRotate" values="0"></feColorMatrix>
+      </filter>
       <filter id="${FILTER_IDS.sharpen1}">
         <feConvolveMatrix order="3" kernelMatrix="0 -0.22 0 -0.22 1.88 -0.22 0 -0.22 0"></feConvolveMatrix>
       </filter>
@@ -411,6 +428,16 @@ function updateFilterDefinitions(profile) {
       'values',
       profile.temperatureMatrix.map((value) => Number(value).toFixed(4)).join(' ')
     );
+  }
+
+  const saturationMatrix = document.getElementById(`${FILTER_IDS.color}-saturation`);
+  if (saturationMatrix) {
+    saturationMatrix.setAttribute('values', profile.saturationValue.toFixed(3));
+  }
+
+  const hueMatrix = document.getElementById(`${FILTER_IDS.color}-hue`);
+  if (hueMatrix) {
+    hueMatrix.setAttribute('values', profile.hueValue.toFixed(1));
   }
 }
 
@@ -730,6 +757,20 @@ function ensurePanelPatternFrame() {
   return panelPatternFrame;
 }
 
+function normalizePanelLayoutMode(value) {
+  return value === 'b' || value === 'c' ? value : 'a';
+}
+
+function getPanelLayoutTargetWidth() {
+  if (panelLayoutMode === 'c') {
+    return PANEL_WORKSPACE_DEFAULT_WIDTH;
+  }
+  if (panelLayoutMode === 'b') {
+    return PANEL_SPLIT_DEFAULT_WIDTH;
+  }
+  return PANEL_DEFAULT_WIDTH;
+}
+
 function getPanelFrameSize(expanded = panelExpandedForPattern) {
   const { viewportWidth, viewportHeight } = getViewportFrame();
   if (expanded) {
@@ -737,8 +778,9 @@ function getPanelFrameSize(expanded = panelExpandedForPattern) {
     return { width: patternFrame.width, height: patternFrame.height };
   }
 
+  const targetWidth = getPanelLayoutTargetWidth();
   const width = Math.min(
-    PANEL_DEFAULT_WIDTH,
+    targetWidth,
     Math.max(PANEL_DEFAULT_WIDTH, viewportWidth - PANEL_VIEWPORT_MARGIN)
   );
   const height = Math.min(
@@ -886,6 +928,15 @@ window.addEventListener('message', (event) => {
     currentSettings = normalizeSettings(event.data.payload);
     startVideoObservers();
     updateVideoFilters();
+    return;
+  }
+
+  if (event.data && event.data.type === 'GSDF_PANEL_MODE_CHANGED') {
+    panelLayoutMode = normalizePanelLayoutMode(event.data.payload?.mode);
+    if (panelLayoutMode !== 'a') {
+      panelExpandedForPattern = false;
+    }
+    applyPanelFrameLayout();
     return;
   }
 

@@ -9,6 +9,8 @@ export interface AppSettings {
   whitePoint: number;
   sharpness: number;
   temperature: number;
+  saturation: number;
+  hue: number;
 }
 
 export type GsdfCurveMode = 'relative';
@@ -16,7 +18,7 @@ export type GsdfColorModel = 'rgb' | 'ycbcr';
 
 export const LUMINANCE_MIN_NITS = 10;
 export const LUMINANCE_MAX_NITS = 500;
-export const DEFAULT_TARGET_LUMINANCE_NITS = 350;
+export const DEFAULT_TARGET_LUMINANCE_NITS = 100;
 export const LUMINANCE_SLIDER_MAX = 1000;
 export const GAMMA_TARGET_MIN = 1.0;
 export const GAMMA_TARGET_MAX = 3.0;
@@ -45,12 +47,14 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   lmax: DEFAULT_TARGET_LUMINANCE_NITS,
   curveMode: 'relative',
   gammaTarget: DEFAULT_GAMMA_TARGET,
-  colorModel: 'rgb',
-  strength: 80,
-  blackPoint: 0,
-  whitePoint: 100,
-  sharpness: 0,
+  colorModel: 'ycbcr',
+  strength: 90,
+  blackPoint: 5,
+  whitePoint: 92,
+  sharpness: 5,
   temperature: 0,
+  saturation: 100,
+  hue: 0,
 };
 
 function clampNumber(value: unknown, min: number, max: number, fallback: number): number {
@@ -71,7 +75,7 @@ function normalizeCurveMode(_value: unknown): GsdfCurveMode {
 }
 
 function normalizeColorModel(value: unknown): GsdfColorModel {
-  return value === 'ycbcr' ? 'ycbcr' : DEFAULT_APP_SETTINGS.colorModel;
+  return value === 'rgb' || value === 'ycbcr' ? value : DEFAULT_APP_SETTINGS.colorModel;
 }
 
 function normalizeGammaTarget(value: unknown): number {
@@ -285,6 +289,8 @@ export function normalizeAppSettings(value: Partial<AppSettings> | null | undefi
     whitePoint: clampNumber(settings.whitePoint, 80, 100, DEFAULT_APP_SETTINGS.whitePoint),
     sharpness: clampNumber(settings.sharpness, 0, 100, DEFAULT_APP_SETTINGS.sharpness),
     temperature: clampNumber(settings.temperature, -50, 50, DEFAULT_APP_SETTINGS.temperature),
+    saturation: clampNumber(settings.saturation, 0, 200, DEFAULT_APP_SETTINGS.saturation),
+    hue: clampNumber(settings.hue, -180, 180, DEFAULT_APP_SETTINGS.hue),
   };
 
   if (normalized.whitePoint <= normalized.blackPoint + 10) {
