@@ -1,14 +1,16 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
+import type { Messages } from '../i18n';
 import { AppSettings, buildGsdfTableValues } from '../types';
 
 interface GSDFChartProps {
   settings: AppSettings;
   panelTheme?: 'dark' | 'light';
+  messages: Messages;
   className?: string;
 }
 
-export function GSDFChart({ settings, panelTheme = 'dark', className = 'h-48' }: GSDFChartProps) {
+export function GSDFChart({ settings, panelTheme = 'dark', messages, className = 'h-48' }: GSDFChartProps) {
   const [layoutReady, setLayoutReady] = useState(false);
   const containerRef = React.useRef<HTMLDivElement | null>(null);
   const [chartSize, setChartSize] = useState({ width: 0, height: 192 });
@@ -129,7 +131,7 @@ export function GSDFChart({ settings, panelTheme = 'dark', className = 'h-48' }:
             stroke={palette.srgbLine}
             strokeWidth={palette.srgbLineWidth}
             dot={false}
-            name="Standard sRGB"
+            name={messages.chart.standardSrgb}
             isAnimationActive={false}
           />
           {settings.enabled && (
@@ -139,7 +141,7 @@ export function GSDFChart({ settings, panelTheme = 'dark', className = 'h-48' }:
               stroke={palette.gsdfLine}
               strokeWidth={palette.gsdfLineWidth}
               dot={false}
-              name="GSDF-Optimized"
+              name={messages.chart.gsdfOptimized}
               isAnimationActive={false}
             />
           )}

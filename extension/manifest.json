@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "GSDF Visual Corrector",
+  "name": "GSDF EOTF Video Adjuster",
   "version": "1.0",
-  "description": "Adjust video EOTF to match GSDF display standards based on luminance.",
+  "description": "Viewing aid that applies GSDF-inspired luminance remapping to browser video.",
   "permissions": ["activeTab", "scripting"],
   "host_permissions": ["<all_urls>"],
   "action": {

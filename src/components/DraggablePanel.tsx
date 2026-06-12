@@ -10,6 +10,7 @@ import {
   Eye,
   Gauge,
   Grid3X3,
+  Languages,
   Maximize2,
   MonitorUp,
   Moon,
@@ -26,8 +27,6 @@ import {
   AppSettings,
   buildGsdfCalibrationStripeRows,
   buildGsdfStripeRows,
-  DEFAULT_GAMMA_TARGET,
-  DEFAULT_TARGET_LUMINANCE_NITS,
   DEFAULT_APP_SETTINGS,
   formatLuminance,
   gammaCorrectionToTarget,
@@ -40,6 +39,7 @@ import {
   luminanceToSliderValue,
   sliderValueToLuminance,
 } from '../types';
+import { localeNames, supportedLocales, type Messages, type SupportedLocale } from '../i18n';
 
 const GSDFChart = React.lazy(() => import('./GSDFChart').then((module) => ({ default: module.GSDFChart })));
 
@@ -67,16 +67,14 @@ const PANEL_MODE_SIZE: Record<PanelLayoutMode, { width: number; minWidth: number
   b: { width: 820, minWidth: 680 },
   c: { width: 1240, minWidth: 960 },
 };
-const PANEL_MODE_OPTIONS: Array<{ value: PanelLayoutMode; label: string; title: string }> = [
-  { value: 'a', label: 'A', title: 'A 模式：目前預設的單面板狀態' },
-  { value: 'b', label: 'B', title: 'B 模式：基礎 a 在左、進階 b 在右' },
-  { value: 'c', label: 'C', title: 'C 模式：a + 中央 c/d/c+d + b 完整展開' },
-];
 let expandedOverlayCount = 0;
 
 interface DraggablePanelProps {
   settings: AppSettings;
   setSettings: React.Dispatch<React.SetStateAction<AppSettings>>;
+  locale: SupportedLocale;
+  messages: Messages;
+  onLocaleChange: (locale: SupportedLocale) => void;
   extensionMode?: boolean;
   onExtensionDrag?: (deltaX: number, deltaY: number) => void;
   onExtensionResize?: (deltaWidth: number, deltaHeight: number) => void;
@@ -119,6 +117,14 @@ interface ColumnResizeStart {
   pointerId: number;
   x: number;
   width: number;
+}
+
+function getPanelModeOptions(messages: Messages): Array<{ value: PanelLayoutMode; label: string; title: string }> {
+  return [
+    { value: 'a', label: 'A', title: messages.panel.layoutModeA },
+    { value: 'b', label: 'B', title: messages.panel.layoutModeB },
+    { value: 'c', label: 'C', title: messages.panel.layoutModeC },
+  ];
 }
 
 function ModePill({
@@ -339,7 +345,7 @@ function useExpandedOverlayViewport(open: boolean) {
 function EffectSwitch({
   enabled,
   onToggle,
-  label = '效果應用',
+  label = 'Effect application',
 }: {
   enabled: boolean;
   onToggle: () => void;
@@ -368,15 +374,17 @@ function PanelTabSwitch({
   value,
   onChange,
   panelTheme,
+  messages,
 }: {
   value: PanelTab;
   onChange: (value: PanelTab) => void;
   panelTheme: PanelTheme;
+  messages: Messages;
 }) {
   return (
     <div
       role="tablist"
-      aria-label="面板模式"
+      aria-label={messages.panel.panelMode}
       className="gsdf-tab-switch relative grid h-8 w-28 shrink-0 grid-cols-2 rounded-md border border-white/10 bg-[#080b0f] p-1"
       data-no-drag
     >
@@ -391,14 +399,14 @@ function PanelTabSwitch({
             type="button"
             role="tab"
             aria-selected={selected}
-            title={tab === 'basic' ? '切換到基礎控制' : '切換到進階控制'}
+            title={tab === 'basic' ? messages.panel.switchToBasic : messages.panel.switchToAdvanced}
             onClick={() => onChange(tab)}
             style={selected ? { color: panelTheme === 'light' ? '#f8fafc' : '#111418' } : undefined}
             className={`relative z-10 rounded text-[11px] font-semibold transition-colors ${
               selected ? '' : 'text-zinc-400 hover:text-zinc-100'
             }`}
           >
-            {tab === 'basic' ? '基礎' : '進階'}
+            {tab === 'basic' ? messages.panel.basicTab : messages.panel.advancedTab}
           </button>
         );
       })}
@@ -409,13 +417,16 @@ function PanelTabSwitch({
 function PanelLayoutModeSwitch({
   value,
   onChange,
+  messages,
 }: {
   value: PanelLayoutMode;
   onChange: (value: PanelLayoutMode) => void;
+  messages: Messages;
 }) {
+  const panelModeOptions = getPanelModeOptions(messages);
   return (
     <div className="grid h-8 w-[96px] shrink-0 grid-cols-3 rounded-md border border-white/10 bg-[#080b0f] p-0.5" data-no-drag>
-      {PANEL_MODE_OPTIONS.map((mode) => (
+      {panelModeOptions.map((mode) => (
         <button
           key={mode.value}
           type="button"
@@ -440,12 +451,14 @@ function StatusDeck({
   settings,
   onLmaxChange,
   onResetDefault,
+  messages,
 }: {
   settings: AppSettings;
   onLmaxChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
   onResetDefault: () => void;
+  messages: Messages;
 }) {
-  const statusLabel = settings.enabled ? 'ACTIVE' : 'STANDBY';
+  const statusLabel = settings.enabled ? messages.panel.active : messages.panel.standby;
 
   return (
     <section className="gsdf-status-deck space-y-3 rounded-md border border-white/10 bg-[#0a0e13] p-3 shadow-inner">
@@ -458,17 +471,17 @@ function StatusDeck({
           <div className="gsdf-status-inline-metrics flex min-w-0 flex-wrap items-center justify-start gap-1.5">
             <ModePill
               tone={settings.enabled ? 'active' : 'neutral'}
-              title="完整 GSDF transfer table 先依目標亮度計算，再由 filter 總量混合回 gamma-adjusted baseline。"
+              title={messages.panel.gsdfMixTitle}
             >
               <MonitorUp size={13} />
               GSDF
             </ModePill>
-            <ModePill title="Gamma 補償會先於 GSDF table 套用；0 為 γ2.2，左側到 γ3.0，右側到 γ1.0。">
+            <ModePill title={messages.panel.gammaPillTitle}>
               <Activity size={13} />
               <span className="gsdf-pill-label">γ</span>
               <span className="gsdf-pill-metric">{settings.gammaTarget.toFixed(1)}</span>
             </ModePill>
-            <ModePill title="Filter 總量控制完整 GSDF 結果的混入比例；0% 為 gamma-adjusted baseline，100% 為完整 GSDF table。">
+            <ModePill title={messages.panel.filterPillTitle}>
               <Gauge size={13} />
               <span className="gsdf-pill-label">mix</span>
               <span className="gsdf-pill-metric">{settings.strength}%</span>
@@ -482,20 +495,20 @@ function StatusDeck({
         <button
           onClick={onResetDefault}
           className="rounded p-1.5 text-zinc-500 transition-colors hover:bg-white/[0.06] hover:text-zinc-100"
-          title={`重設為 ${DEFAULT_TARGET_LUMINANCE_NITS} nits、Gamma ${DEFAULT_GAMMA_TARGET.toFixed(1)}、90% filter 總量與預設影像參數。`}
+          title={messages.panel.resetTitle}
           data-no-drag
         >
           <RotateCcw size={14} />
         </button>
       </div>
       <div
-        title="完整 GSDF table 會依此目標峰值亮度建立，不再把任何亮度當作中性不補償點。"
+        title={messages.panel.lmaxTitle}
         className="flex flex-wrap items-baseline gap-x-2 gap-y-1"
       >
         <span className="font-mono text-[24px] leading-none text-zinc-50 tabular-nums">{formatLuminance(settings.lmax)}</span>
         <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-zinc-500">nits</span>
-        <span className="text-[11px] font-semibold text-zinc-300">目標螢幕亮度 (Lmax)</span>
-        <span className="text-[9px] font-semibold text-zinc-500">目標值非實際測</span>
+        <span className="text-[11px] font-semibold text-zinc-300">{messages.panel.lmaxLabel}</span>
+        <span className="text-[9px] font-semibold text-zinc-500">{messages.panel.lmaxNote}</span>
       </div>
       <div className="gsdf-lmax-range-row space-y-1.5">
         <input
@@ -518,9 +531,11 @@ function StatusDeck({
 
 function FullDiagnosticPattern({
   settings,
+  messages,
   zoom = 1,
 }: {
   settings: AppSettings;
+  messages: Messages;
   zoom?: number;
 }) {
   const canvasRef = React.useRef<HTMLCanvasElement | null>(null);
@@ -556,7 +571,7 @@ function FullDiagnosticPattern({
       context.save();
       context.translate(offsetX, offsetY);
       context.scale(scale, scale);
-      drawDiagnosticPattern(context, settings);
+      drawDiagnosticPattern(context, settings, messages);
       context.restore();
     };
 
@@ -565,12 +580,12 @@ function FullDiagnosticPattern({
     draw();
 
     return () => observer.disconnect();
-  }, [settings, zoom]);
+  }, [messages, settings, zoom]);
 
-  return <canvas ref={canvasRef} className="h-full w-full bg-black" aria-label="GSDF QC diagnostic pattern" />;
+  return <canvas ref={canvasRef} className="h-full w-full bg-black" aria-label={messages.panel.diagnosticPatternAria} />;
 }
 
-function drawDiagnosticPattern(context: CanvasRenderingContext2D, settings: AppSettings) {
+function drawDiagnosticPattern(context: CanvasRenderingContext2D, settings: AppSettings, messages: Messages) {
   const width = 1800;
   const height = 1200;
   const outputRows = buildGsdfStripeRows(settings);
@@ -595,10 +610,10 @@ function drawDiagnosticPattern(context: CanvasRenderingContext2D, settings: AppS
 
   context.font = '22px Cascadia Mono, monospace';
   context.fillStyle = '#d6d6d6';
-  context.fillText('GSDF-QC FULL FIELD PATTERN', 58, 76);
+  context.fillText(messages.diagnosticPattern.title, 58, 76);
   context.font = '15px Cascadia Mono, monospace';
   context.fillStyle = '#9a9a9a';
-  context.fillText('18 grayscale steps · directional modulation · line-pair resolution · vertical gradient uniformity', 58, 104);
+  context.fillText(messages.diagnosticPattern.subtitle, 58, 104);
 
   for (let rowIndex = 0; rowIndex < rowCount; rowIndex += 1) {
     const y = chartY + rowIndex * rowH;
@@ -629,10 +644,10 @@ function drawDiagnosticPattern(context: CanvasRenderingContext2D, settings: AppS
 
   context.font = '14px Cascadia Mono, monospace';
   context.fillStyle = '#cfcfcf';
-  context.fillText('H modulation: 18 / 12 / 6 / 4 px', chartX + 38, chartY + chartH + 32);
-  context.fillText('GSDF output sweep', chartX + 520, chartY + chartH + 32);
-  context.fillText('fixed contrast sweep', chartX + 770, chartY + chartH + 32);
-  context.fillText('V modulation: 4 / 6 / 12 / 18 px', chartX + chartW - 458, chartY + chartH + 32);
+  context.fillText(messages.diagnosticPattern.horizontalModulation, chartX + 38, chartY + chartH + 32);
+  context.fillText(messages.diagnosticPattern.gsdfOutputSweep, chartX + 520, chartY + chartH + 32);
+  context.fillText(messages.diagnosticPattern.fixedContrastSweep, chartX + 770, chartY + chartH + 32);
+  context.fillText(messages.diagnosticPattern.verticalModulation, chartX + chartW - 458, chartY + chartH + 32);
 }
 
 function drawVerticalGradient(context: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, invert: boolean) {
@@ -728,6 +743,7 @@ function InspectionModeHeader({
   setSettings,
   onClose,
   dragHandlers,
+  messages,
 }: {
   title: string;
   subtitle: string;
@@ -735,6 +751,7 @@ function InspectionModeHeader({
   setSettings: React.Dispatch<React.SetStateAction<AppSettings>>;
   onClose: () => void;
   dragHandlers: PointerHandlers;
+  messages: Messages;
 }) {
   return (
     <div
@@ -749,8 +766,8 @@ function InspectionModeHeader({
         <div className="flex shrink-0 items-center gap-2" data-no-drag>
           <button
             type="button"
-            title="關閉"
-            aria-label="關閉"
+            title={messages.panel.close}
+            aria-label={messages.panel.close}
             onClick={onClose}
             className="gsdf-icon-button flex h-8 w-8 items-center justify-center rounded-md border border-white/10 bg-[#0b0d10] text-zinc-400 transition-colors hover:bg-white/[0.06] hover:text-zinc-100"
           >
@@ -759,7 +776,10 @@ function InspectionModeHeader({
         </div>
       </div>
       <div className="mt-3 flex items-center gap-3">
-        <span className="min-w-[58px] text-right font-mono text-[18px] font-semibold leading-none tabular-nums text-zinc-100">
+        <span className="shrink-0 text-[10px] font-semibold text-zinc-400">
+          {messages.panel.currentLuminanceValue}
+        </span>
+        <span className="min-w-[58px] text-right font-mono text-[18px] font-semibold leading-none tabular-nums text-[#ffffff]">
           {formatLuminance(settings.lmax)}
         </span>
         <span className="w-8 text-right font-mono text-[10px] text-zinc-500">{LUMINANCE_MIN_NITS}</span>
@@ -789,6 +809,7 @@ function InspectionModeView({
   panelTheme,
   dragHandlers,
   resizeHandlers,
+  messages,
 }: {
   mode: Exclude<InspectionMode, null>;
   settings: AppSettings;
@@ -797,18 +818,20 @@ function InspectionModeView({
   panelTheme: PanelTheme;
   dragHandlers: PointerHandlers;
   resizeHandlers: PointerHandlers;
+  messages: Messages;
 }) {
   const [patternZoom, setPatternZoom] = React.useState(1);
 
   return (
     <div className={`gsdf-inspection-mode gsdf-inspection-mode--${mode} flex h-full min-h-0 flex-col overflow-hidden`}>
       <InspectionModeHeader
-        title={mode === 'pattern' ? 'GSDF-QC 全域測試圖' : '即時對比度分析視圖'}
-        subtitle={mode === 'pattern' ? 'full-field grayscale, modulation, line-pair and gradient pattern' : 'input pixel value vs normalized table output'}
+        title={mode === 'pattern' ? messages.panel.patternTitle : messages.panel.chartTitle}
+        subtitle={mode === 'pattern' ? messages.panel.patternSubtitle : messages.panel.chartSubtitle}
         settings={settings}
         setSettings={setSettings}
         onClose={onClose}
         dragHandlers={dragHandlers}
+        messages={messages}
       />
       {mode === 'pattern' ? (
         <div
@@ -819,21 +842,21 @@ function InspectionModeView({
             setPatternZoom((value) => clampValue(Number((value * scaleFactor).toFixed(3)), 0.5, 3));
           }}
         >
-          <FullDiagnosticPattern settings={settings} zoom={patternZoom} />
+          <FullDiagnosticPattern settings={settings} messages={messages} zoom={patternZoom} />
         </div>
       ) : (
         <div className="min-h-0 flex-1 bg-[#10151b] p-4">
           <div className="h-full rounded-md border border-white/10 bg-[#080b0f] p-3">
             <React.Suspense fallback={<div className="h-full min-h-[240px]" />}>
-              <GSDFChart settings={settings} panelTheme={panelTheme} className="h-full min-h-[240px]" />
+              <GSDFChart settings={settings} panelTheme={panelTheme} messages={messages} className="h-full min-h-[240px]" />
             </React.Suspense>
           </div>
         </div>
       )}
       <div
         className="gsdf-resize-grip absolute right-1.5 bottom-1.5 z-10 h-5 w-5 cursor-nwse-resize rounded-sm border-r border-b border-white/35 opacity-70 transition-opacity hover:opacity-100"
-        title="拖曳調整視圖大小"
-        aria-label="拖曳調整視圖大小"
+        title={messages.panel.resizeView}
+        aria-label={messages.panel.resizeView}
         role="separator"
         data-no-drag
         {...resizeHandlers}
@@ -844,15 +867,17 @@ function InspectionModeView({
 
 function PanelBorderResizeHandles({
   getResizeHandlers,
+  messages,
 }: {
   getResizeHandlers: (handle: ResizeHandle) => PointerHandlers;
+  messages: Messages;
 }) {
   return (
     <>
       <div
         className="gsdf-resize-edge gsdf-resize-edge--right absolute top-16 right-0 bottom-8 z-20 w-2 cursor-ew-resize"
-        title="拖曳右邊框調整面板寬度"
-        aria-label="拖曳右邊框調整面板寬度"
+        title={messages.panel.resizePanelWidth}
+        aria-label={messages.panel.resizePanelWidth}
         role="separator"
         data-no-drag
         data-resize-handle="e"
@@ -860,8 +885,8 @@ function PanelBorderResizeHandles({
       />
       <div
         className="gsdf-resize-edge gsdf-resize-edge--bottom absolute right-8 bottom-0 left-8 z-20 h-2 cursor-ns-resize"
-        title="拖曳底邊框調整面板高度"
-        aria-label="拖曳底邊框調整面板高度"
+        title={messages.panel.resizePanelHeight}
+        aria-label={messages.panel.resizePanelHeight}
         role="separator"
         data-no-drag
         data-resize-handle="s"
@@ -869,8 +894,8 @@ function PanelBorderResizeHandles({
       />
       <div
         className="gsdf-resize-grip absolute right-1.5 bottom-1.5 z-30 h-5 w-5 cursor-nwse-resize rounded-sm border-r border-b border-white/35 opacity-70 transition-opacity hover:opacity-100"
-        title="拖曳右下角調整面板大小"
-        aria-label="拖曳右下角調整面板大小"
+        title={messages.panel.resizePanelCorner}
+        aria-label={messages.panel.resizePanelCorner}
         role="separator"
         data-no-drag
         data-resize-handle="se"
@@ -883,9 +908,11 @@ function PanelBorderResizeHandles({
 function GSDFStripeTest({
   settings,
   onOpenFullPattern,
+  messages,
 }: {
   settings: AppSettings;
   onOpenFullPattern: () => void;
+  messages: Messages;
 }) {
   const [showDetails, setShowDetails] = React.useState(false);
   const compactStripeWidth = 18;
@@ -912,18 +939,18 @@ function GSDFStripeTest({
     <section className={`space-y-3 transition-opacity ${settings.enabled ? 'opacity-100' : 'opacity-70'}`}>
       <div className="flex items-center justify-between gap-3">
         <label
-          title="輸出預覽使用完整 GSDF table 加上目前 filter 總量生成；大圖請開啟完整多頻率條紋圖。"
+          title={messages.panel.stripeDescription}
           className="flex items-center gap-2 text-[11px] font-semibold text-zinc-300"
         >
           <span className="flex h-6 w-6 items-center justify-center rounded-md bg-white/[0.05] text-zinc-200">
             <Eye size={14} />
           </span>
-          GSDF 條紋測試
+          {messages.panel.stripeTitle}
         </label>
         <div className="flex items-center gap-1">
           <button
             type="button"
-            title={showDetails ? '收合亮度校準' : '展開亮度校準'}
+            title={showDetails ? messages.panel.collapseCalibration : messages.panel.expandCalibration}
             onClick={() => setShowDetails((value) => !value)}
             className="rounded p-1.5 text-zinc-500 transition-colors hover:bg-white/[0.06] hover:text-zinc-100"
             data-no-drag
@@ -932,7 +959,7 @@ function GSDFStripeTest({
           </button>
           <button
             type="button"
-            title="開啟完整多頻率條紋圖"
+            title={messages.panel.openFullPattern}
             onClick={onOpenFullPattern}
             className="rounded p-1.5 text-zinc-500 transition-colors hover:bg-white/[0.06] hover:text-zinc-100"
             data-no-drag
@@ -942,12 +969,12 @@ function GSDFStripeTest({
         </div>
       </div>
       <div className="space-y-1.5">
-        <div className="font-mono text-[9px] font-semibold uppercase tracking-[0.18em] text-zinc-500">輸出預覽</div>
+        <div className="font-mono text-[9px] font-semibold uppercase tracking-[0.18em] text-zinc-500">{messages.panel.outputPreview}</div>
         {renderRows(outputRows, true)}
       </div>
       {showDetails && (
         <div className="space-y-2">
-          <div className="font-mono text-[9px] font-semibold uppercase tracking-[0.18em] text-zinc-500">亮度校準</div>
+          <div className="font-mono text-[9px] font-semibold uppercase tracking-[0.18em] text-zinc-500">{messages.panel.luminanceCalibration}</div>
           {renderRows(calibrationRows)}
         </div>
       )}
@@ -957,8 +984,10 @@ function GSDFStripeTest({
 
 function ContrastChartPanel({
   onOpenFullChart,
+  messages,
 }: {
   onOpenFullChart: () => void;
+  messages: Messages;
 }) {
   return (
     <section className="space-y-3">
@@ -967,26 +996,61 @@ function ContrastChartPanel({
           <span className="flex h-6 w-6 items-center justify-center rounded-md bg-white/[0.05] text-zinc-200">
             <Activity size={14} />
           </span>
-          即時對比度分析視圖
+          {messages.panel.chartTitle}
         </label>
         <button
           type="button"
-          title="開啟完整曲線圖"
+          title={messages.panel.openFullChart}
           onClick={onOpenFullChart}
           className="flex h-8 items-center gap-1.5 rounded-md border border-white/10 bg-white/[0.04] px-2.5 text-[11px] font-semibold text-zinc-300 transition-colors hover:border-white/15 hover:bg-white/[0.08] hover:text-zinc-100"
           data-no-drag
         >
           <Maximize2 size={13} />
-          完整圖表
+          {messages.panel.fullChart}
         </button>
       </div>
     </section>
   );
 }
 
+function LanguageSelector({
+  locale,
+  messages,
+  onLocaleChange,
+}: {
+  locale: SupportedLocale;
+  messages: Messages;
+  onLocaleChange: (locale: SupportedLocale) => void;
+}) {
+  return (
+    <label
+      title={messages.language.label}
+      className="flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-white/10 bg-[#0b0d10] px-2 text-zinc-400 transition-colors hover:bg-white/[0.06] hover:text-zinc-100"
+      data-no-drag
+    >
+      <Languages size={14} />
+      <select
+        aria-label={messages.language.label}
+        value={locale}
+        onChange={(event) => onLocaleChange(event.target.value as SupportedLocale)}
+        className="max-w-[92px] bg-transparent text-[11px] font-semibold text-inherit outline-none"
+      >
+        {supportedLocales.map((option) => (
+          <option key={option} value={option}>
+            {localeNames[option]}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
 export function DraggablePanel({
   settings,
   setSettings,
+  locale,
+  messages,
+  onLocaleChange,
   extensionMode = false,
   onExtensionDrag,
   onExtensionResize,
@@ -1072,15 +1136,15 @@ export function DraggablePanel({
   };
 
   const renderBasicPanel = (showStripePreview = true) => (
-    <div className="space-y-3">
-      <div className={`transition-opacity ${settings.enabled ? 'opacity-100' : 'opacity-75'}`}>
-        <StatusDeck settings={settings} onLmaxChange={handleLmaxChange} onResetDefault={resetToDefault} />
+      <div className="space-y-3">
+        <div className={`transition-opacity ${settings.enabled ? 'opacity-100' : 'opacity-75'}`}>
+        <StatusDeck settings={settings} onLmaxChange={handleLmaxChange} onResetDefault={resetToDefault} messages={messages} />
       </div>
 
       <SliderControl
         icon={<Activity size={14} />}
-        label="Gamma 補償"
-        title="中央 0 為 γ2.2 無調整；往左補償更暗觀影環境到 γ3.0，往右補償到 γ1.0 線性。"
+        label={messages.panel.gammaLabel}
+        title={messages.panel.gammaTitle}
         valueText={`${gammaCorrection > 0 ? '+' : ''}${gammaCorrection} · γ ${settings.gammaTarget.toFixed(1)}`}
         valueVariant="label"
         minLabel="-100"
@@ -1093,8 +1157,8 @@ export function DraggablePanel({
 
       <SliderControl
         icon={<Gauge size={14} />}
-        label="Filter 總量"
-        title="完整 GSDF table 先算出來，再用此總量混合回 gamma-adjusted baseline；0% 為 gamma-adjusted baseline，100% 為完整 GSDF。"
+        label={messages.panel.filterLabel}
+        title={messages.panel.filterTitle}
         valueText={`${settings.strength}%`}
         valueVariant="label"
         minLabel="0"
@@ -1107,7 +1171,7 @@ export function DraggablePanel({
       />
 
       {showStripePreview && (
-        <GSDFStripeTest settings={settings} onOpenFullPattern={() => setInspectionMode('pattern')} />
+        <GSDFStripeTest settings={settings} messages={messages} onOpenFullPattern={() => setInspectionMode('pattern')} />
       )}
     </div>
   );
@@ -1117,11 +1181,11 @@ export function DraggablePanel({
       <SegmentedControl
         disabled={!settings.enabled}
         icon={<BarChart3 size={14} />}
-        label="色彩模型"
+        label={messages.panel.colorModel}
         value={settings.colorModel}
         options={[
-          { value: 'rgb', label: 'RGB', title: '對 R/G/B 三通道套同一張 GSDF table' },
-          { value: 'ycbcr', label: 'YCbCr', title: '轉成 YCbCr 後只調整 Y 亮度，保留 Cb/Cr 色度' },
+          { value: 'rgb', label: 'RGB', title: messages.panel.rgbTitle },
+          { value: 'ycbcr', label: 'YCbCr', title: messages.panel.ycbcrTitle },
         ]}
         onChange={(value) => setColorModel(value)}
       />
@@ -1129,7 +1193,7 @@ export function DraggablePanel({
       <div className={`grid grid-cols-2 gap-3 transition-opacity ${settings.enabled ? 'opacity-100' : 'opacity-45 pointer-events-none'}`}>
         <SliderControl
           icon={<SlidersHorizontal size={14} />}
-          label="黑位"
+          label={messages.panel.blackPoint}
           valueText={`${settings.blackPoint}%`}
           min={0}
           max={20}
@@ -1138,7 +1202,7 @@ export function DraggablePanel({
         />
         <SliderControl
           icon={<Sun size={14} />}
-          label="白點"
+          label={messages.panel.whitePoint}
           valueText={`${settings.whitePoint}%`}
           min={80}
           max={100}
@@ -1150,7 +1214,7 @@ export function DraggablePanel({
       <SliderControl
         disabled={!settings.enabled}
         icon={<SlidersHorizontal size={14} />}
-        label="細節銳化"
+        label={messages.panel.detailSharpening}
         valueText={`${settings.sharpness}%`}
         minLabel="0"
         maxLabel="50"
@@ -1164,7 +1228,7 @@ export function DraggablePanel({
       <SliderControl
         disabled={!settings.enabled}
         icon={<Thermometer size={14} />}
-        label="色溫偏移"
+        label={messages.panel.temperatureShift}
         valueText={settings.temperature === 0 ? '0' : settings.temperature > 0 ? `+${settings.temperature}` : String(settings.temperature)}
         minLabel="-50"
         maxLabel="+50"
@@ -1178,7 +1242,7 @@ export function DraggablePanel({
       <SliderControl
         disabled={!settings.enabled}
         icon={<Palette size={14} />}
-        label="飽和度"
+        label={messages.panel.saturation}
         valueText={`${settings.saturation}%`}
         minLabel="0"
         maxLabel="125"
@@ -1192,7 +1256,7 @@ export function DraggablePanel({
       <SliderControl
         disabled={!settings.enabled}
         icon={<Activity size={14} />}
-        label="色調"
+        label={messages.panel.hue}
         valueText={settings.hue === 0 ? '0' : settings.hue > 0 ? `+${settings.hue}` : String(settings.hue)}
         minLabel="-30"
         maxLabel="+30"
@@ -1203,7 +1267,7 @@ export function DraggablePanel({
         onChange={(value) => setNumericSetting('hue', value)}
       />
 
-      {showContrastPreview && <ContrastChartPanel onOpenFullChart={() => setInspectionMode('chart')} />}
+      {showContrastPreview && <ContrastChartPanel messages={messages} onOpenFullChart={() => setInspectionMode('chart')} />}
     </div>
   );
 
@@ -1214,13 +1278,13 @@ export function DraggablePanel({
           <span className="flex h-6 w-6 items-center justify-center rounded-md bg-white/[0.05] text-zinc-200">
             <Grid3X3 size={14} />
           </span>
-          <span className="truncate">中央視圖</span>
+          <span className="truncate">{messages.panel.centerView}</span>
         </label>
         <div className="grid h-7 w-[132px] shrink-0 grid-cols-3 rounded-md border border-white/10 bg-[#090c10] p-0.5" data-no-drag>
           {[
-            { value: 'pattern', label: 'C', title: 'GSDF-QC 全域測試圖' },
-            { value: 'chart', label: 'D', title: '即時對比度分析視圖' },
-            { value: 'both', label: 'C+D', title: '同時顯示 GSDF-QC 與即時對比度分析視圖' },
+            { value: 'pattern', label: 'C', title: messages.panel.patternTitle },
+            { value: 'chart', label: 'D', title: messages.panel.chartTitle },
+            { value: 'both', label: 'C+D', title: messages.panel.bothTitle },
           ].map((option) => (
             <button
               key={option.value}
@@ -1242,14 +1306,14 @@ export function DraggablePanel({
       <div className={`min-h-0 flex-1 ${centerMode === 'both' ? 'grid grid-cols-2' : 'block'}`}>
         {(centerMode === 'pattern' || centerMode === 'both') && (
           <div className="h-full min-h-0 overflow-hidden bg-black p-2">
-            <FullDiagnosticPattern settings={settings} />
+            <FullDiagnosticPattern settings={settings} messages={messages} />
           </div>
         )}
         {(centerMode === 'chart' || centerMode === 'both') && (
           <div className="h-full min-h-0 bg-[#10151b] p-3">
             <div className="h-full rounded-md border border-white/10 bg-[#080b0f] p-3">
               <React.Suspense fallback={<div className="h-full min-h-[180px]" />}>
-                <GSDFChart settings={settings} panelTheme={panelTheme} className="h-full min-h-[180px]" />
+                <GSDFChart settings={settings} panelTheme={panelTheme} messages={messages} className="h-full min-h-[180px]" />
               </React.Suspense>
             </div>
           </div>
@@ -1415,6 +1479,7 @@ export function DraggablePanel({
           onClose={() => setInspectionMode(null)}
           dragHandlers={dragHandlers}
           resizeHandlers={resizeHandlers}
+          messages={messages}
         />
       ) : (
         <>
@@ -1432,21 +1497,22 @@ export function DraggablePanel({
             </div>
             <div className="min-w-0">
               <div className="truncate text-[14px] font-semibold text-white">GSDF EOTF Adjuster</div>
-              <div className="font-mono text-[9px] uppercase tracking-[0.16em] text-zinc-500">perceptual video filter</div>
+              <div className="font-mono text-[9px] uppercase tracking-[0.16em] text-zinc-500">{messages.panel.subtitle}</div>
             </div>
           </div>
           <div className={`ml-auto flex shrink-0 items-center gap-2 ${panelMode === 'c' ? 'gsdf-header-controls' : ''}`} data-no-drag>
-            <PanelLayoutModeSwitch value={panelMode} onChange={selectPanelMode} />
+            <PanelLayoutModeSwitch value={panelMode} onChange={selectPanelMode} messages={messages} />
             {panelMode === 'c' && (
               <>
                 <div className="flex min-w-0 items-center gap-2.5">
-                  <EffectSwitch enabled={settings.enabled} onToggle={toggleEnabled} label="啟動 EOTF 修正" />
-                  <span className="truncate text-[11px] font-semibold text-zinc-300">{settings.enabled ? '效果開啟' : '效果關閉'}</span>
+                  <EffectSwitch enabled={settings.enabled} onToggle={toggleEnabled} label={messages.panel.enableEotf} />
+                  <span className="truncate text-[11px] font-semibold text-zinc-300">{settings.enabled ? messages.panel.effectOn : messages.panel.effectOff}</span>
                 </div>
+                <LanguageSelector locale={locale} messages={messages} onLocaleChange={onLocaleChange} />
                 <button
                   type="button"
-                  title={panelTheme === 'light' ? '切換到暗色面板' : '切換到明亮面板'}
-                  aria-label={panelTheme === 'light' ? '切換到暗色面板' : '切換到明亮面板'}
+                  title={panelTheme === 'light' ? messages.panel.switchToDark : messages.panel.switchToLight}
+                  aria-label={panelTheme === 'light' ? messages.panel.switchToDark : messages.panel.switchToLight}
                   onClick={() => setPanelTheme((theme) => (theme === 'light' ? 'dark' : 'light'))}
                   className="gsdf-icon-button flex h-8 w-8 items-center justify-center rounded-md border border-white/10 bg-[#0b0d10] text-zinc-400 transition-colors hover:bg-white/[0.06] hover:text-zinc-100"
                   data-no-drag
@@ -1457,8 +1523,8 @@ export function DraggablePanel({
             )}
             <button
               type="button"
-              title="關閉面板"
-              aria-label="關閉面板"
+              title={messages.panel.closePanel}
+              aria-label={messages.panel.closePanel}
               onClick={handlePanelClose}
               className="gsdf-icon-button flex h-8 w-8 items-center justify-center rounded-md border border-white/10 bg-[#0b0d10] text-zinc-400 transition-colors hover:bg-white/[0.06] hover:text-zinc-100"
             >
@@ -1468,14 +1534,15 @@ export function DraggablePanel({
         </div>
         {panelMode !== 'c' && <div className="gsdf-header-controls flex shrink-0 flex-wrap items-center justify-end gap-2" data-no-drag>
           <div className="flex min-w-0 items-center gap-2.5">
-            <EffectSwitch enabled={settings.enabled} onToggle={toggleEnabled} label="啟動 EOTF 修正" />
-            <span className="truncate text-[11px] font-semibold text-zinc-300">{settings.enabled ? '效果開啟' : '效果關閉'}</span>
+            <EffectSwitch enabled={settings.enabled} onToggle={toggleEnabled} label={messages.panel.enableEotf} />
+            <span className="truncate text-[11px] font-semibold text-zinc-300">{settings.enabled ? messages.panel.effectOn : messages.panel.effectOff}</span>
           </div>
-          {panelMode === 'a' && <PanelTabSwitch value={activeTab} onChange={setActiveTab} panelTheme={panelTheme} />}
+          {panelMode === 'a' && <PanelTabSwitch value={activeTab} onChange={setActiveTab} panelTheme={panelTheme} messages={messages} />}
+          <LanguageSelector locale={locale} messages={messages} onLocaleChange={onLocaleChange} />
           <button
             type="button"
-            title={panelTheme === 'light' ? '切換到暗色面板' : '切換到明亮面板'}
-            aria-label={panelTheme === 'light' ? '切換到暗色面板' : '切換到明亮面板'}
+            title={panelTheme === 'light' ? messages.panel.switchToDark : messages.panel.switchToLight}
+            aria-label={panelTheme === 'light' ? messages.panel.switchToDark : messages.panel.switchToLight}
             onClick={() => setPanelTheme((theme) => (theme === 'light' ? 'dark' : 'light'))}
             className="gsdf-icon-button flex h-8 w-8 items-center justify-center rounded-md border border-white/10 bg-[#0b0d10] text-zinc-400 transition-colors hover:bg-white/[0.06] hover:text-zinc-100"
             data-no-drag
@@ -1517,8 +1584,8 @@ export function DraggablePanel({
               <div
                 role="separator"
                 aria-orientation="vertical"
-                aria-label="調整左側面板寬度"
-                title="左右拖曳調整左側面板寬度"
+                aria-label={messages.panel.resizeControlColumn}
+                title={messages.panel.resizeControlColumnTitle}
                 className="gsdf-column-resize-handle flex min-h-0 cursor-col-resize items-stretch justify-center"
                 data-no-drag
                 onPointerDown={handleCColumnResizePointerDown}
@@ -1533,7 +1600,7 @@ export function DraggablePanel({
           )}
         </div>
       </div>
-      <PanelBorderResizeHandles getResizeHandlers={getResizeHandlers} />
+      <PanelBorderResizeHandles getResizeHandlers={getResizeHandlers} messages={messages} />
         </>
       )}
 

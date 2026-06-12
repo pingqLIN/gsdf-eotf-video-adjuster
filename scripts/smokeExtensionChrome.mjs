@@ -274,7 +274,7 @@ async function getExtensionWorkerTarget(targets) {
     try {
       await client.send('Runtime.enable');
       const manifestName = await evaluate(client, 'chrome.runtime?.getManifest?.().name || null');
-      if (manifestName === 'GSDF Visual Corrector') {
+      if (manifestName === 'GSDF EOTF Video Adjuster') {
         return { target, client };
       }
     } catch {
@@ -301,7 +301,7 @@ async function pollExtensionWorker(port, timeoutMs = 15000) {
     await delay(250);
   }
 
-  throw new Error(`Timed out waiting for GSDF Visual Corrector worker: ${JSON.stringify(lastTargets)}`);
+  throw new Error(`Timed out waiting for GSDF EOTF Video Adjuster worker: ${JSON.stringify(lastTargets)}`);
 }
 
 async function tryPollExtensionWorker(port, timeoutMs = 5000) {

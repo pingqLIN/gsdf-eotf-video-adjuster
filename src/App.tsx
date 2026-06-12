@@ -1,11 +1,12 @@
 /**
  * @license
- * SPDX-License-Identifier: Apache-2.0
+ * SPDX-License-Identifier: GPL-3.0-only
  */
 
 import React, { useState, useEffect, useRef } from 'react';
 import { DraggablePanel } from './components/DraggablePanel';
 import { VideoBackground } from './components/VideoBackground';
+import { getInitialLocale, LANGUAGE_STORAGE_KEY, messagesByLocale, type SupportedLocale } from './i18n';
 import { DEFAULT_APP_SETTINGS, normalizeAppSettings, type AppSettings } from './types';
 
 function normalizeSavedSettings(value: Partial<AppSettings>): AppSettings {
@@ -30,6 +31,7 @@ function normalizeSavedSettings(value: Partial<AppSettings>): AppSettings {
 
 export default function App() {
   const isExtension = window.location.search.includes('mode=extension');
+  const [locale, setLocale] = useState<SupportedLocale>(() => getInitialLocale());
   const [settings, setSettings] = useState<AppSettings>(() => {
     const saved = localStorage.getItem('gsdf_extension_settings');
     if (saved) {
@@ -45,6 +47,7 @@ export default function App() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const lastSavedSettingsRef = useRef(JSON.stringify(settings));
   const toastTimerRef = useRef<number | null>(null);
+  const messages = messagesByLocale[locale];
 
   // Sync settings to the parent window (Chrome content script)
   useEffect(() => {
@@ -65,7 +68,7 @@ export default function App() {
     const autosaveTimer = window.setTimeout(() => {
       localStorage.setItem('gsdf_extension_settings', serializedSettings);
       lastSavedSettingsRef.current = serializedSettings;
-      setToastMessage('偏好設定已自動儲存');
+      setToastMessage(messages.toast.preferencesSaved);
 
       if (toastTimerRef.current !== null) {
         window.clearTimeout(toastTimerRef.current);
@@ -79,7 +82,12 @@ export default function App() {
     return () => {
       window.clearTimeout(autosaveTimer);
     };
-  }, [settings]);
+  }, [messages.toast.preferencesSaved, settings]);
+
+  const handleLocaleChange = (nextLocale: SupportedLocale) => {
+    setLocale(nextLocale);
+    localStorage.setItem(LANGUAGE_STORAGE_KEY, nextLocale);
+  };
 
   useEffect(() => {
     return () => {
@@ -137,6 +145,9 @@ export default function App() {
         <DraggablePanel 
           settings={settings} 
           setSettings={setSettings} 
+          locale={locale}
+          messages={messages}
+          onLocaleChange={handleLocaleChange}
           extensionMode={isExtension}
           onExtensionDrag={handlePanelDrag}
           onExtensionResize={handlePanelResize}

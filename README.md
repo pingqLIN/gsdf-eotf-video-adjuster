@@ -1,180 +1,315 @@
+[![GSDF EOTF Video Adjuster banner](assets/readme-banner.png)](assets/readme-banner.png)
+
 # GSDF EOTF Video Adjuster
 
-<img src="./assets/readme-banner.png" alt="GSDF EOTF Video Adjuster banner" width="100%" />
+![Manifest V3](https://img.shields.io/badge/Manifest-V3-4285F4?style=flat-square)
+![Chrome Extension](https://img.shields.io/badge/Chrome-Extension-34A853?style=flat-square)
+![React 19](https://img.shields.io/badge/React-19-61DAFB?style=flat-square)
+![License](https://img.shields.io/badge/License-GPLv3-blue?style=flat-square)
 
-Reshape video grayscale into steadier JND steps so subtle tonal detail stays easier to tell apart.
+**Display-side grayscale rescue for web video that loses shadow, haze, and low-contrast detail.**
 
-GSDF EOTF Video Adjuster is a compact Chrome Manifest V3 extension and local preview tool for display-side perceptual luminance rescue. When a video looks crushed, washed out, or uneven because the grading, display EOTF, or viewing environment does not line up, it gives you direct control over gamma compensation, target luminance, and GSDF-inspired grayscale redistribution that helps brightness differences remain consistently distinguishable.
+[Overview](#-overview) · [Quick Start](#-quick-start) · [Permissions](#-permissions-and-privacy) · [Features](#-features) · [Screenshots](#-screenshots) · [Controls](#-controls) · [Architecture](#-architecture) · [Development](#-development) · [Documentation](#-documentation) · [Traditional Chinese](README.zh-tw.md)
 
-The premise is deliberately display-side: the tool optimizes the signal that has already reached the display path, rather than reinterpreting the source material's coding. After the normal gamma viewing baseline, the GSDF stage reshapes the available grayscale signal into more perceptually even JND steps across dark, mid, and bright ranges.
+---
 
-Use it as a practical viewing aid for special cases, not as a replacement for proper color grading, calibrated mastering, or medical display certification. The app can run as a standalone local preview, and the production path packages the same UI into a Chrome extension iframe that injects managed SVG filters onto detected video elements.
+## 🎯 Overview
 
-## GSDF Luminance Model
+**GSDF EOTF Video Adjuster** reshapes the visible luminance response of browser video with a compact Manifest V3 control panel. It is built for practical viewing rescue: foggy footage, crushed shadows, washed highlights, uneven display EOTF behavior, or viewing conditions where subtle grayscale steps become hard to separate.
 
-The current canonical flow is:
+| Capability | What it does |
+|---|---|
+| **GSDF-inspired luminance remap** | Rebuilds a 256-step transfer table from target luminance and JND spacing — steadier grayscale separation across dark, midtone, and bright regions |
+| **Pre-GSDF gamma compensation** | Keeps normal gamma viewing as the baseline — then lets the GSDF layer operate as a controlled rescue pass |
+| **Filter amount blend** | Mixes the full GSDF result back toward the gamma-adjusted baseline — useful when full correction is too strong |
+| **Iframe control panel** | Injects a draggable extension UI over the page — compact A mode, split B mode, and expanded C inspection workspace |
+| **Inspection patterns** | Provides output stripes, fixed calibration stripes, full-field GSDF-QC pattern, and live curve chart — quick visual checks before trusting a setting |
+
+> **Recommended:** Treat it as a viewing aid, not as mastering, display calibration, HDR measurement, or DICOM compliance. Use the smallest correction that restores the detail you need.
+
+---
+
+## ⚠️ Limitations
+
+This extension is a browser-side viewing aid.
+
+It does not:
+
+- calibrate a display,
+- measure HDR or SDR luminance,
+- certify DICOM PS3.14 conformance,
+- replace display QA,
+- modify source video files,
+- guarantee consistent results across every player, DRM surface, canvas renderer, or site-specific video pipeline.
+
+Compatibility depends on how each page renders video. Standard HTML video elements are the primary target; cross-origin frames, DRM playback, canvas rendering, and aggressive host-page styles may limit or change the visible effect.
+
+---
+
+## 🚀 Quick Start
+
+### Installation
+
+```powershell
+# Clone the repository first if you are starting from Git
+git clone <repo-url>
+cd gsdf-eotf-video-adjuster
+
+# Install dependencies
+npm ci
+
+# Build the extension UI into extension/ui
+npm run build:ext
+```
+
+Then load the unpacked extension:
 
 ```text
-gammaTarget pre-compensation
--> GSDF luminance/JND remap
--> SVG transfer table generation
--> filter-amount blend over the gamma-adjusted baseline
+1. Open chrome://extensions
+2. Enable Developer mode
+3. Choose Load unpacked
+4. Select this repo's extension/ directory
+5. Open a video page
+6. Click the extension action to toggle the GSDF control panel
 ```
 
-In practice, one input video level first passes through the selected gamma target, then moves through the GSDF luminance model, and finally blends back toward the gamma-adjusted baseline by the chosen filter amount. That keeps the tool useful as a viewing rescue layer instead of forcing a full all-or-nothing remap.
+### Daily Use
 
-```mermaid
-flowchart TD
-  A["User controls<br/>enabled, lmax, gammaTarget, strength,<br/>colorModel, blackPoint, whitePoint"] --> B["normalize settings"]
+| Step | Action |
+|---|---|
+| **Enable correction** | Toggle the panel switch from standby to active |
+| **Set target luminance** | Adjust `Lmax` for the display/viewing target, from `10..500 nits` |
+| **Balance gamma first** | Use Gamma compensation around `0 = gamma 2.2`, left toward `3.0`, right toward `1.0` |
+| **Blend gently** | Reduce Filter amount if the full GSDF table looks too strong |
+| **Inspect before trusting** | Check stripe preview, calibration stripes, full-field pattern, and curve chart |
 
-  subgraph M["Shared GSDF model"]
-    B --> C["Gamma pre-compensation<br/>0 = gamma 2.2"]
-    C --> D["Map into GSDF JND space"]
-    D --> E["Convert JND back to luminance"]
-    E --> F["Build 256-step SVG transfer table"]
-    B --> G["Build output-preview stripe rows"]
-    B --> H["Build calibration stripe rows"]
-  end
+---
 
-  F --> I["Standalone preview<br/>VideoBackground.tsx"]
-  F --> J["GSDFChart sampled curve"]
-  F --> K["Extension tone profile<br/>deriveToneProfile()"]
-  G --> L["Output-preview stripes<br/>follow active table"]
-  H --> N["Calibration stripes<br/>fixed low-contrast pairs"]
-  K --> O["updateFilterDefinitions()"]
-  O --> P["Managed CSS and SVG filter chain"]
-  P --> Q["Browser video element"]
+## 🔐 Permissions and Privacy
+
+The extension requests access to web pages so it can detect HTML video elements, inject the control panel, and apply a managed SVG/CSS filter chain to the active page.
+
+| Permission | Why it is used |
+|---|---|
+| `activeTab` | Lets the toolbar action operate on the current tab |
+| `scripting` | Injects or reinjects the content script when needed |
+| `<all_urls>` host access | Lets the content script run across supported video pages |
+
+No cloud API key is required. The extension runs locally in the browser and should still be treated as a viewing aid, not as medical calibration, DICOM conformance, or diagnostic display verification.
+
+---
+
+## ✨ Features
+
+### 🧠 Perceptual Tone Model
+
+| Feature | Description |
+|---|---|
+| **JND-oriented GSDF table** | DICOM PS3.14 luminance/JND relationship adapted into a browser SVG component-transfer table |
+| **Gamma pre-compensation** | `gammaTarget` applied before GSDF — keeps the rescue layer anchored to a familiar video-viewing baseline |
+| **Global filter amount** | `0%` keeps the gamma-adjusted signal, `100%` applies the full GSDF table, intermediate values blend between them |
+| **Logarithmic luminance slider** | Finer control at lower luminance targets — practical for dim viewing and low-contrast footage |
+
+### 🎛 Control Surface
+
+| Area | Description |
+|---|---|
+| **A mode** | Default single panel — status, luminance, gamma, filter amount, stripe preview, and basic/advanced tabs |
+| **B mode** | Split panel — basic controls and advanced image controls visible side by side |
+| **C mode** | Expanded workspace — controls on the left, GSDF-QC pattern and chart views in the center |
+| **Theme and language** | Dark/light panel themes plus English, Traditional Chinese, Simplified Chinese, and Japanese UI strings |
+
+### 🧪 Visual Inspection
+
+| Surface | Description |
+|---|---|
+| **Output preview stripes** | Generated from the active transfer table — follows current luminance, gamma, and filter settings |
+| **Calibration stripes** | Fixed low-contrast code pairs — stable reference independent of the active GSDF table |
+| **Full GSDF-QC pattern** | Multi-frequency grayscale, modulation, line-pair, and gradient checks |
+| **Curve chart** | Input pixel value vs normalized output — compares the baseline gamma curve and the active GSDF-inspired transfer table |
+
+---
+
+## 📸 Screenshots
+
+### Before / After Contrast Rescue
+
+[![Foggy trail before and after comparison](assets/readme-before-after-foggy-trail.png)](assets/readme-before-after-foggy-trail.png)
+
+*Low-contrast terrain and haze — side-by-side comparison for practical grayscale separation.*
+
+[![Mountain fog before and after comparison](assets/readme-before-after-mountain-fog.png)](assets/readme-before-after-mountain-fog.png)
+
+*Fog and rock detail — useful for judging whether the correction is improving separation or over-driving contrast.*
+
+### Extension Control Panel
+
+[![Basic extension panel](assets/readme-panel-basic.png)](assets/readme-panel-basic.png)
+
+*A mode — compact standby panel with luminance, gamma compensation, filter amount, and stripe preview.*
+
+[![Expanded extension workspace](assets/readme-panel-expanded-workspace.png)](assets/readme-panel-expanded-workspace.png)
+
+*C mode — left control column plus central GSDF-QC workspace for deeper inspection.*
+
+### Diagnostic Views
+
+[![Full diagnostic pattern](assets/readme-diagnostic-pattern.png)](assets/readme-diagnostic-pattern.png)
+
+*Full-field grayscale, modulation, line-pair, and gradient diagnostic pattern.*
+
+[![Full curve chart](assets/readme-curve-chart.png)](assets/readme-curve-chart.png)
+
+*Real-time curve chart for the active transfer table.*
+
+### Asset Notes
+
+README screenshots and diagnostic images are project documentation assets unless otherwise noted. They are included for demonstration only and do not represent medical calibration, diagnostic display verification, or guaranteed results on all video content.
+
+---
+
+## ⌨️ Controls
+
+No global keyboard shortcuts are registered yet. The extension is controlled from the injected panel.
+
+| Control | Role |
+|---|---|
+| **Effect switch** | Enable or disable the active video correction |
+| **A / B / C layout switch** | Choose compact, split, or expanded inspection workspace |
+| **Basic / Advanced tabs** | Switch between core tone controls and image-level refinements in A mode |
+| **Language selector** | Change UI language without rebuilding the extension |
+| **Theme button** | Switch between dark and light panel styling |
+| **Panel resize handles** | Resize the floating extension panel and expanded overlays |
+
+---
+
+## 🏗 Architecture
+
+```text
+src/
+  App.tsx                         # React shell, settings persistence, extension message bridge
+  types.ts                        # Shared settings shape, GSDF/JND math, transfer-table helpers
+  components/
+    DraggablePanel.tsx            # Extension control panel, layouts, inspection overlays
+    GSDFChart.tsx                 # Responsive transfer-curve chart
+    VideoBackground.tsx           # Standalone local preview video
+  i18n/                           # UI language registry and localized copy
+extension/
+  manifest.json                   # Manifest V3 permissions, action, content script, web resources
+  background.js                   # Action-click activation and injection fallback
+  content.js                      # Iframe injection, video discovery, managed SVG filter chain
+  ui/                             # Built extension UI copied by npm run build:ext
+scripts/
+  buildExt.js                     # Copies Vite build output into extension/ui
+  smokeExtensionChrome.mjs        # Real Chrome/Chromium smoke test for the unpacked extension
+tests/
+  *.test.mjs                      # Node regression tests for model, manifest, content, layout
+docs/
+  gsdf-model.md                   # Formula and implementation notes
+  gsdf-application-and-ui-review.md # GSDF usage, caveats, and UI review notes
 ```
 
-The full formula notes, implementation details, and extended pipeline diagrams live in [docs/gsdf-model.md](docs/gsdf-model.md) and [docs/gsdf-application-and-ui-review.md](docs/gsdf-application-and-ui-review.md).
+### Module Overview
 
-## Test Images
+| Module | World | Role |
+|---|---|---|
+| `src/types.ts` | Shared app model | Normalizes settings, evaluates GSDF luminance/JND mapping, builds transfer tables and stripe rows |
+| `src/components/DraggablePanel.tsx` | React UI | Presents A/B/C panel layouts, controls, stripe preview, and inspection overlays |
+| `extension/content.js` | Host page content script | Injects the iframe UI, mirrors the model, discovers videos, and applies managed filters |
+| `extension/background.js` | Extension service worker | Handles action clicks and reinjects the content script when needed |
+| `scripts/smokeExtensionChrome.mjs` | Verification | Launches a real browser profile, loads the unpacked extension, toggles the panel, and captures evidence |
 
-Test-image gallery is pending. This section is reserved for before/after captures, stripe comparisons, and difficult grayscale examples that show where GSDF rescue helps most.
+### Message Flow
 
-## Direct Install and Use
+```text
+User adjusts panel
+  -> React iframe posts GSDF_SETTINGS_CHANGED
+  -> content script normalizes settings and derives tone profile
+  -> SVG filter definitions are updated
+  -> target videos are discovered or refreshed
+  -> managed filter chain is applied without discarding host-page filters
+```
 
-The fastest path today is the unpacked Chrome extension workflow:
+---
 
-1. Install dependencies with `npm ci`.
-2. Build the extension UI with `npm run build:ext`.
-3. Open `chrome://extensions`.
-4. Turn on Developer mode.
-5. Choose Load unpacked.
-6. Select this repo's `extension` directory.
+## 🧪 Development
 
-After loading, open a supported video page and click the extension action to toggle the GSDF control panel.
+### Requirements
 
-Packaging is possible, but it is not the recommended default yet. Right now the project still benefits from the editable `build:ext` plus Load unpacked loop because UI behavior, filter tuning, and extension smoke validation are still part of active iteration. A packaged zip or Chrome Web Store-style release becomes more worthwhile once the install surface, permissions, and regression workflow stop moving as often.
+| Tool | Requirement |
+|---|---|
+| **Node.js** | Tested with Node.js 22.x; newer active LTS versions are expected to work |
+| **npm** | Dependency install and scripts |
+| **Chrome / Chromium** | Required for extension smoke testing |
+| **Cloud API keys** | Not required |
 
-## What It Gives You
-
-- Display-side tonal rescue for video that loses shadow, midtone, or highlight separation.
-- JND-oriented GSDF redistribution for steadier grayscale detail discrimination.
-- Pre-GSDF gamma compensation centered at `0 = gamma 2.2`, with left-side dark-environment compensation up to gamma 3.0 and right-side linear compensation down to gamma 1.0.
-- Logarithmic target-luminance control from 10 to 500 nits.
-- Filter amount control for blending the full GSDF output with the gamma-adjusted signal.
-- RGB and YCbCr/luma-only filter paths for different viewing priorities.
-- Black point, white point, sharpness, and color-temperature controls for practical rescue tuning.
-- Compact and expanded GSDF stripe test views for visual inspection.
-- Chrome extension fallback activation when a page reloads or the content script is not ready.
-
-## Project Layout
-
-- `src/` contains the standalone React UI and shared GSDF model helpers.
-- `extension/manifest.json` defines the Manifest V3 extension.
-- `extension/background.js` owns action-click activation and injection fallback.
-- `extension/content.js` injects the iframe UI and applies managed video filters.
-- `scripts/buildExt.js` copies the Vite build into the extension package.
-- `scripts/smokeExtensionChrome.mjs` runs the real Chrome extension smoke test.
-- `tests/` contains Node-based regression tests for the model, content script, background script, manifest, and panel layout.
-
-## Requirements
-
-- Node.js 22 or newer is recommended.
-- npm.
-- Chrome or Chromium is required only for `npm run smoke:ext`.
-
-No Gemini or other cloud API key is required for the current app.
-
-## Development
-
-Install dependencies:
+### Commands
 
 ```powershell
-npm ci
-```
-
-Run the standalone Vite app:
-
-```powershell
+# Run local standalone preview
 npm run dev
-```
 
-Open `http://127.0.0.1:3000` or `http://localhost:3000`.
-
-## Chrome Extension Build
-
-Build the web app and copy the generated UI into `extension/ui`:
-
-```powershell
-npm run build:ext
-```
-
-The build step prepares the unpacked extension assets that Chrome loads from the `extension` directory.
-
-## Verification
-
-Run the fast test suite:
-
-```powershell
-npm test
-```
-
-Run TypeScript validation:
-
-```powershell
+# TypeScript validation
 npm run lint
-```
 
-Run the production web build:
+# Node regression tests
+npm test
 
-```powershell
+# Web production build
 npm run build
-```
 
-Run the extension smoke test after building the extension UI:
-
-```powershell
+# Build unpacked extension assets
 npm run build:ext
+
+# Launch real Chrome/Chromium extension smoke test
 npm run smoke:ext
 ```
 
-`smoke:ext` launches Chromium or Chrome with a temporary profile, loads the unpacked extension, toggles the panel, and writes a screenshot under `output/playwright`. It uses `CHROME_PATH` when set, otherwise it tries the newest local Playwright Chromium before falling back to the default Google Chrome path.
-
-On this Windows setup, the recommended extension smoke environment is the bundled Playwright Chromium because managed Google Chrome can reject command-line unpacked extension loading. Dot-source the helper when you want the environment variables to persist in the current PowerShell session:
-
-```powershell
-. .\scripts\useChromeExtensionEnv.ps1
-npm run smoke:ext
-```
-
-The repo wrapper prefers the workspace helper at `Q:\Projects\.codex-env\chrome-extension\Use-ChromeExtensionEnv.ps1` when it exists, but keeps a repo-local fallback so cloned copies still work without the local workspace overlay. The same path is also exposed as:
+On Windows machines where managed Google Chrome blocks command-line unpacked extension loading, use the helper wrapper:
 
 ```powershell
 npm run smoke:ext:env
 ```
 
-If the browser is installed somewhere else, set `CHROME_PATH` first:
+The smoke runner writes local evidence under `output/playwright/`.
 
-```powershell
-$env:CHROME_PATH = 'C:\Path\To\chrome.exe'
-npm run smoke:ext
-```
+---
 
-On machines where managed Google Chrome blocks command-line unpacked extension loading, either leave `CHROME_PATH` unset or point it at a local Chromium build:
+## 📄 Documentation
 
-```powershell
-Remove-Item Env:\CHROME_PATH -ErrorAction SilentlyContinue
-npm run smoke:ext
-```
+| Document | Description |
+|---|---|
+| [PRODUCT.md](PRODUCT.md) | Product framing and interface intent |
+| [docs/gsdf-model.md](docs/gsdf-model.md) | GSDF formula source, browser approximation, and implementation pipeline |
+| [docs/gsdf-model.ZHTW.md](docs/gsdf-model.ZHTW.md) | Traditional Chinese GSDF model notes |
+| [docs/gsdf-application-and-ui-review.md](docs/gsdf-application-and-ui-review.md) | Formula review, UI review inputs, implemented corrections, and verification notes |
+| [docs/gsdf-application-and-ui-review.ZHTW.md](docs/gsdf-application-and-ui-review.ZHTW.md) | Traditional Chinese review notes |
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome. Open an issue first for changes that affect the GSDF model, browser filter behavior, permissions, or extension activation flow.
+
+---
+
+## 🤖 AI-Assisted Development
+
+This project was developed with AI assistance.
+
+| Model | Role |
+|---|---|
+| OpenAI Codex | Implementation support, documentation rewrite, screenshot workflow, and local verification |
+| ChatGPT 5.5 Pro web UI | External README audit for caveat wording, permissions/privacy disclosure, Traditional Chinese clarity, and public positioning |
+
+> **Disclaimer:** While the author has made every effort to review and validate
+> the AI-generated code, no guarantee can be made regarding its correctness, security,
+> or fitness for any particular purpose. Use at your own risk.
+> External AI review is not an endorsement, certification, security audit, medical
+> validation, or DICOM conformance assessment.
+
+---
+
+## 📜 License
+
+[GNU General Public License v3.0 only](LICENSE). Proprietary or closed-source commercial redistribution requires a separate commercial license from the copyright holder.
