@@ -48,12 +48,21 @@ type PanelTheme = 'dark' | 'light';
 type InspectionMode = 'pattern' | 'chart' | null;
 type PanelLayoutMode = 'a' | 'b' | 'c';
 type CenterWorkspaceMode = 'pattern' | 'chart' | 'both';
+type ResizeHandle = 'e' | 's' | 'se';
 
 const PANEL_THEME_STORAGE_KEY = 'gsdf_panel_theme';
 const INSPECTION_MIN_WIDTH = 560;
 const INSPECTION_MIN_HEIGHT = 420;
 const INSPECTION_DEFAULT_WIDTH = 960;
 const INSPECTION_DEFAULT_HEIGHT = 720;
+const PANEL_DEFAULT_HEIGHT = 720;
+const PANEL_MIN_HEIGHT = 520;
+const PANEL_VIEWPORT_MARGIN = 16;
+const PANEL_MODE_SIZE: Record<PanelLayoutMode, { width: number; minWidth: number }> = {
+  a: { width: 420, minWidth: 380 },
+  b: { width: 820, minWidth: 680 },
+  c: { width: 1240, minWidth: 960 },
+};
 const PANEL_MODE_OPTIONS: Array<{ value: PanelLayoutMode; label: string; title: string }> = [
   { value: 'a', label: 'A', title: 'A 模式：目前預設的單面板狀態' },
   { value: 'b', label: 'B', title: 'B 模式：基礎 a 在左、進階 b 在右' },
@@ -223,6 +232,34 @@ function clampValue(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
 }
 
+function getDefaultPanelSize(mode: PanelLayoutMode) {
+  return {
+    width: PANEL_MODE_SIZE[mode].width,
+    height: PANEL_DEFAULT_HEIGHT,
+  };
+}
+
+function clampStandalonePanelSize(mode: PanelLayoutMode, size: { width: number; height: number }) {
+  const maxWidth = typeof window === 'undefined'
+    ? PANEL_MODE_SIZE[mode].width
+    : Math.max(PANEL_MODE_SIZE[mode].minWidth, window.innerWidth - PANEL_VIEWPORT_MARGIN);
+  const maxHeight = typeof window === 'undefined'
+    ? PANEL_DEFAULT_HEIGHT
+    : Math.max(PANEL_MIN_HEIGHT, window.innerHeight - PANEL_VIEWPORT_MARGIN);
+
+  return {
+    width: clampValue(size.width, PANEL_MODE_SIZE[mode].minWidth, maxWidth),
+    height: clampValue(size.height, PANEL_MIN_HEIGHT, maxHeight),
+  };
+}
+
+function getResizeDeltas(handle: ResizeHandle, deltaX: number, deltaY: number) {
+  return {
+    deltaWidth: handle === 's' ? 0 : deltaX,
+    deltaHeight: handle === 'e' ? 0 : deltaY,
+  };
+}
+
 function trySetPointerCapture(element: Element, pointerId: number) {
   try {
     if ('setPointerCapture' in element) {
@@ -353,7 +390,7 @@ function PanelLayoutModeSwitch({
   onChange: (value: PanelLayoutMode) => void;
 }) {
   return (
-    <div className="grid h-7 w-[86px] shrink-0 grid-cols-3 rounded-md border border-white/10 bg-[#080b0f] p-0.5" data-no-drag>
+    <div className="grid h-8 w-[96px] shrink-0 grid-cols-3 rounded-md border border-white/10 bg-[#080b0f] p-0.5" data-no-drag>
       {PANEL_MODE_OPTIONS.map((mode) => (
         <button
           key={mode.value}
@@ -380,39 +417,40 @@ function StatusDeck({ settings }: { settings: AppSettings }) {
 
   return (
     <section className="gsdf-status-deck rounded-md border border-white/10 bg-[#0a0e13] p-3 shadow-inner">
-      <div className="space-y-3">
-        <div className="flex items-end justify-between gap-3">
-          <div className="flex items-center gap-2 text-[11px] font-semibold text-zinc-400">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex min-w-0 flex-wrap items-center gap-2.5">
+          <div className="flex shrink-0 items-center gap-2 text-[11px] font-semibold text-zinc-400">
             {settings.enabled ? <CheckCircle2 size={14} className="text-zinc-200" /> : <CircleOff size={14} className="text-zinc-500" />}
             <span>{statusLabel}</span>
           </div>
-          <div className="flex shrink-0 items-baseline gap-2">
-            <span className="font-mono text-[24px] leading-none text-zinc-50 tabular-nums">{formatLuminance(settings.lmax)}</span>
-            <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-zinc-500">nits</span>
+          <div className="gsdf-status-inline-metrics flex min-w-0 flex-wrap items-center justify-start gap-1.5">
+            <ModePill
+              tone={settings.enabled ? 'active' : 'neutral'}
+              title="完整 GSDF transfer table 先依目標亮度計算，再由 filter 總量混合回 gamma-adjusted baseline。"
+            >
+              <MonitorUp size={13} />
+              GSDF
+            </ModePill>
+            <ModePill title="Gamma 補償會先於 GSDF table 套用；0 為 γ2.2，左側到 γ3.0，右側到 γ1.0。">
+              <Activity size={13} />
+              <span className="gsdf-pill-label">γ</span>
+              <span className="gsdf-pill-metric">{settings.gammaTarget.toFixed(1)}</span>
+            </ModePill>
+            <ModePill title="Filter 總量控制完整 GSDF 結果的混入比例；0% 為 gamma-adjusted baseline，100% 為完整 GSDF table。">
+              <Gauge size={13} />
+              <span className="gsdf-pill-label">mix</span>
+              <span className="gsdf-pill-metric">{settings.strength}%</span>
+            </ModePill>
+            <ModePill>
+              <BarChart3 size={13} />
+              {settings.colorModel === 'ycbcr' ? 'YCbCr' : 'RGB'}
+            </ModePill>
           </div>
         </div>
-        <div className="grid grid-cols-4 gap-1.5">
-          <ModePill
-            tone={settings.enabled ? 'active' : 'neutral'}
-            title="完整 GSDF transfer table 先依目標亮度計算，再由 filter 總量混合回 gamma-adjusted baseline。"
-          >
-            <MonitorUp size={13} />
-            GSDF
-          </ModePill>
-          <ModePill title="Gamma 補償會先於 GSDF table 套用；0 為 γ2.2，左側到 γ3.0，右側到 γ1.0。">
-            <Activity size={13} />
-            <span className="gsdf-pill-label">γ</span>
-            <span className="gsdf-pill-metric">{settings.gammaTarget.toFixed(1)}</span>
-          </ModePill>
-          <ModePill title="Filter 總量控制完整 GSDF 結果的混入比例；0% 為 gamma-adjusted baseline，100% 為完整 GSDF table。">
-            <Gauge size={13} />
-            <span className="gsdf-pill-label">mix</span>
-            <span className="gsdf-pill-metric">{settings.strength}%</span>
-          </ModePill>
-          <ModePill tone={settings.colorModel === 'ycbcr' ? 'amber' : 'neutral'}>
-            <BarChart3 size={13} />
-            {settings.colorModel.toUpperCase()}
-          </ModePill>
+        <div className="flex shrink-0 items-baseline gap-2">
+          <span className="font-mono text-[24px] leading-none text-zinc-50 tabular-nums">{formatLuminance(settings.lmax)}</span>
+          <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-zinc-500">nits</span>
+          <span className="text-[9px] font-semibold text-zinc-500">目標值非實際測</span>
         </div>
       </div>
     </section>
@@ -745,6 +783,44 @@ function InspectionModeView({
   );
 }
 
+function PanelBorderResizeHandles({
+  getResizeHandlers,
+}: {
+  getResizeHandlers: (handle: ResizeHandle) => PointerHandlers;
+}) {
+  return (
+    <>
+      <div
+        className="gsdf-resize-edge gsdf-resize-edge--right absolute top-16 right-0 bottom-8 z-20 w-2 cursor-ew-resize"
+        title="拖曳右邊框調整面板寬度"
+        aria-label="拖曳右邊框調整面板寬度"
+        role="separator"
+        data-no-drag
+        data-resize-handle="e"
+        {...getResizeHandlers('e')}
+      />
+      <div
+        className="gsdf-resize-edge gsdf-resize-edge--bottom absolute right-8 bottom-0 left-8 z-20 h-2 cursor-ns-resize"
+        title="拖曳底邊框調整面板高度"
+        aria-label="拖曳底邊框調整面板高度"
+        role="separator"
+        data-no-drag
+        data-resize-handle="s"
+        {...getResizeHandlers('s')}
+      />
+      <div
+        className="gsdf-resize-grip absolute right-1.5 bottom-1.5 z-30 h-5 w-5 cursor-nwse-resize rounded-sm border-r border-b border-white/35 opacity-70 transition-opacity hover:opacity-100"
+        title="拖曳右下角調整面板大小"
+        aria-label="拖曳右下角調整面板大小"
+        role="separator"
+        data-no-drag
+        data-resize-handle="se"
+        {...getResizeHandlers('se')}
+      />
+    </>
+  );
+}
+
 function GSDFStripeTest({
   settings,
   onOpenFullPattern,
@@ -821,10 +897,8 @@ function GSDFStripeTest({
 }
 
 function ContrastChartPanel({
-  settings,
   onOpenFullChart,
 }: {
-  settings: AppSettings;
   onOpenFullChart: () => void;
 }) {
   return (
@@ -847,13 +921,6 @@ function ContrastChartPanel({
           完整圖表
         </button>
       </div>
-      <div className="rounded-md border border-white/10 bg-[#080b0f] p-3">
-        <div className="flex items-center justify-between gap-3 font-mono text-[10px] text-zinc-400">
-          <span>Transfer curve preview</span>
-          <span className="text-zinc-100">{settings.enabled ? 'active table' : 'standby reference'}</span>
-        </div>
-        <div className="mt-2 h-16 rounded border border-white/[0.06] bg-[linear-gradient(135deg,rgba(255,255,255,0.08),rgba(148,163,184,0.08)),linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(0deg,rgba(255,255,255,0.04)_1px,transparent_1px)] bg-[length:100%_100%,32px_32px,32px_32px]" />
-      </div>
     </section>
   );
 }
@@ -868,7 +935,7 @@ export function DraggablePanel({
 }: DraggablePanelProps) {
   const dragControls = useDragControls();
   const dragStartRef = React.useRef<{ pointerId: number; x: number; y: number } | null>(null);
-  const resizeStartRef = React.useRef<{ pointerId: number; x: number; y: number } | null>(null);
+  const resizeStartRef = React.useRef<{ pointerId: number; x: number; y: number; handle: ResizeHandle } | null>(null);
   const [activeTab, setActiveTab] = React.useState<PanelTab>('basic');
   const [panelMode, setPanelMode] = React.useState<PanelLayoutMode>('a');
   const [centerMode, setCenterMode] = React.useState<CenterWorkspaceMode>('pattern');
@@ -878,6 +945,7 @@ export function DraggablePanel({
     width: INSPECTION_DEFAULT_WIDTH,
     height: INSPECTION_DEFAULT_HEIGHT,
   });
+  const [standalonePanelSize, setStandalonePanelSize] = React.useState(() => getDefaultPanelSize('a'));
   const [panelTheme, setPanelTheme] = React.useState<PanelTheme>(() => {
     const savedTheme = localStorage.getItem(PANEL_THEME_STORAGE_KEY);
     return savedTheme === 'light' ? 'light' : 'dark';
@@ -895,6 +963,7 @@ export function DraggablePanel({
   const selectPanelMode = (value: PanelLayoutMode) => {
     setPanelMode(value);
     setInspectionMode(null);
+    setStandalonePanelSize(clampStandalonePanelSize(value, getDefaultPanelSize(value)));
   };
 
   const toggleEnabled = () => {
@@ -941,7 +1010,7 @@ export function DraggablePanel({
     setNumericSetting('gammaTarget', gammaCorrectionToTarget(value));
   };
 
-  const renderBasicPanel = () => (
+  const renderBasicPanel = (showStripePreview = true) => (
     <div className="space-y-3">
       <section className={`space-y-3 transition-opacity ${settings.enabled ? 'opacity-100' : 'opacity-75'}`}>
         <div className="flex items-center justify-between gap-3">
@@ -962,8 +1031,7 @@ export function DraggablePanel({
             <RotateCcw size={14} />
           </button>
         </div>
-        <div className="flex items-center gap-3">
-          <span className="w-8 text-right font-mono text-[10px] text-zinc-500">{LUMINANCE_MIN_NITS}</span>
+        <div className="gsdf-lmax-range-row space-y-1.5">
           <input
             type="range"
             min="0"
@@ -971,9 +1039,12 @@ export function DraggablePanel({
             step="1"
             value={luminanceToSliderValue(settings.lmax)}
             onChange={handleLmaxChange}
-            className="gsdf-range flex-1"
+            className="gsdf-range w-full"
           />
-          <span className="w-8 text-left font-mono text-[10px] text-zinc-500">{LUMINANCE_MAX_NITS}</span>
+          <div className="flex items-center justify-between px-1 font-mono text-[10px] text-zinc-500">
+            <span>{LUMINANCE_MIN_NITS}</span>
+            <span>{LUMINANCE_MAX_NITS}</span>
+          </div>
         </div>
       </section>
 
@@ -1004,7 +1075,9 @@ export function DraggablePanel({
         onChange={(value) => setNumericSetting('strength', value)}
       />
 
-      <GSDFStripeTest settings={settings} onOpenFullPattern={() => setInspectionMode('pattern')} />
+      {showStripePreview && (
+        <GSDFStripeTest settings={settings} onOpenFullPattern={() => setInspectionMode('pattern')} />
+      )}
     </div>
   );
 
@@ -1049,9 +1122,9 @@ export function DraggablePanel({
         label="細節銳化"
         valueText={`${settings.sharpness}%`}
         minLabel="0"
-        maxLabel="100"
+        maxLabel="50"
         min={0}
-        max={100}
+        max={50}
         step={5}
         value={settings.sharpness}
         onChange={(value) => setNumericSetting('sharpness', value)}
@@ -1071,34 +1144,35 @@ export function DraggablePanel({
         onChange={(value) => setNumericSetting('temperature', value)}
       />
 
-      <div className={`grid grid-cols-2 gap-3 transition-opacity ${settings.enabled ? 'opacity-100' : 'opacity-45 pointer-events-none'}`}>
-        <SliderControl
-          icon={<Palette size={14} />}
-          label="飽和度"
-          valueText={`${settings.saturation}%`}
-          minLabel="0"
-          maxLabel="200"
-          min={0}
-          max={200}
-          step={5}
-          value={settings.saturation}
-          onChange={(value) => setNumericSetting('saturation', value)}
-        />
-        <SliderControl
-          icon={<Activity size={14} />}
-          label="色調"
-          valueText={settings.hue === 0 ? '0' : settings.hue > 0 ? `+${settings.hue}` : String(settings.hue)}
-          minLabel="-180"
-          maxLabel="+180"
-          min={-180}
-          max={180}
-          step={5}
-          value={settings.hue}
-          onChange={(value) => setNumericSetting('hue', value)}
-        />
-      </div>
+      <SliderControl
+        disabled={!settings.enabled}
+        icon={<Palette size={14} />}
+        label="飽和度"
+        valueText={`${settings.saturation}%`}
+        minLabel="0"
+        maxLabel="125"
+        min={0}
+        max={125}
+        step={5}
+        value={settings.saturation}
+        onChange={(value) => setNumericSetting('saturation', value)}
+      />
 
-      {showContrastPreview && <ContrastChartPanel settings={settings} onOpenFullChart={() => setInspectionMode('chart')} />}
+      <SliderControl
+        disabled={!settings.enabled}
+        icon={<Activity size={14} />}
+        label="色調"
+        valueText={settings.hue === 0 ? '0' : settings.hue > 0 ? `+${settings.hue}` : String(settings.hue)}
+        minLabel="-30"
+        maxLabel="+30"
+        min={-30}
+        max={30}
+        step={5}
+        value={settings.hue}
+        onChange={(value) => setNumericSetting('hue', value)}
+      />
+
+      {showContrastPreview && <ContrastChartPanel onOpenFullChart={() => setInspectionMode('chart')} />}
     </div>
   );
 
@@ -1134,7 +1208,7 @@ export function DraggablePanel({
           ))}
         </div>
       </div>
-      <div className={`min-h-0 flex-1 ${centerMode === 'both' ? 'grid grid-rows-2' : 'block'}`}>
+      <div className={`min-h-0 flex-1 ${centerMode === 'both' ? 'grid grid-cols-2' : 'block'}`}>
         {(centerMode === 'pattern' || centerMode === 'both') && (
           <div className="h-full min-h-0 overflow-hidden bg-black p-2">
             <FullDiagnosticPattern settings={settings} />
@@ -1187,10 +1261,10 @@ export function DraggablePanel({
     dragStartRef.current = null;
   };
 
-  const handleResizePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+  const handleResizePointerDown = (e: React.PointerEvent<HTMLDivElement>, handle: ResizeHandle = 'se') => {
     e.stopPropagation();
     e.preventDefault();
-    resizeStartRef.current = { pointerId: e.pointerId, x: e.clientX, y: e.clientY };
+    resizeStartRef.current = { pointerId: e.pointerId, x: e.clientX, y: e.clientY, handle };
     trySetPointerCapture(e.currentTarget, e.pointerId);
   };
 
@@ -1200,14 +1274,26 @@ export function DraggablePanel({
     }
 
     e.preventDefault();
-    const deltaWidth = e.clientX - resizeStartRef.current.x;
-    const deltaHeight = e.clientY - resizeStartRef.current.y;
-    resizeStartRef.current = { pointerId: e.pointerId, x: e.clientX, y: e.clientY };
+    const currentResize = resizeStartRef.current;
+    const { deltaWidth, deltaHeight } = getResizeDeltas(
+      currentResize.handle,
+      e.clientX - currentResize.x,
+      e.clientY - currentResize.y,
+    );
+    resizeStartRef.current = { ...currentResize, x: e.clientX, y: e.clientY };
 
     if (!extensionMode) {
-      setStandaloneInspectionSize((current) => ({
-        width: clampValue(current.width + deltaWidth, INSPECTION_MIN_WIDTH, Math.max(INSPECTION_MIN_WIDTH, window.innerWidth - 16)),
-        height: clampValue(current.height + deltaHeight, INSPECTION_MIN_HEIGHT, Math.max(INSPECTION_MIN_HEIGHT, window.innerHeight - 16)),
+      if (inspectionMode) {
+        setStandaloneInspectionSize((current) => ({
+          width: clampValue(current.width + deltaWidth, INSPECTION_MIN_WIDTH, Math.max(INSPECTION_MIN_WIDTH, window.innerWidth - 16)),
+          height: clampValue(current.height + deltaHeight, INSPECTION_MIN_HEIGHT, Math.max(INSPECTION_MIN_HEIGHT, window.innerHeight - 16)),
+        }));
+        return;
+      }
+
+      setStandalonePanelSize((current) => clampStandalonePanelSize(panelMode, {
+        width: current.width + deltaWidth,
+        height: current.height + deltaHeight,
       }));
       return;
     }
@@ -1228,25 +1314,22 @@ export function DraggablePanel({
     onPointerUp: handleHeaderPointerUp,
     onPointerCancel: handleHeaderPointerUp,
   };
-  const resizeHandlers = {
-    onPointerDown: handleResizePointerDown,
+  const getResizeHandlers = (handle: ResizeHandle) => ({
+    onPointerDown: (event: React.PointerEvent<HTMLDivElement>) => handleResizePointerDown(event, handle),
     onPointerMove: handleResizePointerMove,
     onPointerUp: handleResizePointerUp,
     onPointerCancel: handleResizePointerUp,
-  };
-  const panelWidthClass =
-    panelMode === 'c'
-      ? 'w-[1240px]'
-      : panelMode === 'b'
-        ? 'w-[820px]'
-        : 'w-[420px]';
+  });
+  const resizeHandlers = getResizeHandlers('se');
   const panelSizeClass = inspectionMode
     ? `${extensionMode ? 'relative h-screen w-screen max-h-screen' : 'absolute h-[720px] max-h-[calc(100vh-16px)] w-[960px] max-w-[calc(100vw-16px)]'}`
     : extensionMode
       ? 'relative h-screen w-screen'
-      : `absolute h-[720px] max-h-[calc(100vh-16px)] ${panelWidthClass} max-w-[calc(100vw-16px)]`;
-  const panelStyle = inspectionMode && !extensionMode
-    ? { width: standaloneInspectionSize.width, height: standaloneInspectionSize.height }
+      : 'absolute max-h-[calc(100vh-16px)] max-w-[calc(100vw-16px)]';
+  const panelStyle = !extensionMode
+    ? inspectionMode
+      ? { width: standaloneInspectionSize.width, height: standaloneInspectionSize.height }
+      : { width: standalonePanelSize.width, height: standalonePanelSize.height }
     : undefined;
 
   if (panelClosed) {
@@ -1277,25 +1360,40 @@ export function DraggablePanel({
       ) : (
         <>
       <div
-        className="gsdf-panel-header flex cursor-grab select-none items-center justify-between border-b border-white/10 bg-[#181c21] px-4 py-3 active:cursor-grabbing"
+        className="gsdf-panel-header flex cursor-grab select-none flex-wrap items-center justify-between gap-3 border-b border-white/10 bg-[#181c21] px-4 py-3 active:cursor-grabbing"
         onPointerDown={handleHeaderPointerDown}
         onPointerMove={handleHeaderPointerMove}
         onPointerUp={handleHeaderPointerUp}
         onPointerCancel={handleHeaderPointerUp}
       >
-        <div className="flex min-w-0 items-center gap-3">
+        <div className="flex min-w-[240px] flex-1 items-center gap-3">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-white/10 bg-white/[0.05] text-zinc-200">
             <Settings size={16} />
           </div>
           <div className="min-w-0">
-            <div className="flex min-w-0 items-center gap-2">
-              <div className="truncate text-[14px] font-semibold text-white">GSDF EOTF Adjuster</div>
-              <PanelLayoutModeSwitch value={panelMode} onChange={selectPanelMode} />
-            </div>
+            <div className="truncate text-[14px] font-semibold text-white">GSDF EOTF Adjuster</div>
             <div className="font-mono text-[9px] uppercase tracking-[0.16em] text-zinc-500">perceptual video filter</div>
           </div>
+          <div className="ml-auto mr-4 flex h-8 items-center">
+            <PanelLayoutModeSwitch value={panelMode} onChange={selectPanelMode} />
+          </div>
         </div>
-        <div className="flex shrink-0 items-center gap-2" data-no-drag>
+        <div className="gsdf-header-controls ml-auto flex shrink-0 flex-wrap items-center justify-end gap-2" data-no-drag>
+          <div className="flex min-w-0 items-center gap-2.5">
+            <EffectSwitch enabled={settings.enabled} onToggle={toggleEnabled} label="啟動 EOTF 修正" />
+            <span className="truncate text-[11px] font-semibold text-zinc-300">{settings.enabled ? '效果開啟' : '效果關閉'}</span>
+          </div>
+          {panelMode === 'a' && <PanelTabSwitch value={activeTab} onChange={setActiveTab} />}
+          <button
+            type="button"
+            title={panelTheme === 'light' ? '切換到暗色面板' : '切換到明亮面板'}
+            aria-label={panelTheme === 'light' ? '切換到暗色面板' : '切換到明亮面板'}
+            onClick={() => setPanelTheme((theme) => (theme === 'light' ? 'dark' : 'light'))}
+            className="gsdf-icon-button flex h-8 w-8 items-center justify-center rounded-md border border-white/10 bg-[#0b0d10] text-zinc-400 transition-colors hover:bg-white/[0.06] hover:text-zinc-100"
+            data-no-drag
+          >
+            {panelTheme === 'light' ? <Moon size={14} /> : <Sun size={14} />}
+          </button>
           <button
             type="button"
             title="關閉面板"
@@ -1309,33 +1407,13 @@ export function DraggablePanel({
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col">
-        <div className="px-4 pt-3">
-          <div className="gsdf-control-strip grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 rounded-md border border-white/10 bg-[#090c10] p-1.5">
-            <div className="flex min-w-0 items-center gap-2.5" data-no-drag>
-              <EffectSwitch enabled={settings.enabled} onToggle={toggleEnabled} label="啟動 EOTF 修正" />
-              <span className="truncate text-[11px] font-semibold text-zinc-300">{settings.enabled ? '效果開啟' : '效果關閉'}</span>
-            </div>
-            {panelMode === 'a' && <PanelTabSwitch value={activeTab} onChange={setActiveTab} />}
-            <button
-              type="button"
-              title={panelTheme === 'light' ? '切換到暗色面板' : '切換到明亮面板'}
-              aria-label={panelTheme === 'light' ? '切換到暗色面板' : '切換到明亮面板'}
-              onClick={() => setPanelTheme((theme) => (theme === 'light' ? 'dark' : 'light'))}
-              className="gsdf-icon-button flex h-8 w-8 items-center justify-center rounded-md border border-white/10 bg-[#0b0d10] text-zinc-400 transition-colors hover:bg-white/[0.06] hover:text-zinc-100"
-              data-no-drag
-            >
-              {panelTheme === 'light' ? <Moon size={14} /> : <Sun size={14} />}
-            </button>
-          </div>
-        </div>
-
-        <div className="flex-1 space-y-3 overflow-hidden p-4">
+        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overflow-x-hidden p-4">
           <StatusDeck settings={settings} />
 
           {panelMode === 'a' && (
             <>
               <div hidden={activeTab !== 'basic'} aria-hidden={activeTab !== 'basic'}>
-                {renderBasicPanel()}
+                {renderBasicPanel(true)}
               </div>
               <div hidden={activeTab !== 'advanced'} aria-hidden={activeTab !== 'advanced'}>
                 {renderAdvancedPanel(true)}
@@ -1345,20 +1423,23 @@ export function DraggablePanel({
 
           {panelMode === 'b' && (
             <div className="grid min-h-0 flex-1 grid-cols-2 gap-4 overflow-hidden">
-              <div className="min-h-0 overflow-hidden">{renderBasicPanel()}</div>
-              <div className="min-h-0 overflow-hidden">{renderAdvancedPanel(false)}</div>
-            </div>
+                <div className="min-h-0 overflow-hidden">{renderBasicPanel()}</div>
+                <div className="min-h-0 overflow-hidden">{renderAdvancedPanel(false)}</div>
+              </div>
           )}
 
           {panelMode === 'c' && (
-            <div className="grid min-h-0 flex-1 grid-cols-[300px_minmax(0,1fr)_300px] gap-4 overflow-hidden">
-              <div className="min-h-0 overflow-hidden">{renderBasicPanel()}</div>
+            <div className="grid min-h-0 flex-1 grid-cols-[300px_minmax(0,1fr)] gap-4 overflow-hidden">
+              <div className="min-h-0 space-y-4 overflow-y-auto overflow-x-hidden">
+                {renderBasicPanel(false)}
+                {renderAdvancedPanel(false)}
+              </div>
               <div className="min-h-0 overflow-hidden">{renderCenterWorkspace()}</div>
-              <div className="min-h-0 overflow-hidden">{renderAdvancedPanel(false)}</div>
             </div>
           )}
         </div>
       </div>
+      <PanelBorderResizeHandles getResizeHandlers={getResizeHandlers} />
         </>
       )}
 
