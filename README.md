@@ -159,6 +159,12 @@ On this Windows setup, the recommended extension smoke environment is the bundle
 npm run smoke:ext
 ```
 
+The repo wrapper prefers the workspace helper at `Q:\Projects\.codex-env\chrome-extension\Use-ChromeExtensionEnv.ps1` when it exists, but keeps a repo-local fallback so cloned copies still work without the local workspace overlay. The same path is also exposed as:
+
+```powershell
+npm run smoke:ext:env
+```
+
 If the browser is installed somewhere else, set `CHROME_PATH` first:
 
 ```powershell

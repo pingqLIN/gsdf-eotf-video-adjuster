@@ -62,9 +62,14 @@ const MANAGED_FILTER_RE =
 const MIN_VISIBLE_AREA = 8000;
 const PANEL_VIEWPORT_MARGIN = 16;
 const PANEL_DEFAULT_WIDTH = 420;
-const PANEL_DEFAULT_MAX_HEIGHT = 720;
+const PANEL_DEFAULT_MAX_HEIGHT = 690;
+const PANEL_EXPANDED_DEFAULT_MAX_HEIGHT = 720;
+const PANEL_DEFAULT_MIN_HEIGHT = 520;
+const PANEL_DEFAULT_MIN_WIDTH = 380;
 const PANEL_SPLIT_DEFAULT_WIDTH = 820;
+const PANEL_SPLIT_MIN_WIDTH = 680;
 const PANEL_WORKSPACE_DEFAULT_WIDTH = 1240;
+const PANEL_WORKSPACE_MIN_WIDTH = 960;
 const PANEL_PATTERN_MARGIN = 8;
 const PANEL_PATTERN_DEFAULT_WIDTH = 1040;
 const PANEL_PATTERN_DEFAULT_HEIGHT = 640;
@@ -75,6 +80,7 @@ let uiIframe = null;
 let svgFilterInjected = false;
 let currentSettings = { ...DEFAULT_SETTINGS };
 let panelPosition = { x: 24, y: 24 };
+let panelFrameSize = null;
 let panelPatternFrame = null;
 let panelExpandedForPattern = false;
 let panelLayoutMode = 'a';
@@ -243,10 +249,10 @@ function normalizeSettings(settings = {}) {
     strength: clampNumber(settings.strength, 0, 100, DEFAULT_SETTINGS.strength),
     blackPoint: clampNumber(settings.blackPoint, 0, 20, DEFAULT_SETTINGS.blackPoint),
     whitePoint: clampNumber(settings.whitePoint, 80, 100, DEFAULT_SETTINGS.whitePoint),
-    sharpness: clampNumber(settings.sharpness, 0, 100, DEFAULT_SETTINGS.sharpness),
+    sharpness: clampNumber(settings.sharpness, 0, 50, DEFAULT_SETTINGS.sharpness),
     temperature: clampNumber(settings.temperature, -50, 50, DEFAULT_SETTINGS.temperature),
-    saturation: clampNumber(settings.saturation, 0, 200, DEFAULT_SETTINGS.saturation),
-    hue: clampNumber(settings.hue, -180, 180, DEFAULT_SETTINGS.hue)
+    saturation: clampNumber(settings.saturation, 0, 125, DEFAULT_SETTINGS.saturation),
+    hue: clampNumber(settings.hue, -30, 30, DEFAULT_SETTINGS.hue)
   };
 
   if (normalized.whitePoint <= normalized.blackPoint + 10) {
@@ -257,9 +263,9 @@ function normalizeSettings(settings = {}) {
 }
 
 function getSharpnessFilterId(sharpness) {
-  if (sharpness < 15) return '';
-  if (sharpness < 35) return FILTER_IDS.sharpen1;
-  if (sharpness < 65) return FILTER_IDS.sharpen2;
+  if (sharpness < 8) return '';
+  if (sharpness < 20) return FILTER_IDS.sharpen1;
+  if (sharpness < 35) return FILTER_IDS.sharpen2;
   return FILTER_IDS.sharpen3;
 }
 
@@ -275,8 +281,8 @@ function deriveToneProfile(settings = currentSettings) {
   const greenGain = clampNumber(1 + temperatureRatio * 0.035, 0.92, 1.08, 1);
   const blueGain = clampNumber(1 - temperatureRatio * 0.16, 0.78, 1.22, 1);
   const gsdfTableValues = buildGsdfTableValues(normalized);
-  const saturationValue = clampNumber(normalized.saturation / 100, 0, 2, 1);
-  const hueValue = clampNumber(normalized.hue, -180, 180, 0);
+  const saturationValue = clampNumber(normalized.saturation / 100, 0, 1.25, 1);
+  const hueValue = clampNumber(normalized.hue, -30, 30, 0);
 
   return {
     ...normalized,
@@ -771,24 +777,43 @@ function getPanelLayoutTargetWidth() {
   return PANEL_DEFAULT_WIDTH;
 }
 
-function getPanelFrameSize(expanded = panelExpandedForPattern) {
+function getPanelLayoutMinWidth() {
+  if (panelLayoutMode === 'c') {
+    return PANEL_WORKSPACE_MIN_WIDTH;
+  }
+  if (panelLayoutMode === 'b') {
+    return PANEL_SPLIT_MIN_WIDTH;
+  }
+  return PANEL_DEFAULT_MIN_WIDTH;
+}
+
+function getDefaultPanelFrameSize() {
+  return {
+    width: getPanelLayoutTargetWidth(),
+    height: panelLayoutMode === 'a' ? PANEL_DEFAULT_MAX_HEIGHT : PANEL_EXPANDED_DEFAULT_MAX_HEIGHT
+  };
+}
+
+function clampPanelFrameSize(size) {
   const { viewportWidth, viewportHeight } = getViewportFrame();
+  const minWidth = getPanelLayoutMinWidth();
+  const maxWidth = Math.max(minWidth, viewportWidth - PANEL_VIEWPORT_MARGIN);
+  const maxHeight = Math.max(PANEL_DEFAULT_MIN_HEIGHT, viewportHeight - PANEL_VIEWPORT_MARGIN);
+  const defaultHeight = panelLayoutMode === 'a' ? PANEL_DEFAULT_MAX_HEIGHT : PANEL_EXPANDED_DEFAULT_MAX_HEIGHT;
+
+  return {
+    width: clampNumber(size.width, minWidth, maxWidth, getPanelLayoutTargetWidth()),
+    height: clampNumber(size.height, PANEL_DEFAULT_MIN_HEIGHT, maxHeight, defaultHeight)
+  };
+}
+
+function getPanelFrameSize(expanded = panelExpandedForPattern) {
   if (expanded) {
     const patternFrame = ensurePanelPatternFrame();
     return { width: patternFrame.width, height: patternFrame.height };
   }
 
-  const targetWidth = getPanelLayoutTargetWidth();
-  const width = Math.min(
-    targetWidth,
-    Math.max(PANEL_DEFAULT_WIDTH, viewportWidth - PANEL_VIEWPORT_MARGIN)
-  );
-  const height = Math.min(
-    PANEL_DEFAULT_MAX_HEIGHT,
-    Math.max(320, viewportHeight - PANEL_VIEWPORT_MARGIN)
-  );
-
-  return { width, height };
+  return clampPanelFrameSize(panelFrameSize ?? getDefaultPanelFrameSize());
 }
 
 function applyPanelFrameLayout() {
@@ -854,11 +879,21 @@ function schedulePanelDrag(deltaX, deltaY) {
 }
 
 function applyPanelResize(deltaWidth, deltaHeight) {
-  if (!uiIframe || !panelExpandedForPattern) {
+  if (!uiIframe) {
     return;
   }
 
   if (!Number.isFinite(deltaWidth) || !Number.isFinite(deltaHeight) || (deltaWidth === 0 && deltaHeight === 0)) {
+    return;
+  }
+
+  if (!panelExpandedForPattern) {
+    const currentSize = getPanelFrameSize(false);
+    panelFrameSize = clampPanelFrameSize({
+      width: currentSize.width + deltaWidth,
+      height: currentSize.height + deltaHeight
+    });
+    applyPanelFrameLayout();
     return;
   }
 
@@ -933,6 +968,7 @@ window.addEventListener('message', (event) => {
 
   if (event.data && event.data.type === 'GSDF_PANEL_MODE_CHANGED') {
     panelLayoutMode = normalizePanelLayoutMode(event.data.payload?.mode);
+    panelFrameSize = null;
     if (panelLayoutMode !== 'a') {
       panelExpandedForPattern = false;
     }

@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import WebSocket from 'ws';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const extensionDir = resolve(repoRoot, 'extension');
+const extensionDir = resolve(process.env.CODEX_CHROME_EXTENSION_ROOT || process.env.CHROME_EXTENSION_ROOT || resolve(repoRoot, 'extension'));
 const extensionDirForChrome = extensionDir.replaceAll('\\', '/');
 const outputDir = resolve(repoRoot, 'output', 'playwright');
 const profileDir = resolve(outputDir, 'gsdf-extension-profile');

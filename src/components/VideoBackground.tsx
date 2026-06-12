@@ -16,9 +16,9 @@ export function VideoBackground({ settings }: VideoBackgroundProps) {
   const redGain = Math.max(0.78, Math.min(1.22, 1 + temperatureRatio * 0.16));
   const greenGain = Math.max(0.92, Math.min(1.08, 1 + temperatureRatio * 0.035));
   const blueGain = Math.max(0.78, Math.min(1.22, 1 - temperatureRatio * 0.16));
-  const saturation = Math.max(0, Math.min(2, settings.saturation / 100));
-  const hue = Math.max(-180, Math.min(180, settings.hue));
-  const sharpnessFilter = settings.sharpness < 15 ? '' : settings.sharpness < 35 ? 'url(#eotf-sharpen-1)' : settings.sharpness < 65 ? 'url(#eotf-sharpen-2)' : 'url(#eotf-sharpen-3)';
+  const saturation = Math.max(0, Math.min(1.25, settings.saturation / 100));
+  const hue = Math.max(-30, Math.min(30, settings.hue));
+  const sharpnessFilter = settings.sharpness < 8 ? '' : settings.sharpness < 20 ? 'url(#eotf-sharpen-1)' : settings.sharpness < 35 ? 'url(#eotf-sharpen-2)' : 'url(#eotf-sharpen-3)';
 
   return (
     <div className="fixed inset-0 w-full h-full bg-black overflow-hidden select-none pointer-events-none">

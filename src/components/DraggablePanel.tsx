@@ -55,9 +55,13 @@ const INSPECTION_MIN_WIDTH = 560;
 const INSPECTION_MIN_HEIGHT = 420;
 const INSPECTION_DEFAULT_WIDTH = 960;
 const INSPECTION_DEFAULT_HEIGHT = 720;
-const PANEL_DEFAULT_HEIGHT = 720;
+const PANEL_DEFAULT_HEIGHT = 690;
+const PANEL_EXPANDED_DEFAULT_HEIGHT = 720;
 const PANEL_MIN_HEIGHT = 520;
 const PANEL_VIEWPORT_MARGIN = 16;
+const C_PANEL_DEFAULT_CONTROL_WIDTH = 300;
+const C_PANEL_MIN_CONTROL_WIDTH = 260;
+const C_PANEL_MAX_CONTROL_WIDTH = 420;
 const PANEL_MODE_SIZE: Record<PanelLayoutMode, { width: number; minWidth: number }> = {
   a: { width: 420, minWidth: 380 },
   b: { width: 820, minWidth: 680 },
@@ -108,6 +112,12 @@ interface PointerHandlers {
   onPointerMove: (event: React.PointerEvent<HTMLDivElement>) => void;
   onPointerUp: (event: React.PointerEvent<HTMLDivElement>) => void;
   onPointerCancel: (event: React.PointerEvent<HTMLDivElement>) => void;
+}
+
+interface ColumnResizeStart {
+  pointerId: number;
+  x: number;
+  width: number;
 }
 
 function ModePill({
@@ -235,7 +245,7 @@ function clampValue(value: number, min: number, max: number): number {
 function getDefaultPanelSize(mode: PanelLayoutMode) {
   return {
     width: PANEL_MODE_SIZE[mode].width,
-    height: PANEL_DEFAULT_HEIGHT,
+    height: mode === 'a' ? PANEL_DEFAULT_HEIGHT : PANEL_EXPANDED_DEFAULT_HEIGHT,
   };
 }
 
@@ -243,8 +253,9 @@ function clampStandalonePanelSize(mode: PanelLayoutMode, size: { width: number; 
   const maxWidth = typeof window === 'undefined'
     ? PANEL_MODE_SIZE[mode].width
     : Math.max(PANEL_MODE_SIZE[mode].minWidth, window.innerWidth - PANEL_VIEWPORT_MARGIN);
+  const defaultHeight = mode === 'a' ? PANEL_DEFAULT_HEIGHT : PANEL_EXPANDED_DEFAULT_HEIGHT;
   const maxHeight = typeof window === 'undefined'
-    ? PANEL_DEFAULT_HEIGHT
+    ? defaultHeight
     : Math.max(PANEL_MIN_HEIGHT, window.innerHeight - PANEL_VIEWPORT_MARGIN);
 
   return {
@@ -349,9 +360,11 @@ function EffectSwitch({
 function PanelTabSwitch({
   value,
   onChange,
+  panelTheme,
 }: {
   value: PanelTab;
   onChange: (value: PanelTab) => void;
+  panelTheme: PanelTheme;
 }) {
   return (
     <div
@@ -363,21 +376,25 @@ function PanelTabSwitch({
       <span
         className={`pointer-events-none absolute top-1 bottom-1 left-1 w-[calc(50%-4px)] rounded bg-zinc-100 shadow transition-transform ${value === 'advanced' ? 'translate-x-[calc(100%+4px)]' : 'translate-x-0'}`}
       />
-      {(['basic', 'advanced'] as PanelTab[]).map((tab) => (
-        <button
-          key={tab}
-          type="button"
-          role="tab"
-          aria-selected={value === tab}
-          title={tab === 'basic' ? '切換到基礎控制' : '切換到進階控制'}
-          onClick={() => onChange(tab)}
-          className={`relative z-10 rounded text-[11px] font-semibold transition-colors ${
-            value === tab ? 'text-[#111418]' : 'text-zinc-400 hover:text-zinc-100'
-          }`}
-        >
-          {tab === 'basic' ? '基礎' : '進階'}
-        </button>
-      ))}
+      {(['basic', 'advanced'] as PanelTab[]).map((tab) => {
+        const selected = value === tab;
+        return (
+          <button
+            key={tab}
+            type="button"
+            role="tab"
+            aria-selected={selected}
+            title={tab === 'basic' ? '切換到基礎控制' : '切換到進階控制'}
+            onClick={() => onChange(tab)}
+            style={selected ? { color: panelTheme === 'light' ? '#f8fafc' : '#111418' } : undefined}
+            className={`relative z-10 rounded text-[11px] font-semibold transition-colors ${
+              selected ? '' : 'text-zinc-400 hover:text-zinc-100'
+            }`}
+          >
+            {tab === 'basic' ? '基礎' : '進階'}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -412,11 +429,19 @@ function PanelLayoutModeSwitch({
   );
 }
 
-function StatusDeck({ settings }: { settings: AppSettings }) {
+function StatusDeck({
+  settings,
+  onLmaxChange,
+  onResetDefault,
+}: {
+  settings: AppSettings;
+  onLmaxChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  onResetDefault: () => void;
+}) {
   const statusLabel = settings.enabled ? 'ACTIVE' : 'STANDBY';
 
   return (
-    <section className="gsdf-status-deck rounded-md border border-white/10 bg-[#0a0e13] p-3 shadow-inner">
+    <section className="gsdf-status-deck space-y-3 rounded-md border border-white/10 bg-[#0a0e13] p-3 shadow-inner">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 flex-wrap items-center gap-2.5">
           <div className="flex shrink-0 items-center gap-2 text-[11px] font-semibold text-zinc-400">
@@ -447,10 +472,37 @@ function StatusDeck({ settings }: { settings: AppSettings }) {
             </ModePill>
           </div>
         </div>
-        <div className="flex shrink-0 items-baseline gap-2">
-          <span className="font-mono text-[24px] leading-none text-zinc-50 tabular-nums">{formatLuminance(settings.lmax)}</span>
-          <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-zinc-500">nits</span>
-          <span className="text-[9px] font-semibold text-zinc-500">目標值非實際測</span>
+        <button
+          onClick={onResetDefault}
+          className="rounded p-1.5 text-zinc-500 transition-colors hover:bg-white/[0.06] hover:text-zinc-100"
+          title={`重設為 ${DEFAULT_TARGET_LUMINANCE_NITS} nits、Gamma ${DEFAULT_GAMMA_TARGET.toFixed(1)}、90% filter 總量與預設影像參數。`}
+          data-no-drag
+        >
+          <RotateCcw size={14} />
+        </button>
+      </div>
+      <div
+        title="完整 GSDF table 會依此目標峰值亮度建立，不再把任何亮度當作中性不補償點。"
+        className="flex flex-wrap items-baseline gap-x-2 gap-y-1"
+      >
+        <span className="font-mono text-[24px] leading-none text-zinc-50 tabular-nums">{formatLuminance(settings.lmax)}</span>
+        <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-zinc-500">nits</span>
+        <span className="text-[11px] font-semibold text-zinc-300">目標螢幕亮度 (Lmax)</span>
+        <span className="text-[9px] font-semibold text-zinc-500">目標值非實際測</span>
+      </div>
+      <div className="gsdf-lmax-range-row space-y-1.5">
+        <input
+          type="range"
+          min="0"
+          max={LUMINANCE_SLIDER_MAX}
+          step="1"
+          value={luminanceToSliderValue(settings.lmax)}
+          onChange={onLmaxChange}
+          className="gsdf-range w-full"
+        />
+        <div className="flex items-center justify-between px-1 font-mono text-[10px] text-zinc-500">
+          <span>{LUMINANCE_MIN_NITS}</span>
+          <span>{LUMINANCE_MAX_NITS}</span>
         </div>
       </div>
     </section>
@@ -936,9 +988,11 @@ export function DraggablePanel({
   const dragControls = useDragControls();
   const dragStartRef = React.useRef<{ pointerId: number; x: number; y: number } | null>(null);
   const resizeStartRef = React.useRef<{ pointerId: number; x: number; y: number; handle: ResizeHandle } | null>(null);
+  const cColumnResizeRef = React.useRef<ColumnResizeStart | null>(null);
   const [activeTab, setActiveTab] = React.useState<PanelTab>('basic');
   const [panelMode, setPanelMode] = React.useState<PanelLayoutMode>('a');
   const [centerMode, setCenterMode] = React.useState<CenterWorkspaceMode>('pattern');
+  const [cControlWidth, setCControlWidth] = React.useState(C_PANEL_DEFAULT_CONTROL_WIDTH);
   const [inspectionMode, setInspectionMode] = React.useState<InspectionMode>(null);
   const [panelClosed, setPanelClosed] = React.useState(false);
   const [standaloneInspectionSize, setStandaloneInspectionSize] = React.useState({
@@ -1012,41 +1066,9 @@ export function DraggablePanel({
 
   const renderBasicPanel = (showStripePreview = true) => (
     <div className="space-y-3">
-      <section className={`space-y-3 transition-opacity ${settings.enabled ? 'opacity-100' : 'opacity-75'}`}>
-        <div className="flex items-center justify-between gap-3">
-          <label
-            title="完整 GSDF table 會依此目標峰值亮度建立，不再把任何亮度當作中性不補償點。"
-            className="flex items-center gap-2 text-[11px] font-semibold text-zinc-300"
-          >
-            <span className="flex h-6 w-6 items-center justify-center rounded-md bg-white/[0.05] text-zinc-200">
-              <Sun size={14} />
-            </span>
-            目標螢幕亮度 (Lmax)
-          </label>
-          <button
-            onClick={resetToDefault}
-            className="rounded p-1.5 text-zinc-500 transition-colors hover:bg-white/[0.06] hover:text-zinc-100"
-            title={`重設為 ${DEFAULT_TARGET_LUMINANCE_NITS} nits、Gamma ${DEFAULT_GAMMA_TARGET.toFixed(1)}、90% filter 總量與預設影像參數。`}
-          >
-            <RotateCcw size={14} />
-          </button>
-        </div>
-        <div className="gsdf-lmax-range-row space-y-1.5">
-          <input
-            type="range"
-            min="0"
-            max={LUMINANCE_SLIDER_MAX}
-            step="1"
-            value={luminanceToSliderValue(settings.lmax)}
-            onChange={handleLmaxChange}
-            className="gsdf-range w-full"
-          />
-          <div className="flex items-center justify-between px-1 font-mono text-[10px] text-zinc-500">
-            <span>{LUMINANCE_MIN_NITS}</span>
-            <span>{LUMINANCE_MAX_NITS}</span>
-          </div>
-        </div>
-      </section>
+      <div className={`transition-opacity ${settings.enabled ? 'opacity-100' : 'opacity-75'}`}>
+        <StatusDeck settings={settings} onLmaxChange={handleLmaxChange} onResetDefault={resetToDefault} />
+      </div>
 
       <SliderControl
         icon={<Activity size={14} />}
@@ -1308,6 +1330,34 @@ export function DraggablePanel({
     resizeStartRef.current = null;
   };
 
+  const handleCColumnResizePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.stopPropagation();
+    e.preventDefault();
+    cColumnResizeRef.current = { pointerId: e.pointerId, x: e.clientX, width: cControlWidth };
+    trySetPointerCapture(e.currentTarget, e.pointerId);
+  };
+
+  const handleCColumnResizePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!cColumnResizeRef.current || cColumnResizeRef.current.pointerId !== e.pointerId) {
+      return;
+    }
+
+    e.preventDefault();
+    const deltaX = e.clientX - cColumnResizeRef.current.x;
+    setCControlWidth(clampValue(
+      cColumnResizeRef.current.width + deltaX,
+      C_PANEL_MIN_CONTROL_WIDTH,
+      C_PANEL_MAX_CONTROL_WIDTH,
+    ));
+  };
+
+  const handleCColumnResizePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (cColumnResizeRef.current?.pointerId === e.pointerId) {
+      tryReleasePointerCapture(e.currentTarget, e.pointerId);
+    }
+    cColumnResizeRef.current = null;
+  };
+
   const dragHandlers = {
     onPointerDown: handleHeaderPointerDown,
     onPointerMove: handleHeaderPointerMove,
@@ -1360,30 +1410,59 @@ export function DraggablePanel({
       ) : (
         <>
       <div
-        className="gsdf-panel-header flex cursor-grab select-none flex-wrap items-center justify-between gap-3 border-b border-white/10 bg-[#181c21] px-4 py-3 active:cursor-grabbing"
+        className={`gsdf-panel-header cursor-grab select-none border-b border-white/10 bg-[#181c21] px-4 py-3 active:cursor-grabbing ${panelMode === 'c' ? '' : 'space-y-3'}`}
         onPointerDown={handleHeaderPointerDown}
         onPointerMove={handleHeaderPointerMove}
         onPointerUp={handleHeaderPointerUp}
         onPointerCancel={handleHeaderPointerUp}
       >
-        <div className="flex min-w-[240px] flex-1 items-center gap-3">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-white/10 bg-white/[0.05] text-zinc-200">
-            <Settings size={16} />
+        <div className="flex items-center gap-3">
+          <div className="flex min-w-0 flex-1 items-center gap-3">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-white/10 bg-white/[0.05] text-zinc-200">
+              <Settings size={16} />
+            </div>
+            <div className="min-w-0">
+              <div className="truncate text-[14px] font-semibold text-white">GSDF EOTF Adjuster</div>
+              <div className="font-mono text-[9px] uppercase tracking-[0.16em] text-zinc-500">perceptual video filter</div>
+            </div>
           </div>
-          <div className="min-w-0">
-            <div className="truncate text-[14px] font-semibold text-white">GSDF EOTF Adjuster</div>
-            <div className="font-mono text-[9px] uppercase tracking-[0.16em] text-zinc-500">perceptual video filter</div>
-          </div>
-          <div className="ml-auto mr-4 flex h-8 items-center">
+          <div className={`ml-auto flex shrink-0 items-center gap-2 ${panelMode === 'c' ? 'gsdf-header-controls' : ''}`} data-no-drag>
             <PanelLayoutModeSwitch value={panelMode} onChange={selectPanelMode} />
+            {panelMode === 'c' && (
+              <>
+                <div className="flex min-w-0 items-center gap-2.5">
+                  <EffectSwitch enabled={settings.enabled} onToggle={toggleEnabled} label="啟動 EOTF 修正" />
+                  <span className="truncate text-[11px] font-semibold text-zinc-300">{settings.enabled ? '效果開啟' : '效果關閉'}</span>
+                </div>
+                <button
+                  type="button"
+                  title={panelTheme === 'light' ? '切換到暗色面板' : '切換到明亮面板'}
+                  aria-label={panelTheme === 'light' ? '切換到暗色面板' : '切換到明亮面板'}
+                  onClick={() => setPanelTheme((theme) => (theme === 'light' ? 'dark' : 'light'))}
+                  className="gsdf-icon-button flex h-8 w-8 items-center justify-center rounded-md border border-white/10 bg-[#0b0d10] text-zinc-400 transition-colors hover:bg-white/[0.06] hover:text-zinc-100"
+                  data-no-drag
+                >
+                  {panelTheme === 'light' ? <Moon size={14} /> : <Sun size={14} />}
+                </button>
+              </>
+            )}
+            <button
+              type="button"
+              title="關閉面板"
+              aria-label="關閉面板"
+              onClick={handlePanelClose}
+              className="gsdf-icon-button flex h-8 w-8 items-center justify-center rounded-md border border-white/10 bg-[#0b0d10] text-zinc-400 transition-colors hover:bg-white/[0.06] hover:text-zinc-100"
+            >
+              <X size={14} />
+            </button>
           </div>
         </div>
-        <div className="gsdf-header-controls ml-auto flex shrink-0 flex-wrap items-center justify-end gap-2" data-no-drag>
+        {panelMode !== 'c' && <div className="gsdf-header-controls flex shrink-0 flex-wrap items-center justify-end gap-2" data-no-drag>
           <div className="flex min-w-0 items-center gap-2.5">
             <EffectSwitch enabled={settings.enabled} onToggle={toggleEnabled} label="啟動 EOTF 修正" />
             <span className="truncate text-[11px] font-semibold text-zinc-300">{settings.enabled ? '效果開啟' : '效果關閉'}</span>
           </div>
-          {panelMode === 'a' && <PanelTabSwitch value={activeTab} onChange={setActiveTab} />}
+          {panelMode === 'a' && <PanelTabSwitch value={activeTab} onChange={setActiveTab} panelTheme={panelTheme} />}
           <button
             type="button"
             title={panelTheme === 'light' ? '切換到暗色面板' : '切換到明亮面板'}
@@ -1394,22 +1473,11 @@ export function DraggablePanel({
           >
             {panelTheme === 'light' ? <Moon size={14} /> : <Sun size={14} />}
           </button>
-          <button
-            type="button"
-            title="關閉面板"
-            aria-label="關閉面板"
-            onClick={handlePanelClose}
-            className="gsdf-icon-button flex h-8 w-8 items-center justify-center rounded-md border border-white/10 bg-[#0b0d10] text-zinc-400 transition-colors hover:bg-white/[0.06] hover:text-zinc-100"
-          >
-            <X size={14} />
-          </button>
-        </div>
+        </div>}
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col">
-        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overflow-x-hidden p-4">
-          <StatusDeck settings={settings} />
-
+        <div className={`min-h-0 space-y-3 overflow-y-auto overflow-x-hidden p-4 ${panelMode === 'a' ? '' : 'flex-1'}`}>
           {panelMode === 'a' && (
             <>
               <div hidden={activeTab !== 'basic'} aria-hidden={activeTab !== 'basic'}>
@@ -1429,10 +1497,27 @@ export function DraggablePanel({
           )}
 
           {panelMode === 'c' && (
-            <div className="grid min-h-0 flex-1 grid-cols-[300px_minmax(0,1fr)] gap-4 overflow-hidden">
-              <div className="min-h-0 space-y-4 overflow-y-auto overflow-x-hidden">
+            <div
+              className="grid h-full min-h-0 overflow-hidden"
+              style={{ gridTemplateColumns: `${cControlWidth}px 12px minmax(0,1fr)` }}
+            >
+              <div className="min-h-0 space-y-4 overflow-y-auto overflow-x-hidden pr-3">
                 {renderBasicPanel(false)}
                 {renderAdvancedPanel(false)}
+              </div>
+              <div
+                role="separator"
+                aria-orientation="vertical"
+                aria-label="調整左側面板寬度"
+                title="左右拖曳調整左側面板寬度"
+                className="gsdf-column-resize-handle flex min-h-0 cursor-col-resize items-stretch justify-center"
+                data-no-drag
+                onPointerDown={handleCColumnResizePointerDown}
+                onPointerMove={handleCColumnResizePointerMove}
+                onPointerUp={handleCColumnResizePointerUp}
+                onPointerCancel={handleCColumnResizePointerUp}
+              >
+                <span className="my-1 w-px rounded-full bg-white/10" />
               </div>
               <div className="min-h-0 overflow-hidden">{renderCenterWorkspace()}</div>
             </div>

@@ -22,19 +22,33 @@ test('control panel is split into basic and advanced tabs', () => {
   assert.match(panelSource, /PanelTabSwitch/);
   assert.match(panelSource, /PanelLayoutModeSwitch/);
   assert.match(panelSource, /grid h-8 w-\[96px\]/);
-  assert.match(panelSource, /<div className="ml-auto mr-4 flex h-8 items-center">\s*<PanelLayoutModeSwitch/);
+  assert.match(panelSource, /panelMode === 'c' \? '' : 'space-y-3'/);
+  assert.match(panelSource, /panelMode === 'c' \? 'gsdf-header-controls' : ''/);
+  assert.match(panelSource, /<PanelLayoutModeSwitch value=\{panelMode\} onChange=\{selectPanelMode\} \/>/);
+  assert.match(panelSource, /<PanelLayoutModeSwitch value=\{panelMode\} onChange=\{selectPanelMode\} \/>[\s\S]*title="關閉面板"/);
   assert.match(panelSource, /PANEL_MODE_OPTIONS/);
   assert.match(panelSource, /GSDF_PANEL_MODE_CHANGED/);
   assert.match(panelSource, /panelMode === 'b'/);
   assert.match(panelSource, /panelMode === 'c'/);
-  assert.match(panelSource, /grid-cols-\[300px_minmax\(0,1fr\)\]/);
+  assert.match(panelSource, /C_PANEL_DEFAULT_CONTROL_WIDTH = 300/);
+  assert.match(panelSource, /C_PANEL_MIN_CONTROL_WIDTH = 260/);
+  assert.match(panelSource, /C_PANEL_MAX_CONTROL_WIDTH = 420/);
+  assert.match(panelSource, /gridTemplateColumns: `\$\{cControlWidth\}px 12px minmax\(0,1fr\)`/);
+  assert.match(panelSource, /gsdf-column-resize-handle/);
+  assert.match(panelSource, /aria-label="調整左側面板寬度"/);
+  assert.match(panelSource, /handleCColumnResizePointerDown/);
+  assert.match(panelSource, /handleCColumnResizePointerMove/);
+  assert.match(panelSource, /handleCColumnResizePointerUp/);
   assert.match(panelSource, /space-y-4 overflow-y-auto overflow-x-hidden/);
   assert.match(panelSource, /CenterWorkspaceMode = 'pattern' \| 'chart' \| 'both'/);
   assert.match(panelSource, /role="tablist"/);
   assert.match(panelSource, /role="tab"/);
-  assert.match(panelSource, /aria-selected=\{value === tab\}/);
+  assert.match(panelSource, /const selected = value === tab/);
+  assert.match(panelSource, /aria-selected=\{selected\}/);
+  assert.match(panelSource, /style=\{selected \? \{ color: panelTheme === 'light' \? '#f8fafc' : '#111418' \} : undefined\}/);
   assert.match(panelSource, /gsdf-header-controls/);
-  assert.match(panelSource, /ml-auto flex shrink-0 flex-wrap items-center justify-end gap-2/);
+  assert.match(panelSource, /gsdf-header-controls flex shrink-0 flex-wrap items-center justify-end gap-2/);
+  assert.match(panelSource, /panelMode !== 'c' && <div className="gsdf-header-controls flex shrink-0 flex-wrap items-center justify-end gap-2"/);
   assert.match(panelSource, /gsdf-status-inline-metrics/);
   assert.match(panelSource, /flex min-w-0 flex-wrap items-center justify-start gap-1\.5/);
   assert.doesNotMatch(panelSource, /grid grid-cols-4 gap-1\.5/);
@@ -218,7 +232,8 @@ test('diagnostic pattern follows the active transfer table', () => {
 
 test('extension panel avoids internal scrollbars in the compact control view', () => {
   assert.match(panelSource, /h-\[720px\]/);
-  assert.match(panelSource, /PANEL_DEFAULT_HEIGHT = 720/);
+  assert.match(panelSource, /PANEL_DEFAULT_HEIGHT = 690/);
+  assert.match(panelSource, /PANEL_EXPANDED_DEFAULT_HEIGHT = 720/);
   assert.match(panelSource, /a: \{ width: 420, minWidth: 380 \}/);
   assert.match(panelSource, /overflow-y-auto overflow-x-hidden p-4/);
   assert.doesNotMatch(panelSource, /flex-1 space-y-5 overflow-y-auto p-5/);

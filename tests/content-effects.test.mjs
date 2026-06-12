@@ -148,7 +148,7 @@ test('derives a richer GSDF tone profile from luminance and image controls', () 
     strength: 80,
     blackPoint: 6,
     whitePoint: 96,
-    sharpness: 55,
+    sharpness: 45,
     temperature: 35,
     saturation: 125,
     hue: -15
@@ -156,7 +156,7 @@ test('derives a richer GSDF tone profile from luminance and image controls', () 
 
   assert.notEqual(profile.gsdfTableValues[128], Number((128 / 255).toFixed(5)), 'low target luminance should bend the GSDF table');
   assert.ok(profile.levelSlope > 1, 'black/white point compression should increase slope');
-  assert.equal(profile.sharpenFilterId, 'gsdf-eotf-sharpen-2');
+  assert.equal(profile.sharpenFilterId, 'gsdf-eotf-sharpen-3');
   assert.ok(profile.temperatureMatrix[0] > profile.temperatureMatrix[10], 'warm temperature should lift red over blue');
   assert.equal(profile.saturationValue, 1.25);
   assert.equal(profile.hueValue, -15);
@@ -270,6 +270,17 @@ test('content script resizes the iframe for A B C panel modes', () => {
   messageListener.callback({
     source: iframe.contentWindow,
     data: {
+      type: 'GSDF_PANEL_RESIZED',
+      payload: { deltaWidth: 80, deltaHeight: -80 }
+    }
+  });
+
+  assert.equal(iframe.style.width, '900px');
+  assert.equal(iframe.style.height, '624px');
+
+  messageListener.callback({
+    source: iframe.contentWindow,
+    data: {
       type: 'GSDF_PANEL_MODE_CHANGED',
       payload: { mode: 'c' }
     }
@@ -308,9 +319,10 @@ test('maps target luminance on a 10 to 500 nits logarithmic slider', () => {
   assert.equal(hooks.normalizeSettings({ gammaTarget: 4 }).gammaTarget, 3.0);
   assert.equal(hooks.normalizeSettings({ gammaTarget: 1.2367 }).gammaTarget, 1.237);
   assert.equal(hooks.normalizeSettings({ saturation: -20 }).saturation, 0);
-  assert.equal(hooks.normalizeSettings({ saturation: 240 }).saturation, 200);
-  assert.equal(hooks.normalizeSettings({ hue: -220 }).hue, -180);
-  assert.equal(hooks.normalizeSettings({ hue: 220 }).hue, 180);
+  assert.equal(hooks.normalizeSettings({ sharpness: 80 }).sharpness, 50);
+  assert.equal(hooks.normalizeSettings({ saturation: 240 }).saturation, 125);
+  assert.equal(hooks.normalizeSettings({ hue: -220 }).hue, -30);
+  assert.equal(hooks.normalizeSettings({ hue: 220 }).hue, 30);
   assert.equal(hooks.gammaCorrectionToTarget(-100), 3.0);
   assert.equal(hooks.gammaCorrectionToTarget(0), 2.2);
   assert.equal(hooks.gammaCorrectionToTarget(100), 1.0);

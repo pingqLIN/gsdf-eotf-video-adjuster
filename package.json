@@ -9,6 +9,7 @@
     "build": "vite build",
     "build:ext": "vite build && node scripts/buildExt.js",
     "smoke:ext": "node scripts/smokeExtensionChrome.mjs",
+    "smoke:ext:env": "pwsh -NoProfile -ExecutionPolicy Bypass -Command \". './scripts/useChromeExtensionEnv.ps1' -Quiet; npm run smoke:ext\"",
     "preview": "vite preview",
     "clean": "node -e \"const fs = require('fs'); for (const path of ['dist', 'server.js']) fs.rmSync(path, { recursive: true, force: true });\"",
     "lint": "tsc --noEmit"

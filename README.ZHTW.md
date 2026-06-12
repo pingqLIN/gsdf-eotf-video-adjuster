@@ -159,6 +159,12 @@ npm run smoke:ext
 npm run smoke:ext
 ```
 
+這個 repo wrapper 會優先使用 `Q:\Projects\.codex-env\chrome-extension\Use-ChromeExtensionEnv.ps1` 的 workspace helper，但也保留 repo-local fallback，讓專案 clone 到沒有本機 overlay 的機器時仍可使用。同一條路徑也可以用 npm script 執行：
+
+```powershell
+npm run smoke:ext:env
+```
+
 如果 browser 安裝在其他位置，請先設定 `CHROME_PATH`：
 
 ```powershell

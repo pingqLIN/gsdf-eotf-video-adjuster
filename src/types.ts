@@ -287,10 +287,10 @@ export function normalizeAppSettings(value: Partial<AppSettings> | null | undefi
     strength: clampNumber(settings.strength, 0, 100, DEFAULT_APP_SETTINGS.strength),
     blackPoint: clampNumber(settings.blackPoint, 0, 20, DEFAULT_APP_SETTINGS.blackPoint),
     whitePoint: clampNumber(settings.whitePoint, 80, 100, DEFAULT_APP_SETTINGS.whitePoint),
-    sharpness: clampNumber(settings.sharpness, 0, 100, DEFAULT_APP_SETTINGS.sharpness),
+    sharpness: clampNumber(settings.sharpness, 0, 50, DEFAULT_APP_SETTINGS.sharpness),
     temperature: clampNumber(settings.temperature, -50, 50, DEFAULT_APP_SETTINGS.temperature),
-    saturation: clampNumber(settings.saturation, 0, 200, DEFAULT_APP_SETTINGS.saturation),
-    hue: clampNumber(settings.hue, -180, 180, DEFAULT_APP_SETTINGS.hue),
+    saturation: clampNumber(settings.saturation, 0, 125, DEFAULT_APP_SETTINGS.saturation),
+    hue: clampNumber(settings.hue, -30, 30, DEFAULT_APP_SETTINGS.hue),
   };
 
   if (normalized.whitePoint <= normalized.blackPoint + 10) {
