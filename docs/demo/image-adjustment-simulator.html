@@ -3,19 +3,22 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>GSDF Image Adjustment Simulator</title>
+    <link rel="icon" href="../favicon.svg" />
+    <title>GSDF Image Adjustment Showcase</title>
     <style>
       :root {
         color-scheme: dark;
-        --bg: #080b0f;
-        --panel: #11161d;
-        --panel-2: #17202a;
-        --text: #edf2f7;
-        --muted: #a3b0bd;
-        --line: #2c3947;
-        --accent: #8bd2ff;
-        --accent-2: #b7f0d1;
-        --warn: #f0c36a;
+        --bg: #090b0c;
+        --surface: #121714;
+        --surface-2: #171c1a;
+        --surface-3: #20251f;
+        --text: #edf1eb;
+        --muted: #b3bcaf;
+        --line: #384036;
+        --cyan: #8fd6ff;
+        --green: #b9e6bd;
+        --amber: #f1c66d;
+        --ink: #050706;
         font-family: "Segoe UI", "Noto Sans TC", system-ui, sans-serif;
       }
 
@@ -27,141 +30,161 @@
         margin: 0;
         min-height: 100vh;
         background:
-          radial-gradient(circle at 18% 0%, rgba(139, 210, 255, 0.16), transparent 28rem),
-          linear-gradient(145deg, #080b0f 0%, #111922 56%, #080b0f 100%);
+          radial-gradient(circle at 14% -8%, rgba(185, 230, 189, 0.2), transparent 30rem),
+          radial-gradient(circle at 88% 8%, rgba(241, 198, 109, 0.11), transparent 28rem),
+          linear-gradient(140deg, #090b0c 0%, #131714 48%, #090b0c 100%);
         color: var(--text);
       }
 
       a {
-        color: var(--accent);
+        color: var(--cyan);
       }
 
       header {
-        padding: 26px clamp(16px, 4vw, 36px);
+        padding: 26px clamp(16px, 5vw, 48px) 30px;
         border-bottom: 1px solid var(--line);
-        background: rgba(8, 11, 15, 0.86);
+        background: rgba(9, 11, 12, 0.86);
       }
 
       nav {
         margin-bottom: 14px;
+        color: var(--muted);
         font-size: 0.92rem;
       }
 
       h1 {
-        margin: 0 0 10px;
-        font-size: clamp(2rem, 5vw, 4rem);
+        max-width: 1120px;
+        margin: 0 0 12px;
+        font-size: clamp(2rem, 5vw, 4.4rem);
         line-height: 1;
         letter-spacing: 0;
       }
 
       header p {
-        max-width: 920px;
+        max-width: 980px;
         margin: 0;
-        color: #c7d2dc;
-        line-height: 1.68;
+        color: #cbd4c8;
+        line-height: 1.72;
       }
 
       main {
-        display: grid;
-        grid-template-columns: minmax(290px, 370px) minmax(0, 1fr);
-        gap: 16px;
-        padding: 16px;
+        width: min(1320px, calc(100% - 32px));
+        margin: 0 auto;
+        padding: 22px 0 44px;
       }
 
-      aside,
-      .stage,
-      .notes {
+      section {
+        margin-top: 20px;
+      }
+
+      .section-heading {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: end;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 14px;
+      }
+
+      h2 {
+        margin: 0;
+        font-size: clamp(1.35rem, 2.4vw, 2rem);
+        line-height: 1.16;
+        letter-spacing: 0;
+      }
+
+      .section-heading p,
+      .scenario-copy,
+      figcaption,
+      .note {
+        color: var(--muted);
+        line-height: 1.62;
+      }
+
+      .section-heading p {
+        max-width: 700px;
+        margin: 0;
+      }
+
+      .scenario-grid,
+      .image-grid {
+        display: grid;
+        gap: 14px;
+      }
+
+      .scenario-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .scenario {
         border: 1px solid var(--line);
         border-radius: 8px;
-        background: rgba(17, 22, 29, 0.94);
-      }
-
-      aside {
-        padding: 18px;
-      }
-
-      fieldset {
-        margin: 0;
-        padding: 0;
-        border: 0;
-      }
-
-      legend {
-        margin-bottom: 14px;
-        font-size: 1.08rem;
-        font-weight: 800;
-      }
-
-      label {
-        display: flex;
-        justify-content: space-between;
-        gap: 10px;
-        margin-bottom: 7px;
-        color: #dce6ef;
-        font-size: 0.92rem;
-        font-weight: 700;
-      }
-
-      label output {
-        color: var(--accent-2);
-        font-variant-numeric: tabular-nums;
-      }
-
-      .field {
-        margin-bottom: 16px;
-      }
-
-      input[type="range"] {
-        width: 100%;
-        accent-color: var(--accent);
-      }
-
-      button {
-        width: 100%;
-        min-height: 42px;
-        margin-top: 6px;
-        border: 1px solid #4f799a;
-        border-radius: 6px;
-        color: #061019;
-        background: linear-gradient(180deg, #a4dcff, #75bfff);
-        font-weight: 800;
-        cursor: pointer;
-      }
-
-      button.secondary {
-        color: var(--accent);
-        background: transparent;
-      }
-
-      .control-note,
-      .warning {
-        margin-top: 16px;
-        padding: 12px;
-        border-left: 3px solid var(--accent);
-        background: rgba(139, 210, 255, 0.08);
-        color: #c8d7e1;
-        font-size: 0.92rem;
-        line-height: 1.58;
-      }
-
-      .warning {
-        border-color: var(--warn);
-        background: rgba(240, 195, 106, 0.1);
-        color: #ecdab7;
-      }
-
-      .stage {
-        min-height: 72vh;
-        padding: 12px;
-      }
-
-      .viewer {
-        position: relative;
-        min-height: 62vh;
+        background: rgba(18, 23, 20, 0.92);
         overflow: hidden;
-        border: 1px solid #263342;
+      }
+
+      .scenario-header {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 12px;
+        padding: 16px 16px 12px;
+        border-bottom: 1px solid rgba(56, 64, 54, 0.78);
+        background: linear-gradient(180deg, rgba(32, 37, 31, 0.9), rgba(18, 23, 20, 0.9));
+      }
+
+      .scenario-title {
+        margin: 0 0 6px;
+        font-size: 1.05rem;
+      }
+
+      .scenario-copy {
+        margin: 0;
+        font-size: 0.92rem;
+      }
+
+      .meter {
+        align-self: start;
+        min-width: 96px;
+        padding: 7px 9px;
+        border: 1px solid rgba(143, 214, 255, 0.3);
+        border-radius: 6px;
+        color: var(--cyan);
+        background: rgba(143, 214, 255, 0.08);
+        font-size: 0.78rem;
+        font-weight: 800;
+        text-align: center;
+        white-space: nowrap;
+      }
+
+      .chart-stack {
+        display: grid;
+        gap: 10px;
+        padding: 14px;
+      }
+
+      .chart {
+        position: relative;
+        border: 1px solid rgba(56, 64, 54, 0.82);
         border-radius: 8px;
-        background: #05070a;
+        background: #050706;
+        overflow: hidden;
+      }
+
+      .chart-label {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        gap: 8px;
+        padding: 10px 11px;
+        border-bottom: 1px solid rgba(56, 64, 54, 0.82);
+        color: #e5ece1;
+        font-size: 0.84rem;
+        font-weight: 800;
+      }
+
+      .chart-label span:last-child {
+        color: var(--muted);
+        font-weight: 700;
       }
 
       canvas {
@@ -170,67 +193,75 @@
         height: auto;
       }
 
-      .split-line {
-        position: absolute;
-        top: 0;
-        bottom: 0;
-        width: 2px;
-        background: #f7fbff;
-        box-shadow: 0 0 0 9999px transparent, 0 0 18px rgba(139, 210, 255, 0.7);
-        pointer-events: none;
-      }
-
-      .badge {
-        position: absolute;
-        top: 12px;
-        padding: 7px 10px;
-        border: 1px solid rgba(255, 255, 255, 0.12);
-        border-radius: 6px;
-        background: rgba(8, 11, 15, 0.78);
-        color: #edf2f7;
-        font-size: 0.8rem;
-        font-weight: 700;
-        pointer-events: none;
-      }
-
-      .badge.left {
-        left: 12px;
-      }
-
-      .badge.right {
-        right: 12px;
-      }
-
-      .status {
+      .axis {
         display: flex;
-        flex-wrap: wrap;
-        gap: 10px;
-        align-items: center;
         justify-content: space-between;
-        margin-top: 12px;
-        color: var(--muted);
-        font-size: 0.92rem;
+        gap: 10px;
+        padding: 7px 11px 10px;
+        color: #9ea99b;
+        font-size: 0.72rem;
+        font-weight: 800;
+        text-transform: uppercase;
       }
 
-      .notes {
-        margin-top: 16px;
-        padding: 16px;
-        color: var(--muted);
-        line-height: 1.62;
+      .image-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
       }
 
-      .notes strong {
-        color: #e6eef6;
+      figure {
+        margin: 0;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: rgba(18, 23, 20, 0.92);
+        overflow: hidden;
+      }
+
+      figure img {
+        display: block;
+        width: 100%;
+        aspect-ratio: 1.42 / 1;
+        object-fit: cover;
+        background: #050706;
+      }
+
+      figcaption {
+        padding: 12px 13px 14px;
+        font-size: 0.9rem;
+      }
+
+      figcaption strong {
+        display: block;
+        margin-bottom: 4px;
+        color: var(--text);
+      }
+
+      .note {
+        margin-top: 20px;
+        padding: 15px 16px;
+        border-left: 3px solid var(--amber);
+        border-radius: 0 8px 8px 0;
+        background: rgba(241, 198, 109, 0.08);
+        color: #eadcbd;
       }
 
       @media (max-width: 980px) {
+        .scenario-grid,
+        .image-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @media (max-width: 560px) {
         main {
+          width: min(100% - 22px, 1320px);
+        }
+
+        .scenario-header {
           grid-template-columns: 1fr;
         }
 
-        .stage,
-        .viewer {
-          min-height: auto;
+        .meter {
+          justify-self: start;
         }
       }
     </style>
@@ -241,433 +272,307 @@
         <a href="../index.html">← Back to demos</a>
         · <a href="./dicom-gsdf-3d.html">3D GSDF model</a>
       </nav>
-      <h1>Image Adjustment Simulator</h1>
+      <h1>Image Adjustment Showcase</h1>
       <p>
-        這個頁面用樣本影像與 canvas 模擬本擴充的調整效果。因為網頁無法知道訪客螢幕實際亮度，
-        所有 Lmax、gamma 與 filter amount 都是相對模擬參數，而不是螢幕量測或校正結果。
+        這頁不提供使用者調整參數，而是用固定模擬圖展示本擴充的視覺方向：
+        在同一組連續變化頻率圖中，比較 Gamma 2.2 與 Best / GSDF-inspired 曲線的差異；
+        再用幾組前後對比影像呈現霧氣、暗部與低對比細節被拉開後的效果。
       </p>
     </header>
 
     <main>
-      <aside>
-        <fieldset>
-          <legend>Simulated controls</legend>
-
-          <div class="field">
-            <label for="lmax">Assumed Lmax <output id="lmaxValue">100 cd/m²</output></label>
-            <input type="range" id="lmax" min="10" max="500" value="100" step="1" />
-          </div>
-
-          <div class="field">
-            <label for="gamma">Gamma baseline <output id="gammaValue">2.20</output></label>
-            <input type="range" id="gamma" min="1" max="3" value="2.2" step="0.01" />
-          </div>
-
-          <div class="field">
-            <label for="amount">Filter amount <output id="amountValue">90%</output></label>
-            <input type="range" id="amount" min="0" max="100" value="90" step="1" />
-          </div>
-
-          <div class="field">
-            <label for="split">Comparison split <output id="splitValue">50%</output></label>
-            <input type="range" id="split" min="0" max="100" value="50" step="1" />
-          </div>
-
-          <button type="button" id="reset">Reset simulation</button>
-        </fieldset>
-
-        <p class="control-note">
-          Pipeline: sample pixel → simulated gamma baseline → simulated GSDF table →
-          blend by filter amount. This mirrors the project concept, but it is not reading
-          your display brightness.
-        </p>
-
-        <p class="warning">
-          The result is intentionally labeled simulated. Use it to understand the extension's
-          intended viewing-aid behavior, not as proof of display calibration or DICOM conformance.
-        </p>
-      </aside>
-
-      <section class="stage" aria-label="Simulated image adjustment comparison">
-        <div class="viewer" id="viewer">
-          <canvas id="comparison" width="1280" height="720"></canvas>
-          <div class="split-line" id="splitLine"></div>
-          <div class="badge left">Original sample</div>
-          <div class="badge right">Simulated GSDF adjustment</div>
+      <section aria-labelledby="frequency-title">
+        <div class="section-heading">
+          <h2 id="frequency-title">Continuous-Frequency Pattern</h2>
+          <p>
+            左側是低頻、右側是高頻。每一組都固定使用同一個假設影像訊號，
+            只改變顯示曲線；深暗與偏亮兩種條件用來提醒：這些圖是繪製出來的相對模擬，
+            不是訪客螢幕亮度的量測值。
+          </p>
         </div>
-        <div class="status">
-          <span id="renderStatus">Loading sample image…</span>
-          <span>Drag or use the split slider to compare.</span>
-        </div>
-        <div class="notes">
-          <strong>Why simulation?</strong>
-          A normal web page cannot measure the visitor's monitor luminance, ambient light,
-          display EOTF, HDR/SDR state, or browser compositor behavior. This demo therefore
-          draws a controlled relative transformation on the sample image so the effect remains
-          understandable and repeatable.
+
+        <div class="scenario-grid">
+          <article class="scenario">
+            <div class="scenario-header">
+              <div>
+                <h3 class="scenario-title">Dark-biased simulation</h3>
+                <p class="scenario-copy">
+                  模擬低亮度、暗部細節容易黏在一起的情境。最佳曲線會把低階灰階的間距拉開，
+                  讓頻率變化比較不容易被 Gamma 曲線吞掉。
+                </p>
+              </div>
+              <div class="meter">Lmax 80 cd/m²</div>
+            </div>
+            <div class="chart-stack">
+              <div class="chart">
+                <div class="chart-label">
+                  <span>Gamma 2.2 curve</span>
+                  <span>baseline rendering</span>
+                </div>
+                <canvas data-scene="dark" data-curve="gamma" width="960" height="168"></canvas>
+                <div class="axis"><span>Low frequency</span><span>High frequency</span></div>
+              </div>
+              <div class="chart">
+                <div class="chart-label">
+                  <span>Best curve</span>
+                  <span>GSDF-inspired redistribution</span>
+                </div>
+                <canvas data-scene="dark" data-curve="best" width="960" height="168"></canvas>
+                <div class="axis"><span>Low frequency</span><span>High frequency</span></div>
+              </div>
+            </div>
+          </article>
+
+          <article class="scenario">
+            <div class="scenario-header">
+              <div>
+                <h3 class="scenario-title">Bright-biased simulation</h3>
+                <p class="scenario-copy">
+                  模擬霧面、偏亮、低對比區域。最佳曲線會保留亮部層次，同時讓細小變化更容易分辨，
+                  而不是只用 Gamma 整體壓暗或拉亮。
+                </p>
+              </div>
+              <div class="meter">Lmax 240 cd/m²</div>
+            </div>
+            <div class="chart-stack">
+              <div class="chart">
+                <div class="chart-label">
+                  <span>Gamma 2.2 curve</span>
+                  <span>baseline rendering</span>
+                </div>
+                <canvas data-scene="bright" data-curve="gamma" width="960" height="168"></canvas>
+                <div class="axis"><span>Low frequency</span><span>High frequency</span></div>
+              </div>
+              <div class="chart">
+                <div class="chart-label">
+                  <span>Best curve</span>
+                  <span>GSDF-inspired redistribution</span>
+                </div>
+                <canvas data-scene="bright" data-curve="best" width="960" height="168"></canvas>
+                <div class="axis"><span>Low frequency</span><span>High frequency</span></div>
+              </div>
+            </div>
+          </article>
         </div>
       </section>
+
+      <section aria-labelledby="image-title">
+        <div class="section-heading">
+          <h2 id="image-title">Before / After Image Samples</h2>
+          <p>
+            這些縮圖使用專案資產中的前後對比圖。左半邊是調整前，右半邊是套用擴充概念後，
+            目標是讓低對比輪廓、霧中結構與暗部材質更容易被看見。
+          </p>
+        </div>
+
+        <div class="image-grid">
+          <figure>
+            <img
+              src="../assets/showcase-foggy-trail-before-after.png"
+              alt="Foggy hillside trail comparison, before on the left and adjusted result on the right"
+            />
+            <figcaption>
+              <strong>Foggy hillside trail</strong>
+              霧氣與山坡輪廓被壓在接近的灰階中，調整後路徑與植被層次更清楚。
+            </figcaption>
+          </figure>
+          <figure>
+            <img
+              src="../assets/showcase-hillside-walk-before-after.png"
+              alt="Hillside walking scene comparison, before on the left and adjusted result on the right"
+            />
+            <figcaption>
+              <strong>Hillside walking scene</strong>
+              人物、步道與草叢的暗部區分被拉開，畫面不只是整體變暗，而是局部對比更可讀。
+            </figcaption>
+          </figure>
+          <figure>
+            <img
+              src="../assets/showcase-mountain-fog-before-after.png"
+              alt="Mountain fog comparison, before on the left and adjusted result on the right"
+            />
+            <figcaption>
+              <strong>Mountain fog detail</strong>
+              偏亮霧面區域保留柔和感，同時讓山體邊界與雲霧層次比較容易分辨。
+            </figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <p class="note">
+        Boundary note: 網頁無法讀取或校正訪客螢幕的實際亮度、EOTF 或周遭環境光。
+        本頁所有曲線、Lmax 與頻率圖都是展示用的相對模擬；本擴充是 browser-side viewing aid，
+        不是 DICOM 顯示器校正、螢幕認證或醫療診斷工具。
+      </p>
     </main>
 
     <script>
       const DISPLAY_GAMMA = 2.2;
-      const LUMINANCE_MIN_NITS = 10;
-      const LUMINANCE_MAX_NITS = 500;
-      const GSDF_DISPLAY_LMIN_NITS = 0.05;
-      const GSDF_JND_MIN = 1;
-      const GSDF_JND_MAX = 1023;
-      const TABLE_SIZE = 256;
-
-      const coefficients = {
+      const TABLE_SIZE = 768;
+      const MIN_LUMINANCE = 0.05;
+      const JND_MIN = 1;
+      const JND_MAX = 1023;
+      const GSDF_COEFFICIENTS = {
         a: -1.3011877,
         b: -2.5840191e-2,
         c: 8.0242636e-2,
         d: -1.0320229e-1,
         e: 1.3646699e-1,
-        f: 2.8745620e-2,
+        f: 2.874562e-2,
         g: -2.5468404e-2,
         h: -3.1978977e-3,
         k: 1.2992634e-4,
         m: 1.3635334e-3,
       };
 
-      const controls = {
-        lmax: document.getElementById('lmax'),
-        gamma: document.getElementById('gamma'),
-        amount: document.getElementById('amount'),
-        split: document.getElementById('split'),
+      const scenes = {
+        dark: {
+          base: 0.18,
+          amplitude: 0.085,
+          lmax: 80,
+          tint: [0.88, 0.94, 0.92],
+          lift: 0.11,
+          contrast: 1.5,
+        },
+        bright: {
+          base: 0.72,
+          amplitude: 0.07,
+          lmax: 240,
+          tint: [0.93, 0.96, 0.91],
+          lift: -0.035,
+          contrast: 1.42,
+        },
       };
 
-      const outputs = {
-        lmax: document.getElementById('lmaxValue'),
-        gamma: document.getElementById('gammaValue'),
-        amount: document.getElementById('amountValue'),
-        split: document.getElementById('splitValue'),
-      };
+      function clamp(value, min = 0, max = 1) {
+        return Math.min(max, Math.max(min, value));
+      }
 
-      const canvas = document.getElementById('comparison');
-      const context = canvas.getContext('2d', { willReadFrequently: true });
-      const viewer = document.getElementById('viewer');
-      const splitLine = document.getElementById('splitLine');
-      const renderStatus = document.getElementById('renderStatus');
-      const sourceImage = new Image();
-      const workCanvas = document.createElement('canvas');
-      const workContext = workCanvas.getContext('2d', { willReadFrequently: true });
-
-      let sourceImageData = null;
-      let adjustedImageData = null;
-      let renderPending = false;
-
-      function clamp(value, min, max) {
-        return Math.max(min, Math.min(max, value));
+      function mix(from, to, amount) {
+        return from + (to - from) * amount;
       }
 
       function gsdfJndToLuminance(jndIndex) {
-        const j = clamp(jndIndex, GSDF_JND_MIN, GSDF_JND_MAX);
-        const lnJ = Math.log(j);
-        const lnJ2 = lnJ * lnJ;
-        const lnJ3 = lnJ2 * lnJ;
-        const lnJ4 = lnJ3 * lnJ;
-        const lnJ5 = lnJ4 * lnJ;
-        const numerator =
-          coefficients.a +
-          coefficients.c * lnJ +
-          coefficients.e * lnJ2 +
-          coefficients.g * lnJ3 +
-          coefficients.m * lnJ4;
-        const denominator =
-          1 +
-          coefficients.b * lnJ +
-          coefficients.d * lnJ2 +
-          coefficients.f * lnJ3 +
-          coefficients.h * lnJ4 +
-          coefficients.k * lnJ5;
-
-        return Math.pow(10, numerator / denominator);
+        const j = Math.log10(jndIndex);
+        const { a, b, c, d, e, f, g, h, k, m } = GSDF_COEFFICIENTS;
+        const numerator = a + c * j + e * j ** 2 + g * j ** 3 + m * j ** 4;
+        const denominator = 1 + b * j + d * j ** 2 + f * j ** 3 + h * j ** 4 + k * j ** 5;
+        return 10 ** (numerator / denominator);
       }
 
       function luminanceToGsdfJnd(luminance) {
-        const target = clamp(luminance, GSDF_DISPLAY_LMIN_NITS, 4000);
-        let low = GSDF_JND_MIN;
-        let high = GSDF_JND_MAX;
+        let low = JND_MIN;
+        let high = JND_MAX;
 
         for (let iteration = 0; iteration < 28; iteration += 1) {
-          const mid = (low + high) / 2;
-          if (gsdfJndToLuminance(mid) < target) {
-            low = mid;
+          const middle = (low + high) / 2;
+          if (gsdfJndToLuminance(middle) < luminance) {
+            low = middle;
           } else {
-            high = mid;
+            high = middle;
           }
         }
 
         return (low + high) / 2;
       }
 
-      function getGsdfDisplayCode(inputLevel, lmax) {
-        const normalized = clamp(inputLevel, 0, 1);
-        const maxLuminance = clamp(lmax, LUMINANCE_MIN_NITS, LUMINANCE_MAX_NITS);
-        const minLuminance = Math.min(GSDF_DISPLAY_LMIN_NITS, maxLuminance * 0.01);
-        const jndMin = luminanceToGsdfJnd(minLuminance);
-        const jndMax = luminanceToGsdfJnd(maxLuminance);
-        const jnd = jndMin + normalized * (jndMax - jndMin);
-        const luminance = gsdfJndToLuminance(jnd);
-        const linearDisplayLevel = clamp(
-          (luminance - minLuminance) / Math.max(0.0001, maxLuminance - minLuminance),
-          0,
-          1,
-        );
-
-        return clamp(Math.pow(linearDisplayLevel, 1 / DISPLAY_GAMMA), 0, 1);
+      function gsdfDisplayCode(inputLevel, maxLuminance) {
+        const minJnd = luminanceToGsdfJnd(MIN_LUMINANCE);
+        const maxJnd = luminanceToGsdfJnd(maxLuminance);
+        const targetJnd = minJnd + clamp(inputLevel) * (maxJnd - minJnd);
+        const luminance = gsdfJndToLuminance(targetJnd);
+        return clamp((luminance - MIN_LUMINANCE) / Math.max(0.0001, maxLuminance - MIN_LUMINANCE));
       }
 
-      function getGammaAdjustedInputLevel(inputLevel, gammaTarget) {
-        return clamp(Math.pow(clamp(inputLevel, 0, 1), gammaTarget / DISPLAY_GAMMA), 0, 1);
-      }
-
-      function buildTransferTable(settings) {
-        const amount = settings.amount / 100;
-
+      function buildCurveTable(scene) {
         return Array.from({ length: TABLE_SIZE }, (_, index) => {
-          const inputLevel = index / (TABLE_SIZE - 1);
-          const gammaLevel = getGammaAdjustedInputLevel(inputLevel, settings.gamma);
-          const gsdfLevel = getGsdfDisplayCode(gammaLevel, settings.lmax);
-          return clamp(gammaLevel + (gsdfLevel - gammaLevel) * amount, 0, 1);
+          const level = index / (TABLE_SIZE - 1);
+          const gammaCode = level ** (1 / DISPLAY_GAMMA);
+          const gsdfCode = gsdfDisplayCode(level, scene.lmax) ** (1 / DISPLAY_GAMMA);
+          const localContrast = clamp(scene.base + (level - scene.base) * scene.contrast + scene.lift);
+          return clamp(mix(gammaCode, localContrast ** (1 / DISPLAY_GAMMA), 0.32) * 0.58 + gsdfCode * 0.42);
         });
       }
 
-      function readSettings() {
-        return {
-          lmax: Number(controls.lmax.value),
-          gamma: Number(controls.gamma.value),
-          amount: Number(controls.amount.value),
-          split: Number(controls.split.value),
-        };
-      }
+      const curveTables = Object.fromEntries(
+        Object.entries(scenes).map(([name, scene]) => [name, buildCurveTable(scene)]),
+      );
 
-      function updateLabels(settings) {
-        outputs.lmax.value = `${settings.lmax.toFixed(0)} cd/m²`;
-        outputs.gamma.value = settings.gamma.toFixed(2);
-        outputs.amount.value = `${settings.amount.toFixed(0)}%`;
-        outputs.split.value = `${settings.split.toFixed(0)}%`;
-      }
-
-      function sampleTransfer(table, value) {
-        const position = clamp(value, 0, 1) * (table.length - 1);
+      function sampleTable(table, value) {
+        const position = clamp(value) * (table.length - 1);
         const low = Math.floor(position);
         const high = Math.ceil(position);
         const ratio = position - low;
-        return table[low] + (table[high] - table[low]) * ratio;
+        return mix(table[low], table[high], ratio);
       }
 
-      function renderAdjustedImage(settings) {
-        if (!sourceImageData) {
-          return;
+      function mapLevel(value, scene, curveName) {
+        if (curveName === "gamma") {
+          const gammaLevel = value ** (1 / DISPLAY_GAMMA);
+          const compression = scene.base < 0.5 ? -0.045 : 0.018;
+          return clamp(gammaLevel * 0.88 + compression);
         }
 
-        const table = buildTransferTable(settings);
-        const source = sourceImageData.data;
-        adjustedImageData = context.createImageData(sourceImageData.width, sourceImageData.height);
-        const output = adjustedImageData.data;
-
-        for (let index = 0; index < source.length; index += 4) {
-          const red = source[index] / 255;
-          const green = source[index + 1] / 255;
-          const blue = source[index + 2] / 255;
-          const luma = clamp(0.2126 * red + 0.7152 * green + 0.0722 * blue, 0, 1);
-          const adjustedLuma = sampleTransfer(table, luma);
-          const scale = luma > 0.0001 ? adjustedLuma / luma : 0;
-
-          output[index] = Math.round(clamp(red * scale, 0, 1) * 255);
-          output[index + 1] = Math.round(clamp(green * scale, 0, 1) * 255);
-          output[index + 2] = Math.round(clamp(blue * scale, 0, 1) * 255);
-          output[index + 3] = source[index + 3];
-        }
-
-        renderStatus.textContent = `Simulated transfer: assumed Lmax ${settings.lmax.toFixed(0)} cd/m² · gamma ${settings.gamma.toFixed(2)} · filter ${settings.amount.toFixed(0)}%`;
+        return sampleTable(curveTables[scene.base < 0.5 ? "dark" : "bright"], value);
       }
 
-      function drawComparison() {
-        if (!sourceImageData || !adjustedImageData) {
-          return;
-        }
+      function drawFrequencyPattern(canvas) {
+        const scene = scenes[canvas.dataset.scene];
+        const curveName = canvas.dataset.curve;
+        const context = canvas.getContext("2d", { alpha: false });
+        const { width, height } = canvas;
+        const image = context.createImageData(width, height);
+        const data = image.data;
 
-        const settings = readSettings();
-        const splitX = Math.round((settings.split / 100) * canvas.width);
+        for (let y = 0; y < height; y += 1) {
+          const yRatio = y / Math.max(1, height - 1);
+          const verticalBias = (yRatio - 0.5) * 0.034;
 
-        context.putImageData(sourceImageData, 0, 0);
-        workContext.putImageData(adjustedImageData, 0, 0);
-        context.save();
-        context.beginPath();
-        context.rect(splitX, 0, canvas.width - splitX, canvas.height);
-        context.clip();
-        context.drawImage(workCanvas, 0, 0);
-        context.restore();
+          for (let x = 0; x < width; x += 1) {
+            const xRatio = x / Math.max(1, width - 1);
+            const sweep = 1.4 + 32 * xRatio ** 2.15;
+            const phase = Math.PI * 2 * (1.2 * xRatio + sweep * xRatio);
+            const envelope = 0.72 + 0.28 * Math.sin(Math.PI * xRatio);
+            const carrier = Math.sin(phase + yRatio * 0.38);
+            const fine = Math.sin(phase * 2.7 + yRatio * 3.2) * 0.18;
+            const source = clamp(scene.base + (carrier + fine) * scene.amplitude * envelope + verticalBias);
+            const mapped = mapLevel(source, scene, curveName);
+            const vignette = 0.94 + 0.06 * Math.sin(Math.PI * yRatio);
+            const index = (y * width + x) * 4;
 
-        splitLine.style.left = `${settings.split}%`;
-      }
-
-      function scheduleRender() {
-        if (renderPending) {
-          return;
-        }
-
-        renderPending = true;
-        window.requestAnimationFrame(() => {
-          const settings = readSettings();
-          renderPending = false;
-          updateLabels(settings);
-          renderAdjustedImage(settings);
-          drawComparison();
-        });
-      }
-
-      function updateSplitOnly() {
-        const settings = readSettings();
-        updateLabels(settings);
-        drawComparison();
-      }
-
-      function resetSimulation() {
-        controls.lmax.value = '100';
-        controls.gamma.value = '2.2';
-        controls.amount.value = '90';
-        controls.split.value = '50';
-        scheduleRender();
-      }
-
-      function drawGeneratedSample(width, height) {
-        canvas.width = width;
-        canvas.height = height;
-        workCanvas.width = width;
-        workCanvas.height = height;
-
-        const sky = context.createLinearGradient(0, 0, 0, height);
-        sky.addColorStop(0, '#9aa9ad');
-        sky.addColorStop(0.46, '#7c8c8f');
-        sky.addColorStop(1, '#3c4647');
-        context.fillStyle = sky;
-        context.fillRect(0, 0, width, height);
-
-        function ridge(points, color, yOffset) {
-          context.beginPath();
-          context.moveTo(0, height);
-          for (const [x, y] of points) {
-            context.lineTo(x * width, y * height + yOffset);
+            data[index] = Math.round(clamp(mapped * scene.tint[0] * vignette) * 255);
+            data[index + 1] = Math.round(clamp(mapped * scene.tint[1] * vignette) * 255);
+            data[index + 2] = Math.round(clamp(mapped * scene.tint[2] * vignette) * 255);
+            data[index + 3] = 255;
           }
-          context.lineTo(width, height);
-          context.closePath();
-          context.fillStyle = color;
-          context.fill();
         }
 
-        ridge([
-          [0, 0.56], [0.12, 0.44], [0.28, 0.52], [0.44, 0.38],
-          [0.58, 0.5], [0.76, 0.42], [1, 0.58],
-        ], 'rgba(82, 92, 91, 0.78)', 0);
+        context.putImageData(image, 0, 0);
+        drawReferenceTicks(context, width, height, curveName === "best");
+      }
 
-        ridge([
-          [0, 0.68], [0.18, 0.54], [0.34, 0.62], [0.5, 0.5],
-          [0.66, 0.62], [0.84, 0.52], [1, 0.66],
-        ], 'rgba(48, 58, 57, 0.86)', 0);
-
-        const pathGradient = context.createLinearGradient(width * 0.4, height * 0.58, width * 0.6, height);
-        pathGradient.addColorStop(0, 'rgba(96, 100, 91, 0.45)');
-        pathGradient.addColorStop(1, 'rgba(132, 128, 113, 0.58)');
-        context.beginPath();
-        context.moveTo(width * 0.47, height * 0.58);
-        context.bezierCurveTo(width * 0.34, height * 0.72, width * 0.26, height * 0.86, width * 0.2, height);
-        context.lineTo(width * 0.82, height);
-        context.bezierCurveTo(width * 0.7, height * 0.84, width * 0.6, height * 0.68, width * 0.53, height * 0.58);
-        context.closePath();
-        context.fillStyle = pathGradient;
-        context.fill();
-
-        context.strokeStyle = 'rgba(205, 210, 196, 0.18)';
+      function drawReferenceTicks(context, width, height, isBestCurve) {
+        context.save();
+        context.globalAlpha = 0.58;
+        context.strokeStyle = isBestCurve ? "rgba(185, 230, 189, 0.62)" : "rgba(143, 214, 255, 0.42)";
         context.lineWidth = 1;
-        for (let i = 0; i < 44; i += 1) {
-          const x = (0.2 + ((i * 37) % 61) / 100) * width;
-          const y = (0.56 + ((i * 19) % 40) / 100) * height;
+
+        for (let index = 1; index < 6; index += 1) {
+          const x = Math.round((index / 6) * width);
           context.beginPath();
-          context.moveTo(x, y);
-          context.lineTo(x + width * 0.05, y + height * 0.015);
+          context.moveTo(x, 0);
+          context.lineTo(x, height);
           context.stroke();
         }
 
-        context.fillStyle = 'rgba(230, 235, 232, 0.28)';
-        for (let band = 0; band < 8; band += 1) {
-          const y = height * (0.24 + band * 0.065);
-          const fog = context.createLinearGradient(0, y - 25, 0, y + 45);
-          fog.addColorStop(0, 'rgba(230,235,232,0)');
-          fog.addColorStop(0.45, `rgba(230,235,232,${0.12 + band * 0.01})`);
-          fog.addColorStop(1, 'rgba(230,235,232,0)');
-          context.fillStyle = fog;
-          context.fillRect(0, y - 28, width, 80);
-        }
-
-        const image = context.getImageData(0, 0, width, height);
-        const data = image.data;
-        for (let index = 0; index < data.length; index += 4) {
-          const noise = (((index * 13) % 37) - 18) * 0.34;
-          data[index] = clamp(data[index] + noise, 0, 255);
-          data[index + 1] = clamp(data[index + 1] + noise, 0, 255);
-          data[index + 2] = clamp(data[index + 2] + noise, 0, 255);
-        }
-        context.putImageData(image, 0, 0);
-
-        sourceImageData = context.getImageData(0, 0, width, height);
-        renderStatus.textContent = 'Generated simulation sample. Rendering simulated adjustment…';
-        scheduleRender();
+        context.restore();
       }
 
-      function loadSourceImage() {
-        const maxWidth = 1280;
-        const scale = Math.min(1, maxWidth / sourceImage.naturalWidth);
-        const width = Math.round(sourceImage.naturalWidth * scale);
-        const height = Math.round(sourceImage.naturalHeight * scale);
-
-        canvas.width = width;
-        canvas.height = height;
-        workCanvas.width = width;
-        workCanvas.height = height;
-        try {
-          context.drawImage(sourceImage, 0, 0, width, height);
-          sourceImageData = context.getImageData(0, 0, width, height);
-          renderStatus.textContent = 'Sample loaded. Rendering simulated adjustment…';
-          scheduleRender();
-        } catch (_error) {
-          drawGeneratedSample(width, height);
-        }
+      function renderAllCharts() {
+        document.querySelectorAll("canvas[data-scene][data-curve]").forEach(drawFrequencyPattern);
       }
 
-      for (const control of [controls.lmax, controls.gamma, controls.amount]) {
-        control.addEventListener('input', scheduleRender);
-      }
-
-      controls.split.addEventListener('input', updateSplitOnly);
-      document.getElementById('reset').addEventListener('click', resetSimulation);
-
-      viewer.addEventListener('pointerdown', (event) => {
-        viewer.setPointerCapture(event.pointerId);
-        updateSplitFromPointer(event);
-      });
-      viewer.addEventListener('pointermove', (event) => {
-        if (event.buttons === 1) {
-          updateSplitFromPointer(event);
-        }
-      });
-
-      function updateSplitFromPointer(event) {
-        const rect = viewer.getBoundingClientRect();
-        const ratio = clamp((event.clientX - rect.left) / Math.max(1, rect.width), 0, 1);
-        controls.split.value = String(Math.round(ratio * 100));
-        updateSplitOnly();
-      }
-
-      sourceImage.addEventListener('load', loadSourceImage);
-      sourceImage.addEventListener('error', () => {
-        drawGeneratedSample(1280, 720);
-      });
-      sourceImage.src = '../assets/sample-foggy-source.png';
+      renderAllCharts();
     </script>
   </body>
 </html>
