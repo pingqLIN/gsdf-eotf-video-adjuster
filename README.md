@@ -1,13 +1,17 @@
 [![GSDF EOTF Video Adjuster banner](assets/readme-banner.png)](assets/readme-banner.png)
 
-# GSDF EOTF Video Adjuster
+# LumaLift
+
+**GSDF EOTF Video Adjuster, presented as LumaLift.**
 
 ![Manifest V3](https://img.shields.io/badge/Manifest-V3-4285F4?style=flat-square)
 ![Chrome Extension](https://img.shields.io/badge/Chrome-Extension-34A853?style=flat-square)
 ![React 19](https://img.shields.io/badge/React-19-61DAFB?style=flat-square)
 ![License](https://img.shields.io/badge/License-GPLv3-blue?style=flat-square)
 
-**Display-side grayscale rescue for web video that loses shadow, haze, and low-contrast detail.**
+**See what's hiding in dark video — without touching the source file.**
+
+LumaLift is a Chrome extension that applies **GSDF/EOTF perceptual tone mapping** to browser video in real time. Dark scenes, foggy footage, low-contrast streams — it helps recover shadow and haze detail through a local display-side remap, with no upload, no cloud service, and no re-encode.
 
 [Overview](#-overview) · [Demos](https://github.colorgeek.co/gsdf-eotf-video-adjuster/) · [Quick Start](#-quick-start) · [Permissions](#-permissions-and-privacy) · [Features](#-features) · [Screenshots](#-screenshots) · [Controls](#-controls) · [Architecture](#-architecture) · [Development](#-development) · [Documentation](#-documentation) · [Traditional Chinese](README.zh-tw.md)
 
@@ -15,7 +19,9 @@
 
 ## 🎯 Overview
 
-**GSDF EOTF Video Adjuster** reshapes the visible luminance response of browser video with a compact Manifest V3 control panel. It is built for practical viewing rescue: foggy footage, crushed shadows, washed highlights, uneven display EOTF behavior, or viewing conditions where subtle grayscale steps become hard to separate.
+**LumaLift** is the product-facing name for **GSDF EOTF Video Adjuster**. It reshapes the visible luminance response of browser video with a compact Manifest V3 control panel. It is built for practical viewing rescue: foggy footage, crushed shadows, washed highlights, uneven display EOTF behavior, or viewing conditions where subtle grayscale steps become hard to separate.
+
+Built on the **Grayscale Standard Display Function (GSDF)** perceptual model behind DICOM Part 14 display standards, combined with **Electro-Optical Transfer Function (EOTF)** calibration principles, LumaLift focuses on local, reversible viewing assistance rather than source editing.
 
 | Capability | What it does |
 |---|---|

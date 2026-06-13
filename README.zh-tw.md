@@ -1,13 +1,17 @@
 [![GSDF EOTF Video Adjuster 橫幅](assets/readme-banner.png)](assets/readme-banner.png)
 
-# GSDF EOTF Video Adjuster
+# LumaLift
+
+**GSDF EOTF Video Adjuster，以 LumaLift 作為對外展示名稱。**
 
 ![Manifest V3](https://img.shields.io/badge/Manifest-V3-4285F4?style=flat-square)
 ![Chrome 擴充功能](https://img.shields.io/badge/Chrome-Extension-34A853?style=flat-square)
 ![React 19](https://img.shields.io/badge/React-19-61DAFB?style=flat-square)
 ![License](https://img.shields.io/badge/License-GPLv3-blue?style=flat-square)
 
-**顯示端灰階補救工具，用於改善網頁影片中暗部、霧氣與低對比細節難以分辨的情境。**
+**讓暗部現形。不動原始檔，直接在瀏覽器內調整亮度感知曲線。**
+
+LumaLift 是一個 Chrome 擴充功能，會即時對瀏覽器影片套用 **GSDF/EOTF 感知式階調映射**。暗場、霧氣、低對比串流等場景，可以透過本機顯示端重映射補回陰影與霧中細節；不需上傳、不依賴雲端，也不重新編碼來源影片。
 
 [總覽](#-總覽) · [DEMO](https://github.colorgeek.co/gsdf-eotf-video-adjuster/) · [快速開始](#-快速開始) · [權限](#-權限與隱私) · [功能](#-功能) · [截圖](#-截圖) · [控制項](#-控制項) · [架構](#-架構) · [開發](#-開發) · [文件](#-文件) · [English](README.md)
 
@@ -15,7 +19,9 @@
 
 ## 🎯 總覽
 
-**GSDF EOTF Video Adjuster** 會透過精簡的 Manifest V3 控制面板，重新整理瀏覽器影片的可見亮度反應。它的目標是實務觀看補救：霧氣很重的畫面、暗部壓死、亮部洗白、顯示器 EOTF 行為不穩，或觀看環境讓細微灰階差異變得難以分辨。
+**LumaLift** 是 **GSDF EOTF Video Adjuster** 的對外產品名稱。它會透過精簡的 Manifest V3 控制面板，重新整理瀏覽器影片的可見亮度反應。目標是實務觀看補救：霧氣很重的畫面、暗部壓死、亮部洗白、顯示器 EOTF 行為不穩，或觀看環境讓細微灰階差異變得難以分辨。
+
+它建立在 **Grayscale Standard Display Function（GSDF）** 感知模型之上，也就是 DICOM Part 14 顯示標準背後的灰階感知模型，並結合 **Electro-Optical Transfer Function（EOTF）** 校正概念。LumaLift 聚焦於本機、可回復的觀看輔助，而不是修改來源影片。
 
 | 能力 | 說明 |
 |---|---|
