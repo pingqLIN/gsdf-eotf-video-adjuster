@@ -1,11 +1,11 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-Hant">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="icon" href="../favicon.svg" />
-    <link rel="alternate" hreflang="zh-Hant" href="./image-adjustment-simulator.zh-tw.html" />
-    <title>GSDF Image Adjustment Showcase</title>
+    <link rel="alternate" hreflang="en" href="./image-adjustment-simulator.html" />
+    <title>GSDF 影像調整展示</title>
     <style>
       :root {
         color-scheme: dark;
@@ -281,29 +281,27 @@
   <body>
     <header>
       <nav>
-        <a href="../index.html">← Back to demos</a>
+        <a href="../index.html">← 返回示範首頁</a>
         <span>·</span>
-        <a href="./dicom-gsdf-3d.html">3D GSDF model</a>
-        <span class="lang-switch">English · <a href="./image-adjustment-simulator.zh-tw.html">繁中</a></span>
+        <a href="./dicom-gsdf-3d.html">3D GSDF 模型</a>
+        <span class="lang-switch"><a href="./image-adjustment-simulator.html">English</a> · 繁中</span>
       </nav>
-      <h1>Image Adjustment Showcase</h1>
+      <h1>影像調整展示</h1>
       <p>
-        This page is a static visual showcase, not an adjustable simulator. It uses fixed
-        simulated patterns to compare Gamma 2.2 against a Best / GSDF-inspired curve,
-        then follows with before/after image samples that show the intended separation
-        of haze, shadow detail, and low-contrast structure.
+        這頁不提供使用者調整參數，而是用固定模擬圖展示本擴充的視覺方向：
+        在同一組連續變化頻率圖中，比較 Gamma 2.2 與 Best / GSDF-inspired 曲線的差異；
+        再用幾組前後對比影像呈現霧氣、暗部與低對比細節被拉開後的效果。
       </p>
     </header>
 
     <main>
       <section aria-labelledby="frequency-title">
         <div class="section-heading">
-          <h2 id="frequency-title">Continuous-Frequency Pattern</h2>
+          <h2 id="frequency-title">連續變化頻率圖</h2>
           <p>
-            Low frequency is on the left; high frequency is on the right. Each scenario
-            uses the same assumed image signal and changes only the display curve. The
-            dark and bright cases are drawn simulations, not measurements of the visitor's
-            actual display brightness.
+            左側是低頻、右側是高頻。每一組都固定使用同一個假設影像訊號，
+            只改變顯示曲線；深暗與偏亮兩種條件用來提醒：這些圖是繪製出來的相對模擬，
+            不是訪客螢幕亮度的量測值。
           </p>
         </div>
 
@@ -311,11 +309,10 @@
           <article class="scenario">
             <div class="scenario-header">
               <div>
-                <h3 class="scenario-title">Dark-biased simulation</h3>
+                <h3 class="scenario-title">偏暗模擬</h3>
                 <p class="scenario-copy">
-                  A low-luminance case where shadow detail can collapse into similar
-                  gray levels. The best curve opens spacing in the lower range so the
-                  frequency sweep is less likely to disappear into the gamma baseline.
+                  模擬低亮度、暗部細節容易黏在一起的情境。最佳曲線會把低階灰階的間距拉開，
+                  讓頻率變化比較不容易被 Gamma 曲線吞掉。
                 </p>
               </div>
               <div class="meter">Lmax 80 cd/m²</div>
@@ -323,19 +320,19 @@
             <div class="chart-stack">
               <div class="chart">
                 <div class="chart-label">
-                  <span>Gamma 2.2 curve</span>
-                  <span>baseline rendering</span>
+                  <span>Gamma 2.2 曲線</span>
+                  <span>基準顯示</span>
                 </div>
                 <canvas data-scene="dark" data-curve="gamma" width="960" height="168"></canvas>
-                <div class="axis"><span>Low frequency</span><span>High frequency</span></div>
+                <div class="axis"><span>低頻</span><span>高頻</span></div>
               </div>
               <div class="chart">
                 <div class="chart-label">
-                  <span>Best curve</span>
-                  <span>GSDF-inspired redistribution</span>
+                  <span>最佳曲線</span>
+                  <span>GSDF-inspired 重分配</span>
                 </div>
                 <canvas data-scene="dark" data-curve="best" width="960" height="168"></canvas>
-                <div class="axis"><span>Low frequency</span><span>High frequency</span></div>
+                <div class="axis"><span>低頻</span><span>高頻</span></div>
               </div>
             </div>
           </article>
@@ -343,11 +340,10 @@
           <article class="scenario">
             <div class="scenario-header">
               <div>
-                <h3 class="scenario-title">Bright-biased simulation</h3>
+                <h3 class="scenario-title">偏亮模擬</h3>
                 <p class="scenario-copy">
-                  A hazy, bright, low-contrast case. The best curve keeps highlight
-                  gradation while making subtle variation easier to separate, instead of
-                  simply darkening or brightening the entire range with gamma.
+                  模擬霧面、偏亮、低對比區域。最佳曲線會保留亮部層次，同時讓細小變化更容易分辨，
+                  而不是只用 Gamma 整體壓暗或拉亮。
                 </p>
               </div>
               <div class="meter">Lmax 240 cd/m²</div>
@@ -355,19 +351,19 @@
             <div class="chart-stack">
               <div class="chart">
                 <div class="chart-label">
-                  <span>Gamma 2.2 curve</span>
-                  <span>baseline rendering</span>
+                  <span>Gamma 2.2 曲線</span>
+                  <span>基準顯示</span>
                 </div>
                 <canvas data-scene="bright" data-curve="gamma" width="960" height="168"></canvas>
-                <div class="axis"><span>Low frequency</span><span>High frequency</span></div>
+                <div class="axis"><span>低頻</span><span>高頻</span></div>
               </div>
               <div class="chart">
                 <div class="chart-label">
-                  <span>Best curve</span>
-                  <span>GSDF-inspired redistribution</span>
+                  <span>最佳曲線</span>
+                  <span>GSDF-inspired 重分配</span>
                 </div>
                 <canvas data-scene="bright" data-curve="best" width="960" height="168"></canvas>
-                <div class="axis"><span>Low frequency</span><span>High frequency</span></div>
+                <div class="axis"><span>低頻</span><span>高頻</span></div>
               </div>
             </div>
           </article>
@@ -376,12 +372,10 @@
 
       <section aria-labelledby="image-title">
         <div class="section-heading">
-          <h2 id="image-title">Before / After Image Samples</h2>
+          <h2 id="image-title">調整前後影像範例</h2>
           <p>
-            These thumbnails use before/after comparison images from the project assets.
-            The left half is before adjustment; the right half shows the extension concept
-            applied so low-contrast contours, structure in haze, and dark material texture
-            are easier to see.
+            這些縮圖使用專案資產中的前後對比圖。左半邊是調整前，右半邊是套用擴充概念後，
+            目標是讓低對比輪廓、霧中結構與暗部材質更容易被看見。
           </p>
         </div>
 
@@ -392,9 +386,8 @@
               alt="Foggy hillside trail comparison, before on the left and adjusted result on the right"
             />
             <figcaption>
-              <strong>Foggy hillside trail</strong>
-              Fog and hillside contours start compressed into similar gray levels; after
-              adjustment, the trail and vegetation layers read more clearly.
+              <strong>霧中山坡步道</strong>
+              霧氣與山坡輪廓被壓在接近的灰階中，調整後路徑與植被層次更清楚。
             </figcaption>
           </figure>
           <figure>
@@ -403,9 +396,8 @@
               alt="Hillside walking scene comparison, before on the left and adjusted result on the right"
             />
             <figcaption>
-              <strong>Hillside walking scene</strong>
-              The person, path, and grass are separated in the darker range. The image is
-              not merely darker overall; local contrast becomes more readable.
+              <strong>山坡行走場景</strong>
+              人物、步道與草叢的暗部區分被拉開，畫面不只是整體變暗，而是局部對比更可讀。
             </figcaption>
           </figure>
           <figure>
@@ -414,20 +406,17 @@
               alt="Mountain fog comparison, before on the left and adjusted result on the right"
             />
             <figcaption>
-              <strong>Mountain fog detail</strong>
-              The bright fog remains soft while the mountain boundary and cloud layers
-              become easier to distinguish.
+              <strong>山霧細節</strong>
+              偏亮霧面區域保留柔和感，同時讓山體邊界與雲霧層次比較容易分辨。
             </figcaption>
           </figure>
         </div>
       </section>
 
       <p class="note">
-        Boundary note: A web page cannot read or calibrate the visitor's actual display
-        brightness, EOTF, or ambient light. All curves, Lmax values, and frequency
-        patterns on this page are relative visual simulations. The extension is a
-        browser-side viewing aid, not a DICOM display calibration, conformance, or
-        medical diagnosis tool.
+        Boundary note: 網頁無法讀取或校正訪客螢幕的實際亮度、EOTF 或周遭環境光。
+        本頁所有曲線、Lmax 與頻率圖都是展示用的相對模擬；本擴充是 browser-side viewing aid，
+        不是 DICOM 顯示器校正、螢幕認證或醫療診斷工具。
       </p>
     </main>
 
