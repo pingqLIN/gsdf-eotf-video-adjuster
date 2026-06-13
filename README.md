@@ -9,7 +9,7 @@
 
 **Display-side grayscale rescue for web video that loses shadow, haze, and low-contrast detail.**
 
-[Overview](#-overview) · [Quick Start](#-quick-start) · [Permissions](#-permissions-and-privacy) · [Features](#-features) · [Screenshots](#-screenshots) · [Controls](#-controls) · [Architecture](#-architecture) · [Development](#-development) · [Documentation](#-documentation) · [Traditional Chinese](README.zh-tw.md)
+[Overview](#-overview) · [Demos](https://github.colorgeek.co/gsdf-eotf-video-adjuster/) · [Quick Start](#-quick-start) · [Permissions](#-permissions-and-privacy) · [Features](#-features) · [Screenshots](#-screenshots) · [Controls](#-controls) · [Architecture](#-architecture) · [Development](#-development) · [Documentation](#-documentation) · [Traditional Chinese](README.zh-tw.md)
 
 ---
 

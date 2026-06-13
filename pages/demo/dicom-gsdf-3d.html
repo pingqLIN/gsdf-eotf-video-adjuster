@@ -1,0 +1,557 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>DICOM GSDF 3D Model Demo</title>
+    <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #080b0f;
+        --panel: #11161d;
+        --panel-2: #171f28;
+        --text: #edf2f7;
+        --muted: #98a8b7;
+        --line: #2a3542;
+        --blue: #6db8ff;
+        --red: #ff7b7b;
+        --green: #74e3a2;
+        --amber: #f2c36b;
+        font-family: "Segoe UI", "Noto Sans TC", system-ui, sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: linear-gradient(145deg, #080b0f 0%, #111922 56%, #080b0f 100%);
+        color: var(--text);
+      }
+
+      a {
+        color: var(--blue);
+      }
+
+      header {
+        padding: 26px clamp(16px, 4vw, 36px);
+        border-bottom: 1px solid var(--line);
+        background:
+          radial-gradient(circle at 12% 0%, rgba(109, 184, 255, 0.18), transparent 28rem),
+          rgba(8, 11, 15, 0.94);
+      }
+
+      header nav {
+        margin-bottom: 14px;
+        font-size: 0.9rem;
+      }
+
+      h1 {
+        margin: 0 0 10px;
+        font-size: clamp(1.9rem, 5vw, 3.7rem);
+        line-height: 1;
+        letter-spacing: 0;
+      }
+
+      header p {
+        max-width: 920px;
+        margin: 0;
+        color: #c1ccd6;
+        line-height: 1.65;
+      }
+
+      main {
+        display: grid;
+        grid-template-columns: minmax(290px, 360px) minmax(0, 1fr);
+        gap: 16px;
+        padding: 16px;
+      }
+
+      aside,
+      section {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: rgba(17, 22, 29, 0.94);
+      }
+
+      aside {
+        padding: 18px;
+      }
+
+      fieldset {
+        margin: 0;
+        padding: 0;
+        border: 0;
+      }
+
+      legend {
+        margin-bottom: 14px;
+        font-size: 1.06rem;
+        font-weight: 700;
+      }
+
+      label {
+        display: block;
+        margin-bottom: 6px;
+        color: #d9e3eb;
+        font-size: 0.92rem;
+        font-weight: 650;
+      }
+
+      .field {
+        margin-bottom: 14px;
+      }
+
+      input[type="number"] {
+        width: 100%;
+        min-height: 38px;
+        padding: 8px 10px;
+        border: 1px solid #334455;
+        border-radius: 6px;
+        color: var(--text);
+        background: #0b1016;
+      }
+
+      .check {
+        display: grid;
+        grid-template-columns: 22px 1fr;
+        gap: 8px;
+        align-items: start;
+        margin: 12px 0;
+      }
+
+      .check label {
+        margin: 0;
+        line-height: 1.45;
+      }
+
+      button {
+        width: 100%;
+        min-height: 42px;
+        margin: 12px 0 16px;
+        border: 1px solid #477094;
+        border-radius: 6px;
+        color: #061019;
+        background: linear-gradient(180deg, #9ad9ff, #6db8ff);
+        font-weight: 800;
+        cursor: pointer;
+      }
+
+      button:focus-visible,
+      input:focus-visible {
+        outline: 2px solid #b7e3ff;
+        outline-offset: 2px;
+      }
+
+      .explain {
+        display: grid;
+        gap: 12px;
+        color: var(--muted);
+        font-size: 0.93rem;
+        line-height: 1.6;
+      }
+
+      .explain p {
+        margin: 0;
+      }
+
+      .dot {
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        margin-right: 6px;
+        border-radius: 50%;
+      }
+
+      .blue {
+        background: var(--blue);
+      }
+
+      .red {
+        background: var(--red);
+      }
+
+      .green {
+        background: var(--green);
+      }
+
+      .plot-shell {
+        min-height: 74vh;
+        overflow: hidden;
+        position: relative;
+      }
+
+      #plot-container {
+        width: 100%;
+        height: 74vh;
+        min-height: 560px;
+      }
+
+      .hint,
+      .status {
+        position: absolute;
+        left: 12px;
+        padding: 7px 10px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 6px;
+        background: rgba(8, 11, 15, 0.78);
+        color: #c5d1db;
+        font-size: 0.78rem;
+        pointer-events: none;
+      }
+
+      .hint {
+        bottom: 12px;
+      }
+
+      .status {
+        top: 12px;
+      }
+
+      .warning {
+        margin-top: 16px;
+        padding: 12px;
+        border-left: 3px solid var(--amber);
+        background: rgba(242, 195, 107, 0.1);
+        color: #e8d7b6;
+        font-size: 0.92rem;
+        line-height: 1.55;
+      }
+
+      @media (max-width: 900px) {
+        main {
+          grid-template-columns: 1fr;
+        }
+
+        #plot-container,
+        .plot-shell {
+          min-height: 560px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <nav><a href="../index.html">← Back to demos</a></nav>
+      <h1>DICOM GSDF 3D Model Demo</h1>
+      <p>
+        這個互動頁把數位顯示階調 (DDL)、模擬亮度與 JND 感知索引放在同一個 3D 空間中。
+        因為瀏覽器無法得知訪客螢幕的實際亮度，Lmin、Lmax 與 gamma 都是用來繪圖的假設值。
+        它用來輔助理解本專案的 GSDF-inspired transfer table，不代表醫療顯示器校正、DICOM 合規驗證、
+        HDR 量測或診斷用途。
+      </p>
+    </header>
+
+    <main>
+      <aside>
+        <fieldset>
+          <legend>模型參數</legend>
+
+          <div class="field">
+            <label for="lmin">模擬最低亮度 Lmin (cd/m²)</label>
+            <input type="number" id="lmin" value="0.5" step="0.1" min="0.05" />
+          </div>
+
+          <div class="field">
+            <label for="lmax">模擬最高亮度 Lmax (cd/m²)</label>
+            <input type="number" id="lmax" value="500" step="10" min="10" />
+          </div>
+
+          <div class="field">
+            <label for="gamma">模擬 gamma baseline</label>
+            <input type="number" id="gamma" value="2.2" step="0.1" min="1" max="3" />
+          </div>
+
+          <div class="check">
+            <input type="checkbox" id="show-surface" />
+            <label for="show-surface">顯示模擬 Lmax 變化時的 GSDF 調變面</label>
+          </div>
+
+          <div class="check">
+            <input type="checkbox" id="show-pq" checked />
+            <label for="show-pq">顯示 HDR PQ (SMPTE ST 2084) 參考曲線</label>
+          </div>
+
+          <button type="button" id="redraw">重新繪製模型</button>
+        </fieldset>
+
+        <div class="explain">
+          <p><span class="dot blue"></span><strong>GSDF path:</strong> code value 會沿著 JND 空間均勻前進，讓灰階差異更接近人眼可感知的等距。</p>
+          <p><span class="dot red"></span><strong>Gamma path:</strong> 一般 gamma baseline 在 JND 軸上的步距不均，暗部或亮部可能比較容易擠在一起。</p>
+          <p><span class="dot green"></span><strong>PQ path:</strong> HDR PQ 也採用感知導向設計；此處只作為參考曲線，不等於本 extension 的處理流程。</p>
+          <p><strong>Simulation boundary:</strong> 所有亮度數值只用於模型繪圖；本頁沒有量測或讀取訪客螢幕的實際亮度。</p>
+        </div>
+
+        <p class="warning">
+          本 demo 會從 CDN 載入 Plotly.js。若網路或內容阻擋器封鎖 CDN，3D 圖表可能無法顯示。
+        </p>
+      </aside>
+
+      <section class="plot-shell" aria-label="3D GSDF model">
+        <div id="plot-container"></div>
+        <div class="status" id="model-status">Loading model…</div>
+        <div class="hint">Drag to rotate · scroll to zoom · double click to reset</div>
+      </section>
+    </main>
+
+    <script>
+      function calcLuminance(jndIndex) {
+        const lnJ = Math.log(jndIndex);
+        const a = -1.3011877;
+        const b = -2.5840191e-2;
+        const c = 8.0242636e-2;
+        const d = -1.0320229e-1;
+        const e = 1.3646699e-1;
+        const f = 2.8745620e-2;
+        const g = -2.5468404e-2;
+        const h = -3.1978977e-3;
+        const k = 1.2992634e-4;
+        const m = 1.3635334e-3;
+
+        const numerator = a + c * lnJ + e * Math.pow(lnJ, 2) + g * Math.pow(lnJ, 3) + m * Math.pow(lnJ, 4);
+        const denominator = 1 + b * lnJ + d * Math.pow(lnJ, 2) + f * Math.pow(lnJ, 3) + h * Math.pow(lnJ, 4) + k * Math.pow(lnJ, 5);
+
+        return Math.pow(10, numerator / denominator);
+      }
+
+      function calcJnd(luminance) {
+        const x = Math.log10(luminance);
+        const A = 71.498068;
+        const B = 94.593053;
+        const C = 41.912053;
+        const D = 9.8247004;
+        const E = 0.28175407;
+        const F = -1.1878455;
+        const G = -0.18014349;
+        const H = 0.14710899;
+        const I = -0.017046845;
+
+        return A + B * x + C * Math.pow(x, 2) + D * Math.pow(x, 3) + E * Math.pow(x, 4) +
+          F * Math.pow(x, 5) + G * Math.pow(x, 6) + H * Math.pow(x, 7) + I * Math.pow(x, 8);
+      }
+
+      function calcPqLuminance(value) {
+        const m1 = 0.1593017578125;
+        const m2 = 78.84375;
+        const c1 = 0.8359375;
+        const c2 = 18.8515625;
+        const c3 = 18.6875;
+        const valueRoot = Math.pow(value, 1 / m2);
+        const numerator = Math.max(valueRoot - c1, 0);
+        const denominator = c2 - c3 * valueRoot;
+        return 10000 * Math.pow(numerator / denominator, 1 / m1);
+      }
+
+      function calcPqValue(luminance) {
+        const normalized = Math.max(0, luminance / 10000);
+        const m1 = 0.1593017578125;
+        const m2 = 78.84375;
+        const c1 = 0.8359375;
+        const c2 = 18.8515625;
+        const c3 = 18.6875;
+        const y = Math.pow(normalized, m1);
+        return Math.pow((c1 + c2 * y) / (1 + c3 * y), m2);
+      }
+
+      function readParameters() {
+        const minimum = Number.parseFloat(document.getElementById('lmin').value);
+        const maximum = Number.parseFloat(document.getElementById('lmax').value);
+        const gamma = Number.parseFloat(document.getElementById('gamma').value);
+        const lmin = Number.isFinite(minimum) ? Math.max(0.05, minimum) : 0.5;
+        const lmax = Number.isFinite(maximum) ? Math.max(lmin + 1, maximum) : 500;
+
+        return {
+          lmin,
+          lmax,
+          gamma: Number.isFinite(gamma) ? Math.min(3, Math.max(1, gamma)) : 2.2,
+          showSurface: document.getElementById('show-surface').checked,
+          showPq: document.getElementById('show-pq').checked,
+        };
+      }
+
+      function buildModel(parameters) {
+        const maxDdl = 255;
+        const jMin = calcJnd(parameters.lmin);
+        const jMax = calcJnd(parameters.lmax);
+        const pqMin = calcPqValue(parameters.lmin);
+        const pqMax = calcPqValue(parameters.lmax);
+
+        const dicomX = [];
+        const dicomY = [];
+        const dicomZ = [];
+        const gammaX = [];
+        const gammaY = [];
+        const gammaZ = [];
+        const pqX = [];
+        const pqY = [];
+        const pqZ = [];
+
+        for (let i = 0; i <= maxDdl; i += 1) {
+          const t = i / maxDdl;
+          const dicomJnd = jMin + t * (jMax - jMin);
+          const gammaLuminance = parameters.lmin + (parameters.lmax - parameters.lmin) * Math.pow(t, parameters.gamma);
+
+          dicomX.push(i);
+          dicomY.push(calcLuminance(dicomJnd));
+          dicomZ.push(dicomJnd);
+
+          gammaX.push(i);
+          gammaY.push(gammaLuminance);
+          gammaZ.push(calcJnd(gammaLuminance));
+
+          if (parameters.showPq) {
+            const pqValue = pqMin + t * (pqMax - pqMin);
+            const pqLuminance = calcPqLuminance(pqValue);
+            pqX.push(i);
+            pqY.push(pqLuminance);
+            pqZ.push(calcJnd(pqLuminance));
+          }
+        }
+
+        const surfaceX = Array.from({ length: 20 }, (_, index) => (index / 19) * maxDdl);
+        const surfaceY = [];
+        const surfaceZ = [];
+        const logMin = Math.log10(parameters.lmin);
+        const logMax = Math.log10(parameters.lmax);
+
+        for (let y = 0; y < 62; y += 1) {
+          const luminance = Math.pow(10, logMin + (y / 61) * (logMax - logMin));
+          surfaceY.push(luminance);
+          surfaceZ.push(surfaceX.map(() => calcJnd(luminance)));
+        }
+
+        const traces = [
+          {
+            type: 'surface',
+            x: surfaceX,
+            y: surfaceY,
+            z: surfaceZ,
+            opacity: 0.32,
+            colorscale: 'Viridis',
+            name: 'Simulated luminance → JND surface',
+            showscale: false,
+            hoverinfo: 'none',
+          },
+          {
+            type: 'scatter3d',
+            mode: 'lines',
+            x: dicomX,
+            y: dicomY,
+            z: dicomZ,
+            name: 'GSDF-shaped JND path',
+            line: { color: '#6db8ff', width: 8 },
+            hovertemplate: 'DDL %{x}<br>Simulated luminance %{y:.2f} cd/m²<br>JND %{z:.1f}<extra></extra>',
+          },
+          {
+            type: 'scatter3d',
+            mode: 'lines',
+            x: gammaX,
+            y: gammaY,
+            z: gammaZ,
+            name: `Gamma ${parameters.gamma.toFixed(1)} baseline`,
+            line: { color: '#ff7b7b', width: 6, dash: 'dash' },
+            hovertemplate: 'DDL %{x}<br>Simulated luminance %{y:.2f} cd/m²<br>JND %{z:.1f}<extra></extra>',
+          },
+        ];
+
+        if (parameters.showPq) {
+          traces.push({
+            type: 'scatter3d',
+            mode: 'lines',
+            x: pqX,
+            y: pqY,
+            z: pqZ,
+            name: 'HDR PQ reference',
+            line: { color: '#74e3a2', width: 6 },
+            hovertemplate: 'DDL %{x}<br>Simulated luminance %{y:.2f} cd/m²<br>JND %{z:.1f}<extra></extra>',
+          });
+        }
+
+        if (parameters.showSurface) {
+          const sweepX = [];
+          const sweepY = [];
+          const sweepZ = [];
+          const sweepMax = Math.max(parameters.lmax + 300, 1200);
+
+          for (let s = 0; s < 26; s += 1) {
+            const currentLmax = parameters.lmin + 10 + (s / 25) * (sweepMax - parameters.lmin - 10);
+            const currentJmax = calcJnd(currentLmax);
+            const rowX = [];
+            const rowY = [];
+            const rowZ = [];
+
+            for (let ddl = 0; ddl <= maxDdl; ddl += 5) {
+              const jnd = jMin + (ddl / maxDdl) * (currentJmax - jMin);
+              rowX.push(ddl);
+              rowY.push(calcLuminance(jnd));
+              rowZ.push(jnd);
+            }
+
+            sweepX.push(rowX);
+            sweepY.push(rowY);
+            sweepZ.push(rowZ);
+          }
+
+          traces.push({
+            type: 'surface',
+            x: sweepX,
+            y: sweepY,
+            z: sweepZ,
+            opacity: 0.76,
+            colorscale: 'Blues',
+            name: 'Assumed Lmax sweep surface',
+            showscale: false,
+            hoverinfo: 'none',
+          });
+        }
+
+        return { traces, jMin, jMax };
+      }
+
+      function updatePlot() {
+        const status = document.getElementById('model-status');
+
+        if (!window.Plotly) {
+          status.textContent = 'Plotly.js did not load. Check the CDN connection.';
+          return;
+        }
+
+        const parameters = readParameters();
+        const model = buildModel(parameters);
+        const layout = {
+          autosize: true,
+          paper_bgcolor: '#11161d',
+          plot_bgcolor: '#11161d',
+          font: { color: '#edf2f7' },
+          margin: { l: 0, r: 0, b: 0, t: 28 },
+          scene: {
+            bgcolor: '#11161d',
+            xaxis: { title: 'Digital display level (DDL)', gridcolor: '#344354', zeroline: false },
+            yaxis: { title: 'Simulated luminance (cd/m²)', type: 'log', gridcolor: '#344354' },
+            zaxis: { title: 'JND index', gridcolor: '#344354' },
+            camera: { eye: { x: -1.65, y: -1.45, z: 0.85 }, center: { x: 0, y: 0, z: -0.1 } },
+          },
+          legend: {
+            x: 0.02,
+            y: 0.98,
+            bgcolor: 'rgba(8,11,15,0.72)',
+            bordercolor: '#2a3542',
+            borderwidth: 1,
+          },
+        };
+
+        Plotly.react('plot-container', model.traces, layout, { responsive: true, displayModeBar: false });
+        status.textContent = `Simulated JND ${model.jMin.toFixed(1)} → ${model.jMax.toFixed(1)} · assumed Lmax ${parameters.lmax.toFixed(0)} cd/m²`;
+      }
+
+      document.getElementById('redraw').addEventListener('click', updatePlot);
+      document.getElementById('show-surface').addEventListener('change', updatePlot);
+      document.getElementById('show-pq').addEventListener('change', updatePlot);
+      window.addEventListener('resize', updatePlot);
+      window.addEventListener('load', updatePlot);
+    </script>
+  </body>
+</html>
