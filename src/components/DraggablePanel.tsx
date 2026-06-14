@@ -4,16 +4,15 @@ import {
   Activity,
   BarChart3,
   CheckCircle2,
-  ChevronDown,
-  ChevronUp,
   CircleOff,
-  Eye,
   Gauge,
   Grid3X3,
   Languages,
   Maximize2,
   MonitorUp,
   Moon,
+  PanelRightClose,
+  PanelRightOpen,
   Palette,
   Power,
   RotateCcw,
@@ -25,7 +24,6 @@ import {
 } from 'lucide-react';
 import {
   AppSettings,
-  buildGsdfCalibrationStripeRows,
   buildGsdfStripeRows,
   DEFAULT_APP_SETTINGS,
   formatLuminance,
@@ -43,11 +41,10 @@ import { localeNames, supportedLocales, type Messages, type SupportedLocale } fr
 
 const GSDFChart = React.lazy(() => import('./GSDFChart').then((module) => ({ default: module.GSDFChart })));
 
-type PanelTab = 'basic' | 'advanced';
+type PanelTab = 'basic' | 'advanced' | 'diagnostic';
 type PanelTheme = 'dark' | 'light';
 type InspectionMode = 'pattern' | 'chart' | null;
-type PanelLayoutMode = 'a' | 'b' | 'c';
-type CenterWorkspaceMode = 'pattern' | 'chart' | 'both';
+type SidePanelMode = 'pattern' | 'chart';
 type ResizeHandle = 'e' | 's' | 'se';
 
 const PANEL_THEME_STORAGE_KEY = 'gsdf_panel_theme';
@@ -55,18 +52,12 @@ const INSPECTION_MIN_WIDTH = 560;
 const INSPECTION_MIN_HEIGHT = 420;
 const INSPECTION_DEFAULT_WIDTH = 960;
 const INSPECTION_DEFAULT_HEIGHT = 720;
-const PANEL_DEFAULT_HEIGHT = 690;
-const PANEL_EXPANDED_DEFAULT_HEIGHT = 720;
+const PANEL_DEFAULT_WIDTH = 800;
+const PANEL_DEFAULT_HEIGHT = 520;
+const PANEL_SIDE_PANEL_WIDTH = 1160;
 const PANEL_MIN_HEIGHT = 520;
+const PANEL_MIN_WIDTH = 640;
 const PANEL_VIEWPORT_MARGIN = 16;
-const C_PANEL_DEFAULT_CONTROL_WIDTH = 300;
-const C_PANEL_MIN_CONTROL_WIDTH = 260;
-const C_PANEL_MAX_CONTROL_WIDTH = 420;
-const PANEL_MODE_SIZE: Record<PanelLayoutMode, { width: number; minWidth: number }> = {
-  a: { width: 420, minWidth: 380 },
-  b: { width: 820, minWidth: 680 },
-  c: { width: 1240, minWidth: 960 },
-};
 let expandedOverlayCount = 0;
 
 interface DraggablePanelProps {
@@ -113,20 +104,6 @@ interface PointerHandlers {
   onPointerCancel: (event: React.PointerEvent<HTMLDivElement>) => void;
 }
 
-interface ColumnResizeStart {
-  pointerId: number;
-  x: number;
-  width: number;
-}
-
-function getPanelModeOptions(messages: Messages): Array<{ value: PanelLayoutMode; label: string; title: string }> {
-  return [
-    { value: 'a', label: 'A', title: messages.panel.layoutModeA },
-    { value: 'b', label: 'B', title: messages.panel.layoutModeB },
-    { value: 'c', label: 'C', title: messages.panel.layoutModeC },
-  ];
-}
-
 function ModePill({
   children,
   tone = 'neutral',
@@ -144,7 +121,7 @@ function ModePill({
         : 'border-white/10 bg-white/[0.04] text-zinc-300';
 
   return (
-    <span title={title} className={`inline-flex h-7 min-w-0 items-center justify-center gap-1 rounded-md border px-2 text-[10px] font-semibold ${toneClass}`}>
+    <span title={title} data-tone={tone} className={`gsdf-mode-pill inline-flex h-7 min-w-0 items-center justify-center gap-1 rounded-md border px-2 text-[10px] font-semibold ${toneClass}`}>
       {children}
     </span>
   );
@@ -159,14 +136,14 @@ function SegmentedControl<T extends string>({
   onChange,
 }: SegmentedControlProps<T>) {
   return (
-    <div className={`space-y-2.5 transition-opacity ${disabled ? 'opacity-45 pointer-events-none' : 'opacity-100'}`}>
-      <label className="flex items-center gap-2 text-[11px] font-semibold text-zinc-300">
-        <span className="flex h-6 w-6 items-center justify-center rounded-md bg-white/[0.05] text-zinc-200">
+    <div className={`gsdf-control-block space-y-2.5 transition-opacity ${disabled ? 'opacity-45 pointer-events-none' : 'opacity-100'}`}>
+      <label className="gsdf-control-label flex items-center gap-2 text-[11px] font-semibold text-zinc-300">
+        <span className="gsdf-control-icon flex h-6 w-6 items-center justify-center rounded-md bg-white/[0.05] text-zinc-200">
           {icon ?? <SlidersHorizontal size={14} />}
         </span>
         {label}
       </label>
-      <div className="grid grid-cols-2 gap-1 rounded-md border border-white/10 bg-[#080b0f] p-1">
+      <div className="gsdf-segmented-control grid grid-cols-2 gap-1 rounded-md border border-white/10 bg-[#080b0f] p-1">
         {options.map((option) => (
           <button
             key={option.value}
@@ -174,8 +151,9 @@ function SegmentedControl<T extends string>({
             title={option.title}
             disabled={disabled}
             aria-disabled={disabled}
+            aria-pressed={value === option.value}
             onClick={() => onChange(option.value)}
-            className={`h-9 rounded text-[12px] font-semibold transition-colors ${
+            className={`gsdf-segment-button h-9 rounded text-[12px] font-semibold transition-colors ${
               value === option.value
                 ? 'bg-zinc-100 text-[#0f1419] shadow-[0_10px_28px_rgba(0,0,0,0.28)]'
                 : 'text-zinc-400 hover:bg-white/[0.06] hover:text-zinc-100 disabled:hover:bg-transparent disabled:hover:text-zinc-400'
@@ -210,10 +188,10 @@ function SliderControl({
       : 'font-mono text-[16px] font-semibold tabular-nums text-zinc-100';
 
   return (
-    <div className={`space-y-2.5 transition-opacity ${disabled ? 'opacity-45 pointer-events-none' : 'opacity-100'}`}>
+    <div className={`gsdf-control-block space-y-2.5 transition-opacity ${disabled ? 'opacity-45 pointer-events-none' : 'opacity-100'}`}>
       <div className="flex items-center justify-between gap-3">
-        <label title={title} className="flex min-w-0 items-center gap-2 text-[11px] font-semibold text-zinc-300">
-          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-white/[0.05] text-zinc-200">
+        <label title={title} className="gsdf-control-label flex min-w-0 items-center gap-2 text-[11px] font-semibold text-zinc-300">
+          <span className="gsdf-control-icon flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-white/[0.05] text-zinc-200">
             {icon}
           </span>
           <span className="truncate">{label}</span>
@@ -255,24 +233,24 @@ function clampValue(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
 }
 
-function getDefaultPanelSize(mode: PanelLayoutMode) {
+function getDefaultPanelSize(sidePanelOpen = false) {
   return {
-    width: PANEL_MODE_SIZE[mode].width,
-    height: mode === 'a' ? PANEL_DEFAULT_HEIGHT : PANEL_EXPANDED_DEFAULT_HEIGHT,
+    width: sidePanelOpen ? PANEL_SIDE_PANEL_WIDTH : PANEL_DEFAULT_WIDTH,
+    height: PANEL_DEFAULT_HEIGHT,
   };
 }
 
-function clampStandalonePanelSize(mode: PanelLayoutMode, size: { width: number; height: number }) {
+function clampStandalonePanelSize(size: { width: number; height: number }, sidePanelOpen = false) {
+  const targetWidth = sidePanelOpen ? PANEL_SIDE_PANEL_WIDTH : PANEL_DEFAULT_WIDTH;
   const maxWidth = typeof window === 'undefined'
-    ? PANEL_MODE_SIZE[mode].width
-    : Math.max(PANEL_MODE_SIZE[mode].minWidth, window.innerWidth - PANEL_VIEWPORT_MARGIN);
-  const defaultHeight = mode === 'a' ? PANEL_DEFAULT_HEIGHT : PANEL_EXPANDED_DEFAULT_HEIGHT;
+    ? targetWidth
+    : Math.max(PANEL_MIN_WIDTH, window.innerWidth - PANEL_VIEWPORT_MARGIN);
   const maxHeight = typeof window === 'undefined'
-    ? defaultHeight
+    ? PANEL_DEFAULT_HEIGHT
     : Math.max(PANEL_MIN_HEIGHT, window.innerHeight - PANEL_VIEWPORT_MARGIN);
 
   return {
-    width: clampValue(size.width, PANEL_MODE_SIZE[mode].minWidth, maxWidth),
+    width: clampValue(size.width, PANEL_MIN_WIDTH, maxWidth),
     height: clampValue(size.height, PANEL_MIN_HEIGHT, maxHeight),
   };
 }
@@ -315,17 +293,6 @@ function postExpandedOverlayState(open: boolean) {
   }, '*');
 }
 
-function postPanelLayoutMode(mode: PanelLayoutMode) {
-  if (!window.parent || window.parent === window) {
-    return;
-  }
-
-  window.parent.postMessage({
-    type: 'GSDF_PANEL_MODE_CHANGED',
-    payload: { mode },
-  }, '*');
-}
-
 function useExpandedOverlayViewport(open: boolean) {
   React.useEffect(() => {
     if (!open) {
@@ -359,6 +326,7 @@ function EffectSwitch({
       aria-label={label}
       title={label}
       onClick={onToggle}
+      data-state={enabled ? 'on' : 'off'}
       className="gsdf-effect-switch relative inline-flex h-8 w-14 shrink-0 items-center rounded-md border border-white/10 bg-[#0b0d10] p-1 transition-colors hover:bg-white/[0.06]"
       data-no-drag
     >
@@ -384,65 +352,44 @@ function PanelTabSwitch({
   return (
     <div
       role="tablist"
-      aria-label={messages.panel.panelMode}
-      className="gsdf-tab-switch relative grid h-8 w-28 shrink-0 grid-cols-2 rounded-md border border-white/10 bg-[#080b0f] p-1"
+      aria-label={messages.panel.panelTabs}
+      className="gsdf-tab-switch relative grid h-8 w-[212px] shrink-0 grid-cols-3 rounded-md border border-white/10 bg-[#080b0f] p-1"
       data-no-drag
     >
       <span
-        className={`pointer-events-none absolute top-1 bottom-1 left-1 w-[calc(50%-4px)] rounded bg-zinc-100 shadow transition-transform ${value === 'advanced' ? 'translate-x-[calc(100%+4px)]' : 'translate-x-0'}`}
+        className={`pointer-events-none absolute top-1 bottom-1 left-1 w-[calc(33.333%-4px)] rounded bg-zinc-100 shadow transition-transform ${
+          value === 'advanced' ? 'translate-x-[calc(100%+4px)]' : value === 'diagnostic' ? 'translate-x-[calc(200%+8px)]' : 'translate-x-0'
+        }`}
       />
-      {(['basic', 'advanced'] as PanelTab[]).map((tab) => {
+      {(['basic', 'advanced', 'diagnostic'] as PanelTab[]).map((tab) => {
         const selected = value === tab;
+        const title = tab === 'basic'
+          ? messages.panel.switchToBasic
+          : tab === 'advanced'
+            ? messages.panel.switchToAdvanced
+            : messages.panel.switchToDiagnostic;
+        const label = tab === 'basic'
+          ? messages.panel.basicTab
+          : tab === 'advanced'
+            ? messages.panel.advancedTab
+            : messages.panel.diagnosticTab;
         return (
           <button
             key={tab}
             type="button"
             role="tab"
             aria-selected={selected}
-            title={tab === 'basic' ? messages.panel.switchToBasic : messages.panel.switchToAdvanced}
+            title={title}
             onClick={() => onChange(tab)}
             style={selected ? { color: panelTheme === 'light' ? '#f8fafc' : '#111418' } : undefined}
             className={`relative z-10 rounded text-[11px] font-semibold transition-colors ${
               selected ? '' : 'text-zinc-400 hover:text-zinc-100'
             }`}
           >
-            {tab === 'basic' ? messages.panel.basicTab : messages.panel.advancedTab}
+            {label}
           </button>
         );
       })}
-    </div>
-  );
-}
-
-function PanelLayoutModeSwitch({
-  value,
-  onChange,
-  messages,
-}: {
-  value: PanelLayoutMode;
-  onChange: (value: PanelLayoutMode) => void;
-  messages: Messages;
-}) {
-  const panelModeOptions = getPanelModeOptions(messages);
-  return (
-    <div className="grid h-8 w-[96px] shrink-0 grid-cols-3 rounded-md border border-white/10 bg-[#080b0f] p-0.5" data-no-drag>
-      {panelModeOptions.map((mode) => (
-        <button
-          key={mode.value}
-          type="button"
-          title={mode.title}
-          aria-label={mode.title}
-          aria-pressed={value === mode.value}
-          onClick={() => onChange(mode.value)}
-          className={`rounded text-[10px] font-semibold transition-colors ${
-            value === mode.value
-              ? 'bg-zinc-100 text-[#111418] shadow-[0_8px_22px_rgba(0,0,0,0.3)]'
-              : 'text-zinc-500 hover:bg-white/[0.06] hover:text-zinc-100'
-          }`}
-        >
-          {mode.label}
-        </button>
-      ))}
     </div>
   );
 }
@@ -494,9 +441,10 @@ function StatusDeck({
         </div>
         <button
           onClick={onResetDefault}
-          className="rounded p-1.5 text-zinc-500 transition-colors hover:bg-white/[0.06] hover:text-zinc-100"
+          className="gsdf-icon-button flex h-8 w-8 items-center justify-center rounded-md border border-white/10 bg-[#0b0d10] text-zinc-500 transition-colors hover:bg-white/[0.06] hover:text-zinc-100"
           title={messages.panel.resetTitle}
           data-no-drag
+          type="button"
         >
           <RotateCcw size={14} />
         </button>
@@ -905,111 +853,91 @@ function PanelBorderResizeHandles({
   );
 }
 
-function GSDFStripeTest({
+function ReferenceSidePanel({
+  mode,
   settings,
-  onOpenFullPattern,
+  panelTheme,
   messages,
+  onModeChange,
+  onOpenFull,
+  onClose,
 }: {
+  mode: SidePanelMode;
   settings: AppSettings;
-  onOpenFullPattern: () => void;
+  panelTheme: PanelTheme;
   messages: Messages;
-}) {
-  const [showDetails, setShowDetails] = React.useState(false);
-  const compactStripeWidth = 18;
-  const outputRows = React.useMemo(() => buildGsdfStripeRows(settings), [settings]);
-  const calibrationRows = React.useMemo(() => buildGsdfCalibrationStripeRows(), []);
-
-  const renderRows = (rows: ReturnType<typeof buildGsdfStripeRows>, condensed = false) => (
-    <div className={`space-y-1.5 overflow-hidden rounded-md border border-white/10 bg-[#080b0f] ${condensed ? 'p-2' : 'p-3'}`}>
-      {rows.map((row) => (
-        <div key={row.id} className="grid grid-cols-[44px_1fr] items-center gap-2.5">
-          <span className="font-mono text-[9px] font-semibold tracking-[0.12em] text-zinc-500">{row.label}</span>
-          <div
-            className={`${condensed ? 'h-6' : 'h-10'} rounded border border-white/[0.06] shadow-inner`}
-            style={{
-              backgroundImage: `repeating-linear-gradient(90deg, rgb(${row.left} ${row.left} ${row.left}) 0 ${compactStripeWidth}px, rgb(${row.right} ${row.right} ${row.right}) ${compactStripeWidth}px ${compactStripeWidth * 2}px)`,
-            }}
-          />
-        </div>
-      ))}
-    </div>
-  );
-
-  return (
-    <section className={`space-y-3 transition-opacity ${settings.enabled ? 'opacity-100' : 'opacity-70'}`}>
-      <div className="flex items-center justify-between gap-3">
-        <label
-          title={messages.panel.stripeDescription}
-          className="flex items-center gap-2 text-[11px] font-semibold text-zinc-300"
-        >
-          <span className="flex h-6 w-6 items-center justify-center rounded-md bg-white/[0.05] text-zinc-200">
-            <Eye size={14} />
-          </span>
-          {messages.panel.stripeTitle}
-        </label>
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            title={showDetails ? messages.panel.collapseCalibration : messages.panel.expandCalibration}
-            onClick={() => setShowDetails((value) => !value)}
-            className="rounded p-1.5 text-zinc-500 transition-colors hover:bg-white/[0.06] hover:text-zinc-100"
-            data-no-drag
-          >
-            {showDetails ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-          </button>
-          <button
-            type="button"
-            title={messages.panel.openFullPattern}
-            onClick={onOpenFullPattern}
-            className="rounded p-1.5 text-zinc-500 transition-colors hover:bg-white/[0.06] hover:text-zinc-100"
-            data-no-drag
-          >
-            <Grid3X3 size={14} />
-          </button>
-        </div>
-      </div>
-      <div className="space-y-1.5">
-        <div className="font-mono text-[9px] font-semibold uppercase tracking-[0.18em] text-zinc-500">{messages.panel.outputPreview}</div>
-        {renderRows(outputRows, true)}
-      </div>
-      {showDetails && (
-        <div className="space-y-2">
-          <div className="font-mono text-[9px] font-semibold uppercase tracking-[0.18em] text-zinc-500">{messages.panel.luminanceCalibration}</div>
-          {renderRows(calibrationRows)}
-        </div>
-      )}
-    </section>
-  );
-}
-
-function ContrastChartPanel({
-  onOpenFullChart,
-  messages,
-}: {
-  onOpenFullChart: () => void;
-  messages: Messages;
+  onModeChange: (mode: SidePanelMode) => void;
+  onOpenFull: (mode: SidePanelMode) => void;
+  onClose: () => void;
 }) {
   return (
-    <section className="space-y-3">
-      <div className="flex items-center justify-between gap-3">
-        <label className="flex items-center gap-2 text-[11px] font-semibold text-zinc-300">
-          <span className="flex h-6 w-6 items-center justify-center rounded-md bg-white/[0.05] text-zinc-200">
-            <Activity size={14} />
-          </span>
-          {messages.panel.chartTitle}
-        </label>
+    <aside className="gsdf-reference-panel flex min-h-0 flex-col overflow-hidden border-l border-white/10 bg-[#0a0d12]">
+      <div className="flex h-12 shrink-0 items-center justify-between gap-3 border-b border-white/10 px-3" data-no-drag>
+        <div className="min-w-0">
+          <div className="truncate text-[11px] font-semibold text-zinc-200">{messages.panel.referenceSummaryTitle}</div>
+          <div className="truncate font-mono text-[9px] text-zinc-500">
+            {messages.panel.sidePanelTitle}
+          </div>
+        </div>
         <button
           type="button"
-          title={messages.panel.openFullChart}
-          onClick={onOpenFullChart}
-          className="flex h-8 items-center gap-1.5 rounded-md border border-white/10 bg-white/[0.04] px-2.5 text-[11px] font-semibold text-zinc-300 transition-colors hover:border-white/15 hover:bg-white/[0.08] hover:text-zinc-100"
-          data-no-drag
+          title={messages.panel.closeSidePanel}
+          aria-label={messages.panel.closeSidePanel}
+          onClick={onClose}
+          className="gsdf-icon-button flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-white/10 bg-[#0b0d10] text-zinc-400 transition-colors hover:bg-white/[0.06] hover:text-zinc-100"
         >
-          <Maximize2 size={13} />
-          {messages.panel.fullChart}
+          <PanelRightClose size={14} />
         </button>
       </div>
-    </section>
+      <div className="grid shrink-0 grid-cols-2 gap-1 border-b border-white/10 p-3" data-no-drag>
+        {([
+          { value: 'pattern', label: messages.panel.referencePanel, icon: <Grid3X3 size={13} /> },
+          { value: 'chart', label: messages.panel.curvePanel, icon: <BarChart3 size={13} /> },
+        ] as Array<{ value: SidePanelMode; label: string; icon: React.ReactNode }>).map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            aria-pressed={mode === option.value}
+            onClick={() => onModeChange(option.value)}
+            className={`gsdf-segment-button flex h-8 items-center justify-center gap-1.5 rounded-md text-[11px] font-semibold transition-colors ${
+              mode === option.value
+                ? 'bg-zinc-100 text-[#111418]'
+                : 'border border-white/10 bg-white/[0.03] text-zinc-400 hover:bg-white/[0.07] hover:text-zinc-100'
+            }`}
+          >
+            {option.icon}
+            {option.label}
+          </button>
+        ))}
+      </div>
+      <p className="shrink-0 border-b border-white/10 px-3 py-3 text-[12px] leading-5 text-zinc-400">
+        {messages.panel.referenceSummaryBody}
+      </p>
+      <div className="min-h-0 flex-1 overflow-hidden p-3">
+        {mode === 'pattern' ? (
+          <div className="h-full min-h-0 overflow-hidden rounded-md border border-white/10 bg-black p-2">
+            <FullDiagnosticPattern settings={settings} messages={messages} />
+          </div>
+        ) : (
+          <div className="h-full min-h-0 rounded-md border border-white/10 bg-[#080b0f] p-3">
+            <React.Suspense fallback={<div className="h-full min-h-[180px]" />}>
+              <GSDFChart settings={settings} panelTheme={panelTheme} messages={messages} className="h-full min-h-[180px]" />
+            </React.Suspense>
+          </div>
+        )}
+      </div>
+      <div className="shrink-0 border-t border-white/10 p-3" data-no-drag>
+        <button
+          type="button"
+          title={mode === 'pattern' ? messages.panel.openFullPattern : messages.panel.openFullChart}
+          onClick={() => onOpenFull(mode)}
+          className="gsdf-text-button flex h-8 w-full items-center justify-center gap-1.5 rounded-md border border-white/10 bg-[#0b0d10] px-2.5 text-[11px] font-semibold text-zinc-300 transition-colors hover:bg-white/[0.06] hover:text-zinc-100"
+        >
+          <Maximize2 size={13} />
+          {mode === 'pattern' ? messages.panel.openFullPattern : messages.panel.openFullChart}
+        </button>
+      </div>
+    </aside>
   );
 }
 
@@ -1025,7 +953,7 @@ function LanguageSelector({
   return (
     <label
       title={messages.language.label}
-      className="flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-white/10 bg-[#0b0d10] px-2 text-zinc-400 transition-colors hover:bg-white/[0.06] hover:text-zinc-100"
+      className="gsdf-text-button flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-white/10 bg-[#0b0d10] px-2 text-zinc-400 transition-colors hover:bg-white/[0.06] hover:text-zinc-100"
       data-no-drag
     >
       <Languages size={14} />
@@ -1059,37 +987,25 @@ export function DraggablePanel({
   const dragControls = useDragControls();
   const dragStartRef = React.useRef<{ pointerId: number; x: number; y: number } | null>(null);
   const resizeStartRef = React.useRef<{ pointerId: number; x: number; y: number; handle: ResizeHandle } | null>(null);
-  const cColumnResizeRef = React.useRef<ColumnResizeStart | null>(null);
   const [activeTab, setActiveTab] = React.useState<PanelTab>('basic');
-  const [panelMode, setPanelMode] = React.useState<PanelLayoutMode>('a');
-  const [centerMode, setCenterMode] = React.useState<CenterWorkspaceMode>('pattern');
-  const [cControlWidth, setCControlWidth] = React.useState(C_PANEL_DEFAULT_CONTROL_WIDTH);
+  const [sidePanelOpen, setSidePanelOpen] = React.useState(false);
+  const [sidePanelMode, setSidePanelMode] = React.useState<SidePanelMode>('pattern');
   const [inspectionMode, setInspectionMode] = React.useState<InspectionMode>(null);
   const [panelClosed, setPanelClosed] = React.useState(false);
   const [standaloneInspectionSize, setStandaloneInspectionSize] = React.useState({
     width: INSPECTION_DEFAULT_WIDTH,
     height: INSPECTION_DEFAULT_HEIGHT,
   });
-  const [standalonePanelSize, setStandalonePanelSize] = React.useState(() => getDefaultPanelSize('a'));
+  const [standalonePanelSize, setStandalonePanelSize] = React.useState(() => getDefaultPanelSize());
   const [panelTheme, setPanelTheme] = React.useState<PanelTheme>(() => {
     const savedTheme = localStorage.getItem(PANEL_THEME_STORAGE_KEY);
     return savedTheme === 'light' ? 'light' : 'dark';
   });
-  useExpandedOverlayViewport(inspectionMode !== null);
+  useExpandedOverlayViewport(inspectionMode !== null || sidePanelOpen);
 
   React.useEffect(() => {
     localStorage.setItem(PANEL_THEME_STORAGE_KEY, panelTheme);
   }, [panelTheme]);
-
-  React.useEffect(() => {
-    postPanelLayoutMode(panelMode);
-  }, [panelMode]);
-
-  const selectPanelMode = (value: PanelLayoutMode) => {
-    setPanelMode(value);
-    setInspectionMode(null);
-    setStandalonePanelSize(clampStandalonePanelSize(value, getDefaultPanelSize(value)));
-  };
 
   const toggleEnabled = () => {
     setSettings((prev) => ({ ...prev, enabled: !prev.enabled }));
@@ -1135,9 +1051,20 @@ export function DraggablePanel({
     setNumericSetting('gammaTarget', gammaCorrectionToTarget(value));
   };
 
-  const renderBasicPanel = (showStripePreview = true) => (
-      <div className="space-y-3">
-        <div className={`transition-opacity ${settings.enabled ? 'opacity-100' : 'opacity-75'}`}>
+  React.useEffect(() => {
+    if (extensionMode || inspectionMode) {
+      return;
+    }
+
+    setStandalonePanelSize((current) => clampStandalonePanelSize({
+      width: sidePanelOpen ? Math.max(current.width, PANEL_SIDE_PANEL_WIDTH) : Math.min(current.width, PANEL_DEFAULT_WIDTH),
+      height: current.height,
+    }, sidePanelOpen));
+  }, [extensionMode, inspectionMode, sidePanelOpen]);
+
+  const renderBasicPanel = () => (
+    <div className="space-y-3">
+      <div className={`transition-opacity ${settings.enabled ? 'opacity-100' : 'opacity-75'}`}>
         <StatusDeck settings={settings} onLmaxChange={handleLmaxChange} onResetDefault={resetToDefault} messages={messages} />
       </div>
 
@@ -1169,15 +1096,11 @@ export function DraggablePanel({
         value={settings.strength}
         onChange={(value) => setNumericSetting('strength', value)}
       />
-
-      {showStripePreview && (
-        <GSDFStripeTest settings={settings} messages={messages} onOpenFullPattern={() => setInspectionMode('pattern')} />
-      )}
     </div>
   );
 
-  const renderAdvancedPanel = (showContrastPreview = true) => (
-    <div className="space-y-3">
+  const renderAdvancedPanel = () => (
+    <div className="grid min-h-0 grid-cols-2 gap-3 max-[760px]:grid-cols-1">
       <SegmentedControl
         disabled={!settings.enabled}
         icon={<BarChart3 size={14} />}
@@ -1266,58 +1189,19 @@ export function DraggablePanel({
         value={settings.hue}
         onChange={(value) => setNumericSetting('hue', value)}
       />
-
-      {showContrastPreview && <ContrastChartPanel messages={messages} onOpenFullChart={() => setInspectionMode('chart')} />}
     </div>
   );
 
-  const renderCenterWorkspace = () => (
-    <section className="flex min-h-0 h-full flex-col overflow-hidden rounded-md border border-white/10 bg-[#080b0f]">
-      <div className="flex h-10 shrink-0 items-center justify-between gap-3 border-b border-white/10 px-3">
-        <label className="flex min-w-0 items-center gap-2 text-[11px] font-semibold text-zinc-300">
-          <span className="flex h-6 w-6 items-center justify-center rounded-md bg-white/[0.05] text-zinc-200">
-            <Grid3X3 size={14} />
+  const renderDiagnosticPlaceholder = () => (
+    <section className="gsdf-diagnostic-placeholder flex min-h-[328px] flex-col justify-between rounded-md border border-white/10 bg-[#080b0f] p-4">
+      <div className="space-y-3">
+        <div className="flex items-center gap-2 text-[11px] font-semibold text-zinc-200">
+          <span className="gsdf-control-icon flex h-7 w-7 items-center justify-center rounded-md bg-white/[0.05] text-zinc-200">
+            <Grid3X3 size={15} />
           </span>
-          <span className="truncate">{messages.panel.centerView}</span>
-        </label>
-        <div className="grid h-7 w-[132px] shrink-0 grid-cols-3 rounded-md border border-white/10 bg-[#090c10] p-0.5" data-no-drag>
-          {[
-            { value: 'pattern', label: 'C', title: messages.panel.patternTitle },
-            { value: 'chart', label: 'D', title: messages.panel.chartTitle },
-            { value: 'both', label: 'C+D', title: messages.panel.bothTitle },
-          ].map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              title={option.title}
-              aria-pressed={centerMode === option.value}
-              onClick={() => setCenterMode(option.value as CenterWorkspaceMode)}
-              className={`rounded text-[10px] font-semibold transition-colors ${
-                centerMode === option.value
-                  ? 'bg-zinc-100 text-[#111418]'
-                  : 'text-zinc-500 hover:bg-white/[0.06] hover:text-zinc-100'
-              }`}
-            >
-              {option.label}
-            </button>
-          ))}
+          {messages.panel.diagnosticPlaceholderTitle}
         </div>
-      </div>
-      <div className={`min-h-0 flex-1 ${centerMode === 'both' ? 'grid grid-cols-2' : 'block'}`}>
-        {(centerMode === 'pattern' || centerMode === 'both') && (
-          <div className="h-full min-h-0 overflow-hidden bg-black p-2">
-            <FullDiagnosticPattern settings={settings} messages={messages} />
-          </div>
-        )}
-        {(centerMode === 'chart' || centerMode === 'both') && (
-          <div className="h-full min-h-0 bg-[#10151b] p-3">
-            <div className="h-full rounded-md border border-white/10 bg-[#080b0f] p-3">
-              <React.Suspense fallback={<div className="h-full min-h-[180px]" />}>
-                <GSDFChart settings={settings} panelTheme={panelTheme} messages={messages} className="h-full min-h-[180px]" />
-              </React.Suspense>
-            </div>
-          </div>
-        )}
+        <p className="max-w-[560px] text-[12px] leading-5 text-zinc-400">{messages.panel.diagnosticPlaceholderBody}</p>
       </div>
     </section>
   );
@@ -1386,10 +1270,10 @@ export function DraggablePanel({
         return;
       }
 
-      setStandalonePanelSize((current) => clampStandalonePanelSize(panelMode, {
+      setStandalonePanelSize((current) => clampStandalonePanelSize({
         width: current.width + deltaWidth,
         height: current.height + deltaHeight,
-      }));
+      }, sidePanelOpen));
       return;
     }
 
@@ -1401,34 +1285,6 @@ export function DraggablePanel({
       tryReleasePointerCapture(e.currentTarget, e.pointerId);
     }
     resizeStartRef.current = null;
-  };
-
-  const handleCColumnResizePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    e.stopPropagation();
-    e.preventDefault();
-    cColumnResizeRef.current = { pointerId: e.pointerId, x: e.clientX, width: cControlWidth };
-    trySetPointerCapture(e.currentTarget, e.pointerId);
-  };
-
-  const handleCColumnResizePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!cColumnResizeRef.current || cColumnResizeRef.current.pointerId !== e.pointerId) {
-      return;
-    }
-
-    e.preventDefault();
-    const deltaX = e.clientX - cColumnResizeRef.current.x;
-    setCControlWidth(clampValue(
-      cColumnResizeRef.current.width + deltaX,
-      C_PANEL_MIN_CONTROL_WIDTH,
-      C_PANEL_MAX_CONTROL_WIDTH,
-    ));
-  };
-
-  const handleCColumnResizePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (cColumnResizeRef.current?.pointerId === e.pointerId) {
-      tryReleasePointerCapture(e.currentTarget, e.pointerId);
-    }
-    cColumnResizeRef.current = null;
   };
 
   const dragHandlers = {
@@ -1483,31 +1339,35 @@ export function DraggablePanel({
         />
       ) : (
         <>
-      <div
-        className={`gsdf-panel-header cursor-grab select-none border-b border-white/10 bg-[#181c21] px-4 py-3 active:cursor-grabbing ${panelMode === 'c' ? '' : 'space-y-3'}`}
-        onPointerDown={handleHeaderPointerDown}
-        onPointerMove={handleHeaderPointerMove}
-        onPointerUp={handleHeaderPointerUp}
-        onPointerCancel={handleHeaderPointerUp}
-      >
-        <div className="flex items-center gap-3">
-          <div className="flex min-w-0 flex-1 items-center gap-3">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-white/10 bg-white/[0.05] text-zinc-200">
-              <Settings size={16} />
-            </div>
-            <div className="min-w-0">
-              <div className="truncate text-[14px] font-semibold text-white">GSDF EOTF Adjuster</div>
-              <div className="font-mono text-[9px] uppercase tracking-[0.16em] text-zinc-500">{messages.panel.subtitle}</div>
-            </div>
-          </div>
-          <div className={`ml-auto flex shrink-0 items-center gap-2 ${panelMode === 'c' ? 'gsdf-header-controls' : ''}`} data-no-drag>
-            <PanelLayoutModeSwitch value={panelMode} onChange={selectPanelMode} messages={messages} />
-            {panelMode === 'c' && (
-              <>
-                <div className="flex min-w-0 items-center gap-2.5">
-                  <EffectSwitch enabled={settings.enabled} onToggle={toggleEnabled} label={messages.panel.enableEotf} />
-                  <span className="truncate text-[11px] font-semibold text-zinc-300">{settings.enabled ? messages.panel.effectOn : messages.panel.effectOff}</span>
+          <div
+            className="gsdf-panel-header cursor-grab select-none space-y-3 border-b border-white/10 bg-[#181c21] px-4 py-3 active:cursor-grabbing"
+            onPointerDown={handleHeaderPointerDown}
+            onPointerMove={handleHeaderPointerMove}
+            onPointerUp={handleHeaderPointerUp}
+            onPointerCancel={handleHeaderPointerUp}
+          >
+            <div className="flex items-center gap-3">
+              <div className="flex min-w-0 flex-1 items-center gap-3">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-white/10 bg-white/[0.05] text-zinc-200">
+                  <Settings size={16} />
                 </div>
+                <div className="min-w-0">
+                  <div className="truncate text-[14px] font-semibold text-white">GSDF EOTF Adjuster</div>
+                  <div className="font-mono text-[9px] uppercase tracking-[0.16em] text-zinc-500">{messages.panel.subtitle}</div>
+                </div>
+              </div>
+              <div className="ml-auto flex shrink-0 items-center gap-2" data-no-drag>
+                <PanelTabSwitch value={activeTab} onChange={setActiveTab} panelTheme={panelTheme} messages={messages} />
+                <button
+                  type="button"
+                  title={messages.panel.toggleSidePanel}
+                  aria-label={messages.panel.toggleSidePanel}
+                  aria-pressed={sidePanelOpen}
+                  onClick={() => setSidePanelOpen((value) => !value)}
+                  className="gsdf-icon-button flex h-8 w-8 items-center justify-center rounded-md border border-white/10 bg-[#0b0d10] text-zinc-400 transition-colors hover:bg-white/[0.06] hover:text-zinc-100"
+                >
+                  {sidePanelOpen ? <PanelRightClose size={14} /> : <PanelRightOpen size={14} />}
+                </button>
                 <LanguageSelector locale={locale} messages={messages} onLocaleChange={onLocaleChange} />
                 <button
                   type="button"
@@ -1515,92 +1375,69 @@ export function DraggablePanel({
                   aria-label={panelTheme === 'light' ? messages.panel.switchToDark : messages.panel.switchToLight}
                   onClick={() => setPanelTheme((theme) => (theme === 'light' ? 'dark' : 'light'))}
                   className="gsdf-icon-button flex h-8 w-8 items-center justify-center rounded-md border border-white/10 bg-[#0b0d10] text-zinc-400 transition-colors hover:bg-white/[0.06] hover:text-zinc-100"
-                  data-no-drag
                 >
                   {panelTheme === 'light' ? <Moon size={14} /> : <Sun size={14} />}
                 </button>
-              </>
-            )}
-            <button
-              type="button"
-              title={messages.panel.closePanel}
-              aria-label={messages.panel.closePanel}
-              onClick={handlePanelClose}
-              className="gsdf-icon-button flex h-8 w-8 items-center justify-center rounded-md border border-white/10 bg-[#0b0d10] text-zinc-400 transition-colors hover:bg-white/[0.06] hover:text-zinc-100"
-            >
-              <X size={14} />
-            </button>
+                <button
+                  type="button"
+                  title={messages.panel.closePanel}
+                  aria-label={messages.panel.closePanel}
+                  onClick={handlePanelClose}
+                  className="gsdf-icon-button flex h-8 w-8 items-center justify-center rounded-md border border-white/10 bg-[#0b0d10] text-zinc-400 transition-colors hover:bg-white/[0.06] hover:text-zinc-100"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            </div>
+            <div className="gsdf-header-controls flex shrink-0 flex-wrap items-center justify-between gap-2" data-no-drag>
+              <div className="flex min-w-0 items-center gap-2.5">
+                <EffectSwitch enabled={settings.enabled} onToggle={toggleEnabled} label={messages.panel.enableEotf} />
+                <span className="truncate text-[11px] font-semibold text-zinc-300">{settings.enabled ? messages.panel.effectOn : messages.panel.effectOff}</span>
+              </div>
+              <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                <ModePill tone={settings.enabled ? 'active' : 'neutral'} title={messages.panel.gsdfMixTitle}>
+                  <MonitorUp size={13} />
+                  GSDF
+                </ModePill>
+                <ModePill title={messages.panel.gammaPillTitle}>
+                  <Activity size={13} />
+                  <span className="gsdf-pill-label">gamma</span>
+                  <span className="gsdf-pill-metric">{settings.gammaTarget.toFixed(1)}</span>
+                </ModePill>
+                <ModePill title={messages.panel.filterPillTitle}>
+                  <Gauge size={13} />
+                  <span className="gsdf-pill-label">mix</span>
+                  <span className="gsdf-pill-metric">{settings.strength}%</span>
+                </ModePill>
+              </div>
+            </div>
           </div>
-        </div>
-        {panelMode !== 'c' && <div className="gsdf-header-controls flex shrink-0 flex-wrap items-center justify-end gap-2" data-no-drag>
-          <div className="flex min-w-0 items-center gap-2.5">
-            <EffectSwitch enabled={settings.enabled} onToggle={toggleEnabled} label={messages.panel.enableEotf} />
-            <span className="truncate text-[11px] font-semibold text-zinc-300">{settings.enabled ? messages.panel.effectOn : messages.panel.effectOff}</span>
-          </div>
-          {panelMode === 'a' && <PanelTabSwitch value={activeTab} onChange={setActiveTab} panelTheme={panelTheme} messages={messages} />}
-          <LanguageSelector locale={locale} messages={messages} onLocaleChange={onLocaleChange} />
-          <button
-            type="button"
-            title={panelTheme === 'light' ? messages.panel.switchToDark : messages.panel.switchToLight}
-            aria-label={panelTheme === 'light' ? messages.panel.switchToDark : messages.panel.switchToLight}
-            onClick={() => setPanelTheme((theme) => (theme === 'light' ? 'dark' : 'light'))}
-            className="gsdf-icon-button flex h-8 w-8 items-center justify-center rounded-md border border-white/10 bg-[#0b0d10] text-zinc-400 transition-colors hover:bg-white/[0.06] hover:text-zinc-100"
-            data-no-drag
-          >
-            {panelTheme === 'light' ? <Moon size={14} /> : <Sun size={14} />}
-          </button>
-        </div>}
-      </div>
 
-      <div className="flex min-h-0 flex-1 flex-col">
-        <div className={`min-h-0 space-y-3 overflow-y-auto overflow-x-hidden p-4 ${panelMode === 'a' ? '' : 'flex-1'}`}>
-          {panelMode === 'a' && (
-            <>
+          <div className={`grid min-h-0 flex-1 ${sidePanelOpen ? 'grid-cols-[minmax(0,1fr)_360px]' : 'grid-cols-1'}`}>
+            <div className="min-h-0 overflow-y-auto overflow-x-hidden p-4">
               <div hidden={activeTab !== 'basic'} aria-hidden={activeTab !== 'basic'}>
-                {renderBasicPanel(true)}
+                {renderBasicPanel()}
               </div>
               <div hidden={activeTab !== 'advanced'} aria-hidden={activeTab !== 'advanced'}>
-                {renderAdvancedPanel(true)}
+                {renderAdvancedPanel()}
               </div>
-            </>
-          )}
-
-          {panelMode === 'b' && (
-            <div className="grid min-h-0 flex-1 grid-cols-2 gap-4 overflow-hidden">
-                <div className="min-h-0 overflow-hidden">{renderBasicPanel()}</div>
-                <div className="min-h-0 overflow-hidden">{renderAdvancedPanel(false)}</div>
+              <div hidden={activeTab !== 'diagnostic'} aria-hidden={activeTab !== 'diagnostic'}>
+                {renderDiagnosticPlaceholder()}
               </div>
-          )}
-
-          {panelMode === 'c' && (
-            <div
-              className="grid h-full min-h-0 overflow-hidden"
-              style={{ gridTemplateColumns: `${cControlWidth}px 12px minmax(0,1fr)` }}
-            >
-              <div className="min-h-0 space-y-4 overflow-y-auto overflow-x-hidden pr-3">
-                {renderBasicPanel(false)}
-                {renderAdvancedPanel(false)}
-              </div>
-              <div
-                role="separator"
-                aria-orientation="vertical"
-                aria-label={messages.panel.resizeControlColumn}
-                title={messages.panel.resizeControlColumnTitle}
-                className="gsdf-column-resize-handle flex min-h-0 cursor-col-resize items-stretch justify-center"
-                data-no-drag
-                onPointerDown={handleCColumnResizePointerDown}
-                onPointerMove={handleCColumnResizePointerMove}
-                onPointerUp={handleCColumnResizePointerUp}
-                onPointerCancel={handleCColumnResizePointerUp}
-              >
-                <span className="my-1 w-px rounded-full bg-white/10" />
-              </div>
-              <div className="min-h-0 overflow-hidden">{renderCenterWorkspace()}</div>
             </div>
-          )}
-        </div>
-      </div>
-      <PanelBorderResizeHandles getResizeHandlers={getResizeHandlers} messages={messages} />
+            {sidePanelOpen && (
+              <ReferenceSidePanel
+                mode={sidePanelMode}
+                settings={settings}
+                panelTheme={panelTheme}
+                messages={messages}
+                onModeChange={setSidePanelMode}
+                onOpenFull={setInspectionMode}
+                onClose={() => setSidePanelOpen(false)}
+              />
+            )}
+          </div>
+          <PanelBorderResizeHandles getResizeHandlers={getResizeHandlers} messages={messages} />
         </>
       )}
 

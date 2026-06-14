@@ -194,7 +194,8 @@ test('content script opens the full GSDF pattern view as a movable and resizable
 
   const iframe = context.__testState.bodyChildren[0];
   const messageListener = context.__testState.listeners.find((listener) => listener.type === 'message');
-  assert.equal(iframe.style.width, '420px');
+  assert.equal(iframe.style.width, '800px');
+  assert.equal(iframe.style.height, '520px');
   assert.ok(messageListener, 'message listener should be registered');
 
   messageListener.callback({
@@ -205,7 +206,7 @@ test('content script opens the full GSDF pattern view as a movable and resizable
     }
   });
 
-  assert.equal(iframe.style.width, '1040px');
+  assert.equal(iframe.style.width, '1160px');
   assert.equal(iframe.style.height, '640px');
   assert.equal(iframe.style.left, '8px');
   assert.equal(iframe.style.top, '8px');
@@ -229,9 +230,9 @@ test('content script opens the full GSDF pattern view as a movable and resizable
     }
   });
 
-  assert.equal(iframe.style.width, '1240px');
+  assert.equal(iframe.style.width, '1264px');
   assert.equal(iframe.style.height, '704px');
-  assert.equal(iframe.style.left, '40px');
+  assert.equal(iframe.style.left, '16px');
   assert.equal(iframe.style.top, '16px');
 
   messageListener.callback({
@@ -242,10 +243,11 @@ test('content script opens the full GSDF pattern view as a movable and resizable
     }
   });
 
-  assert.equal(iframe.style.width, '420px');
+  assert.equal(iframe.style.width, '800px');
+  assert.equal(iframe.style.height, '520px');
 });
 
-test('content script resizes the iframe for A B C panel modes', () => {
+test('content script keeps a stable default panel size', () => {
   const context = createContentContext();
 
   vm.runInContext(contentSource, context, { filename: 'extension/content.js' });
@@ -253,19 +255,10 @@ test('content script resizes the iframe for A B C panel modes', () => {
 
   const iframe = context.__testState.bodyChildren[0];
   const messageListener = context.__testState.listeners.find((listener) => listener.type === 'message');
-  assert.equal(iframe.style.width, '420px');
+  assert.equal(iframe.style.width, '800px');
+  assert.equal(iframe.style.height, '520px');
   assert.ok(messageListener, 'message listener should be registered');
-
-  messageListener.callback({
-    source: iframe.contentWindow,
-    data: {
-      type: 'GSDF_PANEL_MODE_CHANGED',
-      payload: { mode: 'b' }
-    }
-  });
-
-  assert.equal(iframe.style.width, '820px');
-  assert.equal(iframe.style.height, '704px');
+  assert.doesNotMatch(contentSource, /GSDF_PANEL_MODE_CHANGED/);
 
   messageListener.callback({
     source: iframe.contentWindow,
@@ -275,29 +268,8 @@ test('content script resizes the iframe for A B C panel modes', () => {
     }
   });
 
-  assert.equal(iframe.style.width, '900px');
-  assert.equal(iframe.style.height, '624px');
-
-  messageListener.callback({
-    source: iframe.contentWindow,
-    data: {
-      type: 'GSDF_PANEL_MODE_CHANGED',
-      payload: { mode: 'c' }
-    }
-  });
-
-  assert.equal(iframe.style.width, '1240px');
-  assert.equal(iframe.style.height, '704px');
-
-  messageListener.callback({
-    source: iframe.contentWindow,
-    data: {
-      type: 'GSDF_PANEL_MODE_CHANGED',
-      payload: { mode: 'a' }
-    }
-  });
-
-  assert.equal(iframe.style.width, '420px');
+  assert.equal(iframe.style.width, '880px');
+  assert.equal(iframe.style.height, '520px');
 });
 
 test('maps target luminance on a 10 to 500 nits logarithmic slider', () => {

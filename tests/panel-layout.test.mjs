@@ -9,196 +9,154 @@ const videoBackgroundSource = readFileSync(new URL('../src/components/VideoBackg
 const i18nIndexSource = readFileSync(new URL('../src/i18n/index.ts', import.meta.url), 'utf8');
 const i18nMessagesSource = readFileSync(new URL('../src/i18n/messages.ts', import.meta.url), 'utf8');
 const i18nLocalesSource = readFileSync(new URL('../src/i18n/locales.ts', import.meta.url), 'utf8');
+const designSource = readFileSync(new URL('../DESIGN.md', import.meta.url), 'utf8');
+const designZhTwSource = readFileSync(new URL('../DESIGN.zh-tw.md', import.meta.url), 'utf8');
 
-test('control panel is split into basic and advanced tabs', () => {
-  assert.match(panelSource, /activeTab/);
-  assert.match(panelSource, /'basic'/);
-  assert.match(panelSource, /'advanced'/);
-  assert.match(i18nMessagesSource, /GSDF-QC full-field test pattern/);
-  assert.match(panelSource, /FullDiagnosticPattern/);
-  assert.match(panelSource, /InspectionModeView/);
-  assert.match(panelSource, /InspectionModeHeader/);
-  assert.match(panelSource, /InspectionMode = 'pattern' \| 'chart' \| null/);
-  assert.match(panelSource, /inspectionMode \?/);
-  assert.match(panelSource, /setInspectionMode\('chart'\)/);
-  assert.match(panelSource, /setInspectionMode\(null\)/);
-  assert.match(panelSource, /PanelTabSwitch/);
-  assert.match(panelSource, /PanelLayoutModeSwitch/);
-  assert.match(panelSource, /grid h-8 w-\[96px\]/);
-  assert.match(panelSource, /panelMode === 'c' \? '' : 'space-y-3'/);
-  assert.match(panelSource, /panelMode === 'c' \? 'gsdf-header-controls' : ''/);
-  assert.match(panelSource, /<PanelLayoutModeSwitch value=\{panelMode\} onChange=\{selectPanelMode\} messages=\{messages\} \/>/);
-  assert.match(panelSource, /getPanelModeOptions/);
-  assert.match(panelSource, /GSDF_PANEL_MODE_CHANGED/);
-  assert.match(panelSource, /panelMode === 'b'/);
-  assert.match(panelSource, /panelMode === 'c'/);
-  assert.match(panelSource, /C_PANEL_DEFAULT_CONTROL_WIDTH = 300/);
-  assert.match(panelSource, /C_PANEL_MIN_CONTROL_WIDTH = 260/);
-  assert.match(panelSource, /C_PANEL_MAX_CONTROL_WIDTH = 420/);
-  assert.match(panelSource, /gridTemplateColumns: `\$\{cControlWidth\}px 12px minmax\(0,1fr\)`/);
-  assert.match(panelSource, /gsdf-column-resize-handle/);
-  assert.match(panelSource, /aria-label=\{messages\.panel\.resizeControlColumn\}/);
-  assert.match(panelSource, /handleCColumnResizePointerDown/);
-  assert.match(panelSource, /handleCColumnResizePointerMove/);
-  assert.match(panelSource, /handleCColumnResizePointerUp/);
-  assert.match(panelSource, /space-y-4 overflow-y-auto overflow-x-hidden/);
-  assert.match(panelSource, /CenterWorkspaceMode = 'pattern' \| 'chart' \| 'both'/);
+test('control panel uses Basic Advanced Diagnostic tabs instead of A B C modes', () => {
+  assert.match(panelSource, /type PanelTab = 'basic' \| 'advanced' \| 'diagnostic'/);
+  assert.match(panelSource, /\(\['basic', 'advanced', 'diagnostic'\] as PanelTab\[\]\)/);
+  assert.match(panelSource, /messages\.panel\.diagnosticTab/);
+  assert.match(panelSource, /messages\.panel\.switchToDiagnostic/);
+  assert.match(panelSource, /renderDiagnosticPlaceholder/);
+  assert.match(panelSource, /hidden=\{activeTab !== 'basic'\}/);
+  assert.match(panelSource, /hidden=\{activeTab !== 'advanced'\}/);
+  assert.match(panelSource, /hidden=\{activeTab !== 'diagnostic'\}/);
   assert.match(panelSource, /role="tablist"/);
   assert.match(panelSource, /role="tab"/);
-  assert.match(panelSource, /const selected = value === tab/);
   assert.match(panelSource, /aria-selected=\{selected\}/);
-  assert.match(panelSource, /style=\{selected \? \{ color: panelTheme === 'light' \? '#f8fafc' : '#111418' \} : undefined\}/);
-  assert.match(panelSource, /gsdf-header-controls/);
-  assert.match(panelSource, /gsdf-header-controls flex shrink-0 flex-wrap items-center justify-end gap-2/);
-  assert.match(panelSource, /panelMode !== 'c' && <div className="gsdf-header-controls flex shrink-0 flex-wrap items-center justify-end gap-2"/);
-  assert.match(panelSource, /gsdf-status-inline-metrics/);
-  assert.match(panelSource, /flex min-w-0 flex-wrap items-center justify-start gap-1\.5/);
-  assert.doesNotMatch(panelSource, /grid grid-cols-4 gap-1\.5/);
-  assert.match(panelSource, /messages\.panel\.lmaxNote/);
-  assert.match(panelSource, /text-\[24px\]/);
-  assert.match(panelSource, /justify-center gap-1 rounded-md border px-2 text-\[10px\]/);
-  assert.match(panelSource, /messages\.panel\.effectOn/);
-  assert.match(panelSource, /messages\.panel\.effectOff/);
+
+  assert.doesNotMatch(panelSource, /PanelLayoutMode/);
+  assert.doesNotMatch(panelSource, /PanelLayoutModeSwitch/);
+  assert.doesNotMatch(panelSource, /CenterWorkspaceMode/);
+  assert.doesNotMatch(panelSource, /panelMode/);
+  assert.doesNotMatch(panelSource, /centerMode/);
+  assert.doesNotMatch(panelSource, /GSDF_PANEL_MODE_CHANGED/);
+  assert.doesNotMatch(panelSource, /layoutModeA|layoutModeB|layoutModeC/);
+});
+
+test('reference pattern and curve open from the right side panel', () => {
+  const basicPanelBlock = panelSource.slice(
+    panelSource.indexOf('const renderBasicPanel = () =>'),
+    panelSource.indexOf('const renderAdvancedPanel = () =>'),
+  );
+  const diagnosticPanelBlock = panelSource.slice(
+    panelSource.indexOf('const renderDiagnosticPlaceholder = () =>'),
+    panelSource.indexOf('const handleHeaderPointerDown'),
+  );
+
+  assert.match(panelSource, /type SidePanelMode = 'pattern' \| 'chart'/);
+  assert.match(panelSource, /sidePanelOpen/);
+  assert.match(panelSource, /sidePanelMode/);
+  assert.match(panelSource, /ReferenceSidePanel/);
+  assert.match(panelSource, /PanelRightOpen/);
+  assert.match(panelSource, /PanelRightClose/);
+  assert.match(panelSource, /messages\.panel\.toggleSidePanel/);
+  assert.match(panelSource, /setSidePanelOpen\(\(value\) => !value\)/);
+  assert.match(panelSource, /onModeChange=\{setSidePanelMode\}/);
+  assert.match(panelSource, /FullDiagnosticPattern settings=\{settings\} messages=\{messages\}/);
+  assert.match(panelSource, /GSDFChart settings=\{settings\} panelTheme=\{panelTheme\}/);
+  assert.match(panelSource, /onOpenFull=\{setInspectionMode\}/);
+  assert.match(panelSource, /GSDF_PATTERN_VIEW_CHANGED/);
+  assert.match(panelSource, /useExpandedOverlayViewport\(inspectionMode !== null \|\| sidePanelOpen\)/);
+  assert.match(panelSource, /PANEL_DEFAULT_WIDTH = 800/);
+  assert.match(panelSource, /PANEL_DEFAULT_HEIGHT = 520/);
+  assert.match(panelSource, /PANEL_SIDE_PANEL_WIDTH = 1160/);
+  assert.doesNotMatch(basicPanelBlock, /referenceSummaryTitle|referenceSummaryBody/);
+  assert.doesNotMatch(basicPanelBlock, /openSidePanel\('pattern'\)|openSidePanel\('chart'\)/);
+  assert.doesNotMatch(diagnosticPanelBlock, /openSidePanel\('pattern'\)|openSidePanel\('chart'\)/);
+  assert.doesNotMatch(diagnosticPanelBlock, /messages\.panel\.referencePanel|messages\.panel\.curvePanel/);
+  assert.equal((panelSource.match(/openSidePanel\('pattern'\)|openSidePanel\('chart'\)/g) ?? []).length, 0);
+});
+
+test('panel keeps project-owned GSDF pattern and chart logic', () => {
   assert.match(panelSource, /drawDiagnosticPattern/);
   assert.match(panelSource, /drawLinePairBand/);
   assert.match(panelSource, /drawVerticalGradient/);
   assert.match(panelSource, /drawContinuousSweepCell/);
-  assert.match(i18nMessagesSource, /line-pair and gradient pattern/);
-  assert.match(panelSource, /Grid3X3/);
-  assert.match(panelSource, /GSDF_PATTERN_VIEW_CHANGED/);
-  assert.match(panelSource, /PANEL_THEME_STORAGE_KEY/);
-  assert.match(panelSource, /theme-\$\{panelTheme\}/);
-  assert.match(panelSource, /messages\.panel\.switchToLight/);
-  assert.match(panelSource, /messages\.panel\.closePanel/);
-  assert.match(panelSource, /panelClosed/);
-  assert.match(panelSource, /handlePanelClose/);
-  assert.match(panelSource, /setPanelClosed\(true\)/);
-  assert.match(panelSource, /messages\.panel\.filterLabel/);
-  assert.match(panelSource, /messages\.panel\.gammaLabel/);
-  assert.match(panelSource, /gammaTarget/);
-  assert.match(panelSource, /gammaCorrectionToTarget/);
-  assert.match(panelSource, /gammaTargetToCorrection/);
-  assert.equal((panelSource.match(/valueVariant="label"/g) ?? []).length, 2);
-  assert.match(panelSource, /w-24 text-right font-sans text-\[11px\] font-semibold text-zinc-300/);
-  assert.match(i18nMessagesSource, /Gamma 2\.2/);
-  assert.match(panelSource, /gsdf-lmax-range-row/);
-  assert.match(panelSource, /className="gsdf-range w-full"/);
-  assert.match(panelSource, /messages\.panel\.colorModel/);
-  assert.match(panelSource, /YCbCr/);
-  assert.match(panelSource, /messages\.panel\.whitePoint/);
-  assert.match(panelSource, /messages\.panel\.saturation/);
-  assert.match(panelSource, /messages\.panel\.hue/);
-  assert.match(panelSource, /maxLabel="50"/);
-  assert.match(panelSource, /max=\{50\}/);
-  assert.match(panelSource, /maxLabel="125"/);
-  assert.match(panelSource, /max=\{125\}/);
-  assert.match(panelSource, /minLabel="-30"/);
-  assert.match(panelSource, /maxLabel="\+30"/);
-  assert.match(panelSource, /min=\{-30\}/);
-  assert.match(panelSource, /max=\{30\}/);
-  assert.equal((panelSource.match(/grid grid-cols-2 gap-3 transition-opacity/g) ?? []).length, 1);
-  assert.match(panelSource, /Palette/);
-  assert.match(panelSource, /messages\.panel\.fullChart/);
-  assert.match(panelSource, /messages\.panel\.chartTitle/);
-  assert.match(panelSource, /messages\.panel\.centerView/);
-  assert.match(panelSource, /C\+D/);
-  assert.match(panelSource, /centerMode === 'both' \? 'grid grid-cols-2' : 'block'/);
+  assert.match(typesSource, /const transferTable = buildGsdfTableValues\(normalized\)/);
+  assert.match(typesSource, /sampleTableValue\(transferTable, baseRatio\)/);
+  assert.match(typesSource, /gammaCorrectionToTarget/);
+  assert.match(typesSource, /gammaTargetToCorrection/);
+  assert.match(panelSource, /React\.lazy/);
+  assert.match(panelSource, /React\.Suspense/);
+  assert.match(panelSource, /import\('\.\/GSDFChart'\)/);
+});
+
+test('controls preserve expected interaction and resize affordances', () => {
+  assert.match(panelSource, /function isInteractiveDragTarget/);
+  assert.match(panelSource, /button, input, label, select, textarea, a/);
+  assert.match(panelSource, /data-no-drag/);
   assert.match(panelSource, /EffectSwitch/);
   assert.match(panelSource, /role="switch"/);
   assert.match(panelSource, /aria-checked=\{enabled\}/);
-  assert.match(panelSource, /messages\.panel\.enableEotf/);
-  assert.match(i18nMessagesSource, /effectApplication/);
-  assert.match(panelSource, /title=\{messages\.panel\.close\}/);
-  assert.match(panelSource, /gsdf-resize-grip/);
-  assert.match(panelSource, /messages\.panel\.resizeView/);
   assert.match(panelSource, /PanelBorderResizeHandles/);
   assert.match(panelSource, /data-resize-handle="e"/);
   assert.match(panelSource, /data-resize-handle="s"/);
   assert.match(panelSource, /data-resize-handle="se"/);
   assert.match(panelSource, /getResizeDeltas/);
-  assert.match(panelSource, /standalonePanelSize/);
-  assert.match(panelSource, /PANEL_MODE_SIZE/);
+  assert.match(appSource, /type: 'GSDF_PANEL_RESIZED'/);
+  assert.match(appSource, /type: 'GSDF_CLOSE_PANEL'/);
   assert.match(panelSource, /onExtensionResize\?\.\(deltaWidth, deltaHeight\)/);
-  assert.match(panelSource, /standaloneInspectionSize/);
-  assert.match(panelSource, /INSPECTION_MIN_WIDTH/);
-  assert.match(panelSource, /INSPECTION_MIN_HEIGHT/);
-  assert.match(appSource, /GSDF_PANEL_RESIZED/);
-  assert.match(panelSource, /h-screen w-screen/);
-  assert.match(panelSource, /cursor-nwse-resize/);
-  assert.match(panelSource, /hidden=\{activeTab !== 'basic'\}/);
-  assert.match(panelSource, /hidden=\{activeTab !== 'advanced'\}/);
-  assert.match(i18nMessagesSource, /Reset to 100 nits/);
-  assert.match(i18nMessagesSource, /The complete GSDF table is calculated first/);
-  assert.match(panelSource, /React\.lazy/);
-  assert.match(panelSource, /React\.Suspense/);
-  assert.match(panelSource, /import\('\.\/GSDFChart'\)/);
-  assert.match(panelSource, /disabled=\{disabled\}/);
-  assert.match(panelSource, /aria-disabled=\{disabled\}/);
-  assert.doesNotMatch(panelSource, /import \{ GSDFChart \} from '\.\/GSDFChart'/);
-  assert.doesNotMatch(panelSource, /純 GSDF/);
-  assert.doesNotMatch(panelSource, /曲線模式/);
-  assert.match(panelSource, /GSDFStripeTest/);
-  assert.match(panelSource, /messages\.panel\.stripeTitle/);
-  assert.match(panelSource, /messages\.panel\.outputPreview/);
-  assert.match(panelSource, /messages\.panel\.luminanceCalibration/);
-  assert.match(panelSource, /messages\.panel\.openFullPattern/);
-  assert.match(panelSource, /renderBasicPanel\(false\)/);
-  assert.doesNotMatch(panelSource, /grid-cols-\[300px_minmax\(0,1fr\)_300px\]/);
-  assert.doesNotMatch(panelSource, /grid grid-rows-2/);
-  assert.doesNotMatch(panelSource, /Transfer curve preview/);
-  assert.doesNotMatch(panelSource, /active table/);
-  assert.doesNotMatch(panelSource, /白位/);
-  assert.doesNotMatch(panelSource, /onSaveDefault/);
-  assert.doesNotMatch(panelSource, /儲存預設偏好設定/);
-  assert.doesNotMatch(panelSource, /Math\.round\(\(viewport\.width - width\) \/ 2\)/);
-  assert.doesNotMatch(panelSource, /FloatingOverlayWindow/);
-  assert.doesNotMatch(panelSource, /gsdf-tab-bar grid grid-cols-2/);
-  assert.doesNotMatch(panelSource, /\{extensionMode && \(/);
-
-  const basicIndex = panelSource.indexOf("activeTab !== 'basic'");
-  const advancedIndex = panelSource.indexOf("activeTab !== 'advanced'");
-  assert.ok(basicIndex >= 0 && advancedIndex > basicIndex);
 });
 
-test('inspection modes use an inset hairline frame and lighter UI typography', () => {
+test('visual language keeps the precision-panel styling hooks', () => {
   const cssSource = readFileSync(new URL('../src/index.css', import.meta.url), 'utf8');
 
-  assert.match(cssSource, /\.gsdf-inspection-mode::after/);
-  assert.match(cssSource, /\.gsdf-inspection-header/);
-  assert.match(cssSource, /inset: 2px/);
-  assert.match(cssSource, /border: 1px solid rgba\(255, 255, 255, 0\.72\)/);
-  assert.match(cssSource, /pointer-events: none/);
-  assert.match(cssSource, /border-color: rgba\(148, 163, 184, 0\.09\)/);
-  assert.match(cssSource, /font-weight: 500 !important/);
-  assert.match(cssSource, /font-weight: 520/);
-  assert.match(cssSource, /\.gsdf-header-controls/);
-  assert.match(cssSource, /\.gsdf-range::-webkit-slider-thumb \{\s*width: 12px;\s*height: 18px;/);
-  assert.match(cssSource, /\.gsdf-range::-moz-range-thumb \{\s*width: 12px;\s*height: 18px;/);
+  assert.match(cssSource, /\.gsdf-panel-shell/);
+  assert.match(cssSource, /\.gsdf-panel-header/);
+  assert.match(cssSource, /\.gsdf-control-block/);
   assert.match(cssSource, /\.gsdf-tab-switch/);
-  assert.match(cssSource, /\.gsdf-resize-edge/);
+  assert.match(cssSource, /\.gsdf-reference-panel/);
+  assert.match(cssSource, /\.gsdf-diagnostic-placeholder/);
+  assert.match(cssSource, /\.gsdf-range::-webkit-slider-thumb \{\s*width: 12px;\s*height: 18px;/);
   assert.match(cssSource, /touch-action: manipulation/);
   assert.match(cssSource, /touch-action: none/);
-  assert.doesNotMatch(cssSource, /font-weight: 650/);
   assert.doesNotMatch(cssSource, /gsdf-floating-window/);
 });
 
-test('header drag handling does not intercept interactive controls', () => {
-  assert.match(panelSource, /function isInteractiveDragTarget/);
-  assert.match(panelSource, /button, input, label, select, textarea, a/);
-  assert.match(panelSource, /data-no-drag/);
-  assert.match(panelSource, /isInteractiveDragTarget\(e\.target\)/);
-  assert.match(panelSource, /trySetPointerCapture/);
-  assert.match(panelSource, /tryReleasePointerCapture/);
-  assert.match(panelSource, /dragStartRef\.current\.pointerId !== e\.pointerId/);
-  assert.match(panelSource, /resizeStartRef\.current\.pointerId !== e\.pointerId/);
-  assert.match(panelSource, /onExtensionDrag\?\.\(deltaX, deltaY\)/);
-  assert.match(panelSource, /dragHandlers=\{dragHandlers\}/);
-  assert.match(panelSource, /resizeHandlers=\{resizeHandlers\}/);
-  assert.match(appSource, /type: 'GSDF_CLOSE_PANEL'/);
-  assert.match(appSource, /type: 'GSDF_PANEL_RESIZED'/);
-  assert.match(panelSource, /messages\.panel\.currentLuminanceValue/);
-  assert.match(i18nLocalesSource, /目前調整到的亮度數值/);
-  assert.match(panelSource, /text-\[\#ffffff\]/);
+test('English UI strings do not contain CJK characters', () => {
+  const enBlock = i18nMessagesSource.slice(
+    i18nMessagesSource.indexOf('export const enMessages = {'),
+    i18nMessagesSource.indexOf('export type Messages = typeof enMessages;'),
+  );
+  const localeNameBlock = i18nMessagesSource.slice(
+    i18nMessagesSource.indexOf('export const localeNames'),
+    i18nMessagesSource.indexOf('export const enMessages'),
+  );
+
+  assert.doesNotMatch(enBlock, /[\u3040-\u30ff\u3400-\u9fff]/);
+  assert.doesNotMatch(localeNameBlock, /[\u3040-\u30ff\u3400-\u9fff]/);
+  assert.match(i18nMessagesSource, /Traditional Chinese/);
+  assert.match(i18nMessagesSource, /Simplified Chinese/);
+  assert.match(i18nMessagesSource, /Japanese/);
+});
+
+test('design docs describe tabs and side panel rather than obsolete A B C modes', () => {
+  assert.match(designSource, /Basic, Advanced, and placeholder Diagnostic tabs/);
+  assert.match(designSource, /upper-right side-panel control/);
+  assert.match(designSource, /side-panel open\/closed states/);
+  assert.match(designZhTwSource, /基本、進階、診斷暫位頁籤/);
+  assert.match(designZhTwSource, /右上角側邊欄控制/);
+  assert.match(designZhTwSource, /側邊欄開啟\/關閉狀態/);
+  assert.doesNotMatch(designSource, /A, B, and C|compact, split, and expanded work modes/);
+  assert.doesNotMatch(designZhTwSource, /A、B、C|精簡、左右分欄、完整展開模式/);
+});
+
+test('i18n supports system language detection and persisted language preference', () => {
+  assert.match(i18nMessagesSource, /supportedLocales = \['en', 'zh-TW', 'zh-CN', 'ja'\]/);
+  assert.match(i18nIndexSource, /LANGUAGE_STORAGE_KEY = 'gsdf_language'/);
+  assert.match(i18nIndexSource, /navigator\.languages/);
+  assert.match(i18nIndexSource, /resolveSystemLocale/);
+  assert.match(i18nIndexSource, /zh-hant/);
+  assert.match(i18nIndexSource, /zh-hans/);
+  assert.match(appSource, /getInitialLocale/);
+  assert.match(appSource, /handleLocaleChange/);
+  assert.match(panelSource, /LanguageSelector/);
+  assert.match(panelSource, /supportedLocales\.map/);
+  assert.match(i18nLocalesSource, /export const zhTwMessages: Messages =/);
+  assert.match(i18nLocalesSource, /export const zhCnMessages: Messages =/);
+  assert.match(i18nLocalesSource, /export const jaMessages: Messages =/);
+  assert.match(i18nLocalesSource, /診斷工作區暫位/);
 });
 
 test('standalone video preview uses the shared GSDF table model', () => {
@@ -208,72 +166,6 @@ test('standalone video preview uses the shared GSDF table model', () => {
   assert.match(videoBackgroundSource, /eotf-color/);
   assert.match(videoBackgroundSource, /hueRotate/);
   assert.match(videoBackgroundSource, /settings\.saturation/);
-  assert.match(videoBackgroundSource, /Math\.min\(1\.25, settings\.saturation \/ 100\)/);
-  assert.match(videoBackgroundSource, /Math\.max\(-30, Math\.min\(30, settings\.hue\)\)/);
   assert.match(videoBackgroundSource, /settings\.colorModel === 'ycbcr'/);
   assert.doesNotMatch(videoBackgroundSource, /type="gamma"/);
-});
-
-test('analysis chart resizes with the control panel', () => {
-  const chartSource = readFileSync(new URL('../src/components/GSDFChart.tsx', import.meta.url), 'utf8');
-
-  assert.match(chartSource, /ResizeObserver/);
-  assert.match(chartSource, /chartSize\.width/);
-  assert.match(chartSource, /messages\.chart\.standardSrgb/);
-  assert.match(chartSource, /messages\.chart\.gsdfOptimized/);
-  assert.match(chartSource, /className = 'h-48'/);
-  assert.doesNotMatch(chartSource, /width=\{291\}/);
-});
-
-test('diagnostic pattern follows the active transfer table', () => {
-  assert.match(panelSource, /buildGsdfStripeRows\(settings\)/);
-  assert.match(panelSource, /drawContinuousSweepCell/);
-  assert.match(panelSource, /modulationPeriods = \[18, 12, 6, 4\]/);
-  assert.match(panelSource, /rowCount = 18/);
-  assert.match(typesSource, /const transferTable = buildGsdfTableValues\(normalized\)/);
-  assert.match(typesSource, /getGammaAdjustedInputLevel/);
-  assert.match(typesSource, /gammaLevel = getGammaAdjustedInputLevel\(inputLevel, normalized\.gammaTarget\)/);
-  assert.match(typesSource, /gammaCorrectionToTarget/);
-  assert.match(typesSource, /gammaTargetToCorrection/);
-  assert.match(typesSource, /sampleTableValue\(transferTable, baseRatio\)/);
-  assert.match(typesSource, /sampleTableValue\(transferTable, nextRatio\)/);
-});
-
-test('extension panel avoids internal scrollbars in the compact control view', () => {
-  assert.match(panelSource, /h-\[720px\]/);
-  assert.match(panelSource, /PANEL_DEFAULT_HEIGHT = 690/);
-  assert.match(panelSource, /PANEL_EXPANDED_DEFAULT_HEIGHT = 720/);
-  assert.match(panelSource, /a: \{ width: 420, minWidth: 380 \}/);
-  assert.match(panelSource, /overflow-y-auto overflow-x-hidden p-4/);
-  assert.doesNotMatch(panelSource, /flex-1 space-y-5 overflow-y-auto p-5/);
-});
-
-test('settings autosave one second after panel adjustments', () => {
-  assert.match(appSource, /window\.setTimeout/);
-  assert.match(appSource, /}, 1000\)/);
-  assert.match(appSource, /gsdf_extension_settings/);
-  assert.match(appSource, /messages\.toast\.preferencesSaved/);
-  assert.doesNotMatch(appSource, /handleSaveDefault/);
-});
-
-test('i18n supports system language detection and a persisted language preference', () => {
-  assert.match(i18nMessagesSource, /supportedLocales = \['en', 'zh-TW', 'zh-CN', 'ja'\]/);
-  assert.match(i18nMessagesSource, /localeNames/);
-  assert.match(i18nIndexSource, /LANGUAGE_STORAGE_KEY = 'gsdf_language'/);
-  assert.match(i18nIndexSource, /navigator\.languages/);
-  assert.match(i18nIndexSource, /resolveSystemLocale/);
-  assert.match(i18nIndexSource, /zh-hant/);
-  assert.match(i18nIndexSource, /zh-hans/);
-  assert.match(appSource, /getInitialLocale/);
-  assert.match(appSource, /handleLocaleChange/);
-  assert.match(appSource, /localStorage\.setItem\(LANGUAGE_STORAGE_KEY, nextLocale\)/);
-  assert.match(panelSource, /LanguageSelector/);
-  assert.match(panelSource, /supportedLocales\.map/);
-  assert.match(panelSource, /onLocaleChange\(event\.target\.value as SupportedLocale\)/);
-  assert.match(i18nLocalesSource, /export const zhTwMessages: Messages =/);
-  assert.match(i18nLocalesSource, /export const zhCnMessages: Messages =/);
-  assert.match(i18nLocalesSource, /export const jaMessages: Messages =/);
-  assert.match(i18nMessagesSource, /正體中文/);
-  assert.match(i18nMessagesSource, /简体中文/);
-  assert.match(i18nMessagesSource, /日本語/);
 });

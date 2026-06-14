@@ -61,17 +61,12 @@ const MANAGED_FILTER_RE =
   /\s*url\((["']?)#gsdf-eotf-(?:gamma|ycbcr|levels|temp|color|sharpen-[123])\1\)\s*/g;
 const MIN_VISIBLE_AREA = 8000;
 const PANEL_VIEWPORT_MARGIN = 16;
-const PANEL_DEFAULT_WIDTH = 420;
-const PANEL_DEFAULT_MAX_HEIGHT = 690;
-const PANEL_EXPANDED_DEFAULT_MAX_HEIGHT = 720;
+const PANEL_DEFAULT_WIDTH = 800;
+const PANEL_DEFAULT_MAX_HEIGHT = 520;
 const PANEL_DEFAULT_MIN_HEIGHT = 520;
-const PANEL_DEFAULT_MIN_WIDTH = 380;
-const PANEL_SPLIT_DEFAULT_WIDTH = 820;
-const PANEL_SPLIT_MIN_WIDTH = 680;
-const PANEL_WORKSPACE_DEFAULT_WIDTH = 1240;
-const PANEL_WORKSPACE_MIN_WIDTH = 960;
+const PANEL_DEFAULT_MIN_WIDTH = 640;
 const PANEL_PATTERN_MARGIN = 8;
-const PANEL_PATTERN_DEFAULT_WIDTH = 1040;
+const PANEL_PATTERN_DEFAULT_WIDTH = 1160;
 const PANEL_PATTERN_DEFAULT_HEIGHT = 640;
 const PANEL_PATTERN_MIN_WIDTH = 560;
 const PANEL_PATTERN_MIN_HEIGHT = 420;
@@ -83,7 +78,6 @@ let panelPosition = { x: 24, y: 24 };
 let panelFrameSize = null;
 let panelPatternFrame = null;
 let panelExpandedForPattern = false;
-let panelLayoutMode = 'a';
 let scanTimer = null;
 let mutationObserver = null;
 const managedVideos = new Set();
@@ -763,47 +757,22 @@ function ensurePanelPatternFrame() {
   return panelPatternFrame;
 }
 
-function normalizePanelLayoutMode(value) {
-  return value === 'b' || value === 'c' ? value : 'a';
-}
-
-function getPanelLayoutTargetWidth() {
-  if (panelLayoutMode === 'c') {
-    return PANEL_WORKSPACE_DEFAULT_WIDTH;
-  }
-  if (panelLayoutMode === 'b') {
-    return PANEL_SPLIT_DEFAULT_WIDTH;
-  }
-  return PANEL_DEFAULT_WIDTH;
-}
-
-function getPanelLayoutMinWidth() {
-  if (panelLayoutMode === 'c') {
-    return PANEL_WORKSPACE_MIN_WIDTH;
-  }
-  if (panelLayoutMode === 'b') {
-    return PANEL_SPLIT_MIN_WIDTH;
-  }
-  return PANEL_DEFAULT_MIN_WIDTH;
-}
-
 function getDefaultPanelFrameSize() {
   return {
-    width: getPanelLayoutTargetWidth(),
-    height: panelLayoutMode === 'a' ? PANEL_DEFAULT_MAX_HEIGHT : PANEL_EXPANDED_DEFAULT_MAX_HEIGHT
+    width: PANEL_DEFAULT_WIDTH,
+    height: PANEL_DEFAULT_MAX_HEIGHT
   };
 }
 
 function clampPanelFrameSize(size) {
   const { viewportWidth, viewportHeight } = getViewportFrame();
-  const minWidth = getPanelLayoutMinWidth();
+  const minWidth = PANEL_DEFAULT_MIN_WIDTH;
   const maxWidth = Math.max(minWidth, viewportWidth - PANEL_VIEWPORT_MARGIN);
   const maxHeight = Math.max(PANEL_DEFAULT_MIN_HEIGHT, viewportHeight - PANEL_VIEWPORT_MARGIN);
-  const defaultHeight = panelLayoutMode === 'a' ? PANEL_DEFAULT_MAX_HEIGHT : PANEL_EXPANDED_DEFAULT_MAX_HEIGHT;
 
   return {
-    width: clampNumber(size.width, minWidth, maxWidth, getPanelLayoutTargetWidth()),
-    height: clampNumber(size.height, PANEL_DEFAULT_MIN_HEIGHT, maxHeight, defaultHeight)
+    width: clampNumber(size.width, minWidth, maxWidth, PANEL_DEFAULT_WIDTH),
+    height: clampNumber(size.height, PANEL_DEFAULT_MIN_HEIGHT, maxHeight, PANEL_DEFAULT_MAX_HEIGHT)
   };
 }
 
@@ -963,16 +932,6 @@ window.addEventListener('message', (event) => {
     currentSettings = normalizeSettings(event.data.payload);
     startVideoObservers();
     updateVideoFilters();
-    return;
-  }
-
-  if (event.data && event.data.type === 'GSDF_PANEL_MODE_CHANGED') {
-    panelLayoutMode = normalizePanelLayoutMode(event.data.payload?.mode);
-    panelFrameSize = null;
-    if (panelLayoutMode !== 'a') {
-      panelExpandedForPattern = false;
-    }
-    applyPanelFrameLayout();
     return;
   }
 
