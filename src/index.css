@@ -5,6 +5,30 @@
   --font-mono: "Cascadia Mono", "Cascadia Code", ui-monospace, SFMono-Regular, monospace;
 }
 
+:root {
+  --gsdf-surface: #111418;
+  --gsdf-surface-well: #080b0f;
+  --gsdf-surface-lowest: #0b0e12;
+  --gsdf-surface-low: #191c20;
+  --gsdf-surface-container: #1d2024;
+  --gsdf-surface-high: #272a2e;
+  --gsdf-surface-highest: #323539;
+  --gsdf-on-surface: #e1e2e8;
+  --gsdf-on-variant: #bccbb9;
+  --gsdf-outline: #869585;
+  --gsdf-outline-variant: #3d4a3d;
+  --gsdf-primary: #4be277;
+  --gsdf-primary-container: #22c55e;
+  --gsdf-tertiary: #31daf5;
+  --gsdf-secondary: #7bd0ff;
+  --gsdf-active-silver: #ebeff4;
+  --gsdf-chart-srgb: #334155;
+  --gsdf-amber: #d9c3a3;
+  --gsdf-panel-radius: 10px;
+  --gsdf-bevel-highlight: rgba(255, 255, 255, 0.055);
+  --gsdf-material-divider: rgba(61, 74, 61, 0.58);
+}
+
 @layer utilities {
   .animate-fade-in-up {
     animation: fadeInUp 0.3s ease-out forwards;
@@ -23,9 +47,10 @@
 
   .gsdf-range::-webkit-slider-runnable-track {
     height: 6px;
-    border-radius: 999px;
-    background: linear-gradient(90deg, rgba(226, 232, 240, 0.18), rgba(148, 163, 184, 0.26)), rgba(255, 255, 255, 0.05);
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+    border-radius: 4px;
+    background-color: var(--gsdf-surface-well);
+    background-image: linear-gradient(to bottom, transparent 2px, rgba(255, 255, 255, 0.16) 2px, rgba(255, 255, 255, 0.16) 3px, transparent 3px);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.55);
   }
 
   .gsdf-range::-webkit-slider-thumb {
@@ -33,10 +58,14 @@
     height: 18px;
     margin-top: -6px;
     appearance: none;
-    border: 2px solid #090b0e;
-    border-radius: 4px;
-    background: #d7dde5;
-    box-shadow: 0 0 0 1px rgba(226, 232, 240, 0.18), 0 8px 18px rgba(15, 23, 42, 0.26);
+    border: 1px solid rgba(134, 149, 133, 0.8);
+    border-radius: 2px;
+    background: var(--gsdf-outline);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
+  }
+
+  .gsdf-range:hover::-webkit-slider-thumb {
+    background: var(--gsdf-on-variant);
   }
 
   .gsdf-range:focus-visible {
@@ -46,16 +75,16 @@
 
   .gsdf-range::-moz-range-track {
     height: 6px;
-    border-radius: 999px;
-    background: linear-gradient(90deg, rgba(226, 232, 240, 0.18), rgba(148, 163, 184, 0.26)), rgba(255, 255, 255, 0.05);
+    border-radius: 4px;
+    background: var(--gsdf-surface-well);
   }
 
   .gsdf-range::-moz-range-thumb {
     width: 12px;
     height: 18px;
-    border: 2px solid #090b0e;
-    border-radius: 4px;
-    background: #d7dde5;
+    border: 1px solid rgba(134, 149, 133, 0.8);
+    border-radius: 2px;
+    background: var(--gsdf-outline);
   }
 }
 
@@ -73,15 +102,17 @@
 .gsdf-panel-shell,
 .gsdf-inspection-mode {
   position: relative;
-  color: oklch(0.91 0.015 224);
+  color: var(--gsdf-on-surface);
   background:
-    radial-gradient(circle at top, rgba(255, 255, 255, 0.05), transparent 34%),
-    linear-gradient(180deg, rgba(24, 28, 34, 0.985), rgba(11, 14, 18, 0.985)) !important;
-  border-color: rgba(148, 163, 184, 0.1) !important;
+    radial-gradient(circle at 18% 0%, rgba(75, 226, 119, 0.08), transparent 30%),
+    radial-gradient(circle at 92% 10%, rgba(49, 218, 245, 0.08), transparent 28%),
+    linear-gradient(180deg, rgba(17, 20, 24, 0.992), rgba(11, 14, 18, 0.992)) !important;
+  border-color: var(--gsdf-material-divider) !important;
+  border-radius: var(--gsdf-panel-radius);
   box-shadow:
-    0 30px 96px rgba(2, 8, 18, 0.64),
-    inset 0 1px 0 rgba(255, 255, 255, 0.045),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.018);
+    0 30px 96px rgba(0, 0, 0, 0.8),
+    inset 0 1px 0 var(--gsdf-bevel-highlight),
+    inset 0 0 0 1px rgba(75, 226, 119, 0.018);
 }
 
 .gsdf-inspection-mode::after {
@@ -97,8 +128,16 @@
 .gsdf-panel-header,
 .gsdf-inspection-header {
   background:
-    linear-gradient(180deg, rgba(31, 36, 43, 0.965), rgba(18, 22, 28, 0.965)) !important;
-  border-bottom-color: rgba(148, 163, 184, 0.1) !important;
+    linear-gradient(180deg, rgba(50, 53, 57, 0.98), rgba(39, 42, 46, 0.98)) !important;
+  border-bottom-color: rgba(61, 74, 61, 0.75) !important;
+  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.gsdf-header-emblem {
+  color: var(--gsdf-primary) !important;
+  background:
+    linear-gradient(180deg, rgba(235, 239, 244, 0.08), rgba(8, 11, 15, 0.38)) !important;
+  border-color: rgba(134, 149, 133, 0.28) !important;
 }
 
 .gsdf-inspection-mode--pattern {
@@ -135,26 +174,56 @@
 
 .gsdf-status-deck {
   background:
-    linear-gradient(180deg, rgba(12, 16, 20, 0.965), rgba(8, 11, 15, 0.965)) !important;
-  border-color: rgba(148, 163, 184, 0.1) !important;
+    linear-gradient(180deg, rgba(25, 28, 32, 0.96), rgba(8, 11, 15, 0.96)) !important;
+  border-color: rgba(61, 74, 61, 0.6) !important;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.025),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.018);
+    inset 0 1px 0 rgba(255, 255, 255, 0.055),
+    inset 0 0 0 1px rgba(75, 226, 119, 0.018);
+}
+
+.gsdf-primary-pane,
+.gsdf-reference-panel,
+.gsdf-diagnostic-placeholder {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(134, 149, 133, 0.55) transparent;
+}
+
+.gsdf-primary-pane::-webkit-scrollbar,
+.gsdf-reference-panel::-webkit-scrollbar,
+.gsdf-diagnostic-placeholder::-webkit-scrollbar {
+  width: 6px;
+}
+
+.gsdf-primary-pane::-webkit-scrollbar-track,
+.gsdf-reference-panel::-webkit-scrollbar-track,
+.gsdf-diagnostic-placeholder::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.gsdf-primary-pane::-webkit-scrollbar-thumb,
+.gsdf-reference-panel::-webkit-scrollbar-thumb,
+.gsdf-diagnostic-placeholder::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(134, 149, 133, 0.42);
 }
 
 .gsdf-reference-panel,
 .gsdf-diagnostic-placeholder {
   background:
-    linear-gradient(180deg, rgba(10, 14, 19, 0.965), rgba(6, 9, 13, 0.965)) !important;
-  border-color: rgba(148, 163, 184, 0.1) !important;
+    linear-gradient(180deg, rgba(13, 17, 21, 0.98), rgba(8, 11, 15, 0.98)) !important;
+  border-color: rgba(61, 74, 61, 0.54) !important;
   box-shadow:
-    inset 1px 0 0 rgba(255, 255, 255, 0.024),
-    inset 0 1px 0 rgba(255, 255, 255, 0.024);
+    inset 1px 0 0 rgba(255, 255, 255, 0.035),
+    inset 0 1px 0 rgba(255, 255, 255, 0.035);
+}
+
+.gsdf-primary-pane {
+  background: linear-gradient(180deg, rgba(24, 28, 34, 0.84), rgba(11, 14, 18, 0.9));
 }
 
 .gsdf-panel .rounded-md.border,
 .gsdf-inspection-mode .rounded-md.border {
-  border-color: rgba(148, 163, 184, 0.09) !important;
+  border-color: rgba(61, 74, 61, 0.46) !important;
 }
 
 .gsdf-control-block {
@@ -162,10 +231,10 @@
   border: 1px solid rgba(148, 163, 184, 0.08);
   border-radius: 6px;
   background:
-    linear-gradient(180deg, rgba(14, 18, 23, 0.72), rgba(8, 11, 15, 0.58));
-  padding: 10px;
+    linear-gradient(180deg, rgba(29, 32, 36, 0.86), rgba(12, 15, 19, 0.72));
+  padding: 12px;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.028),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
     inset 0 -1px 0 rgba(0, 0, 0, 0.2);
 }
 
@@ -186,8 +255,9 @@
 
 .gsdf-control-icon {
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.024)) !important;
-  border: 1px solid rgba(148, 163, 184, 0.08);
+    linear-gradient(180deg, rgba(75, 226, 119, 0.14), rgba(49, 218, 245, 0.055)) !important;
+  border: 1px solid rgba(134, 149, 133, 0.2);
+  color: var(--gsdf-primary) !important;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
@@ -203,7 +273,8 @@
 .gsdf-segment-button[aria-pressed="true"],
 .gsdf-layout-switch .gsdf-segment-button[aria-pressed="true"] {
   background:
-    linear-gradient(180deg, rgba(241, 245, 249, 0.96), rgba(192, 202, 214, 0.96)) !important;
+    linear-gradient(180deg, rgba(235, 239, 244, 0.98), rgba(188, 203, 185, 0.98)) !important;
+  color: var(--gsdf-surface-well) !important;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.85),
     inset 0 -1px 0 rgba(15, 23, 42, 0.14),
@@ -248,6 +319,14 @@
   color: oklch(0.9 0.012 225) !important;
 }
 
+.gsdf-panel .text-cyan-300,
+.gsdf-panel .text-cyan-400,
+.gsdf-inspection-mode .text-cyan-300,
+.gsdf-inspection-mode .text-cyan-400,
+.gsdf-pill-metric {
+  color: var(--gsdf-tertiary) !important;
+}
+
 .gsdf-panel .text-amber-100,
 .gsdf-inspection-mode .text-amber-100 {
   color: oklch(0.86 0.02 75) !important;
@@ -285,7 +364,8 @@
 
 .gsdf-icon-button {
   background:
-    linear-gradient(180deg, rgba(14, 18, 23, 0.96), rgba(7, 10, 14, 0.96)) !important;
+    linear-gradient(180deg, rgba(39, 42, 46, 0.96), rgba(8, 11, 15, 0.96)) !important;
+  border-color: rgba(61, 74, 61, 0.55) !important;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.045),
     0 0 0 1px rgba(255, 255, 255, 0.018);
@@ -311,9 +391,43 @@
 }
 
 .gsdf-header-controls .gsdf-effect-switch,
+.gsdf-power-cluster,
 .gsdf-tab-switch {
-  background: rgba(9, 13, 18, 0.92) !important;
-  border-color: rgba(148, 163, 184, 0.12) !important;
+  background: var(--gsdf-surface-well) !important;
+  border-color: rgba(61, 74, 61, 0.7) !important;
+}
+
+.gsdf-power-cluster {
+  min-height: 34px;
+  cursor: pointer;
+  box-shadow:
+    inset 0 1px 2px rgba(0, 0, 0, 0.38),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.014);
+}
+
+.gsdf-power-cluster:focus-visible,
+.gsdf-power-cluster:focus-within {
+  outline: 2px solid rgba(235, 239, 244, 0.72);
+  outline-offset: 2px;
+}
+
+.gsdf-quick-action {
+  min-height: 34px;
+  background:
+    linear-gradient(180deg, rgba(75, 226, 119, 0.16), rgba(34, 197, 94, 0.08)) !important;
+  border-color: rgba(75, 226, 119, 0.42) !important;
+  color: var(--gsdf-primary) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 0 0 1px rgba(75, 226, 119, 0.02);
+}
+
+.gsdf-quick-action:hover,
+.gsdf-quick-action:focus-visible {
+  background:
+    linear-gradient(180deg, rgba(75, 226, 119, 0.24), rgba(34, 197, 94, 0.12)) !important;
+  outline: 2px solid rgba(75, 226, 119, 0.38);
+  outline-offset: 2px;
 }
 
 .gsdf-effect-switch {
@@ -323,7 +437,12 @@
 }
 
 .gsdf-effect-switch[data-state="on"] {
-  border-color: rgba(203, 213, 225, 0.18) !important;
+  border-color: rgba(75, 226, 119, 0.58) !important;
+}
+
+.gsdf-effect-switch[data-state="on"] span:last-child {
+  background: var(--gsdf-active-silver) !important;
+  color: var(--gsdf-surface-well) !important;
 }
 
 .gsdf-tab-switch button {
@@ -336,7 +455,7 @@
 
 .gsdf-tab-switch .bg-zinc-100 {
   background:
-    linear-gradient(180deg, rgba(235, 239, 244, 0.96), rgba(201, 207, 216, 0.96)) !important;
+    linear-gradient(180deg, rgba(235, 239, 244, 0.98), rgba(188, 203, 185, 0.98)) !important;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.8),
     0 8px 24px rgba(3, 7, 18, 0.2);
@@ -350,7 +469,8 @@
 
 .gsdf-mode-pill {
   background:
-    linear-gradient(180deg, rgba(17, 21, 26, 0.88), rgba(8, 11, 15, 0.82)) !important;
+    linear-gradient(180deg, rgba(39, 42, 46, 0.78), rgba(8, 11, 15, 0.82)) !important;
+  border-color: rgba(61, 74, 61, 0.55) !important;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.036),
     inset 0 -1px 0 rgba(0, 0, 0, 0.18);
@@ -358,8 +478,8 @@
 
 .gsdf-mode-pill[data-tone="active"] {
   background:
-    linear-gradient(180deg, rgba(235, 239, 244, 0.18), rgba(148, 163, 184, 0.1)) !important;
-  border-color: rgba(226, 232, 240, 0.2) !important;
+    linear-gradient(180deg, rgba(75, 226, 119, 0.22), rgba(34, 197, 94, 0.1)) !important;
+  border-color: rgba(75, 226, 119, 0.48) !important;
 }
 
 .gsdf-pill-metric {
@@ -367,7 +487,7 @@
   font-feature-settings: "tnum" 1, "ss01" 1;
   font-size: 12px;
   letter-spacing: -0.035em;
-  color: oklch(0.94 0.01 222);
+  color: var(--gsdf-tertiary);
 }
 
 .gsdf-panel .font-mono,
@@ -425,6 +545,14 @@
 .gsdf-panel button,
 .gsdf-inspection-mode button {
   touch-action: manipulation;
+}
+
+.gsdf-panel button:focus-visible,
+.gsdf-inspection-mode button:focus-visible,
+.gsdf-panel select:focus-visible,
+.gsdf-inspection-mode select:focus-visible {
+  outline: 2px solid rgba(235, 239, 244, 0.78);
+  outline-offset: 2px;
 }
 
 .gsdf-panel-header,
@@ -532,7 +660,7 @@
 }
 
 .gsdf-panel.theme-light .gsdf-pill-metric {
-  color: #172033;
+  color: #172033 !important;
 }
 
 .gsdf-panel.theme-light .bg-zinc-500 {
@@ -596,6 +724,7 @@
 
 .gsdf-panel.theme-light .gsdf-control-icon,
 .gsdf-panel.theme-light .gsdf-icon-button,
+.gsdf-panel.theme-light .gsdf-quick-action,
 .gsdf-panel.theme-light .gsdf-text-button {
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(232, 238, 245, 0.96)) !important;
@@ -604,6 +733,7 @@
 }
 
 .gsdf-panel.theme-light .gsdf-control-strip,
+.gsdf-panel.theme-light .gsdf-power-cluster,
 .gsdf-panel.theme-light .gsdf-tab-switch,
 .gsdf-panel.theme-light .gsdf-segmented-control,
 .gsdf-panel.theme-light .gsdf-layout-switch,
@@ -638,4 +768,22 @@
 
 .gsdf-panel.theme-light .gsdf-tab-switch button[aria-selected="true"] {
   color: #f8fafc !important;
+}
+
+@media (max-width: 760px) {
+  .gsdf-panel-header {
+    padding-inline: 12px !important;
+  }
+
+  .gsdf-tab-switch {
+    width: min(100%, 212px);
+  }
+
+  .gsdf-header-controls {
+    align-items: stretch;
+  }
+
+  .gsdf-power-cluster {
+    flex: 1 1 170px;
+  }
 }

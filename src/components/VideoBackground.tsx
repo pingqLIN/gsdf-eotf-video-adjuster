@@ -37,23 +37,6 @@ export function VideoBackground({ settings }: VideoBackgroundProps) {
             <feFuncB type="table" tableValues={gsdfTableValues} />
           </feComponentTransfer>
         </filter>
-        <filter id="eotf-ycbcr" colorInterpolationFilters="sRGB">
-          <feColorMatrix
-            type="matrix"
-            values="0.2126 0.7152 0.0722 0 0  -0.1146 -0.3854 0.5000 0 0.5  0.5000 -0.4542 -0.0458 0 0.5  0 0 0 1 0"
-            result="ycbcr"
-          />
-          <feComponentTransfer in="ycbcr" result="yAdjusted">
-            <feFuncR type="table" tableValues={gsdfTableValues} />
-            <feFuncG type="linear" slope="1" intercept="0" />
-            <feFuncB type="linear" slope="1" intercept="0" />
-          </feComponentTransfer>
-          <feColorMatrix
-            in="yAdjusted"
-            type="matrix"
-            values="1 0 1.5748 0 -0.7874  1 -0.1873 -0.4681 0 0.3277  1 1.8556 0 0 -0.9278  0 0 0 1 0"
-          />
-        </filter>
         <filter id="eotf-temp" colorInterpolationFilters="sRGB">
           <feColorMatrix
             type="matrix"
@@ -84,7 +67,7 @@ export function VideoBackground({ settings }: VideoBackgroundProps) {
         className="w-full h-full object-cover"
         style={{
           filter: settings.enabled
-            ? `${sharpnessFilter} url(#eotf-levels) url(#${settings.colorModel === 'ycbcr' ? 'eotf-ycbcr' : 'eotf-filter'}) url(#eotf-temp) url(#eotf-color)`.trim()
+            ? `${sharpnessFilter} url(#eotf-levels) url(#eotf-filter) url(#eotf-temp) url(#eotf-color)`.trim()
             : 'none',
           transition: 'filter 0.3s ease-in-out'
         }}

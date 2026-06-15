@@ -47,7 +47,7 @@ Higher-risk ideas that need measurement first:
 
 - Detect or select SDR/HDR transfer assumptions per page.
 - Add display-profile or meter-assisted calibration input.
-- Replace the RGB/YCbCr SVG approximation with a color-managed pipeline. This is likely outside a lightweight MV3 extension's reliable browser surface.
+- Replace the browser SVG approximation with a fully color-managed, display-profile-aware pipeline. This is likely outside a lightweight MV3 extension's reliable browser surface.
 
 ## UI Review Inputs
 
@@ -86,12 +86,12 @@ Post-correction verification completed:
 - `npm test`: 23/23 passing.
 - `npm run lint`: TypeScript check passed.
 - `npm run build:ext`: Vite build passed and copied rebuilt assets into `extension/ui`.
-- Playwright `?mode=extension` basic view on `http://127.0.0.1:3108`: panel rendered at `400x680px`, with visible `STANDBY`, `GSDF`, filter amount, and color-model state.
+- Playwright `?mode=extension` basic view on `http://127.0.0.1:3108`: panel rendered at `400x680px`, with visible `STANDBY`, `GSDF`, filter amount, and display-gamut state.
 - Playwright DOM check: no visible `Pure`, `純 GSDF`, `曲線模式`, target-luminance neutral-anchor text, caveat paragraph, manual save button, body scrollbar, page scrollbar, or panel overflow remained.
 - Playwright tooltip check: full-GSDF and filter-amount explanations were present as hover `title` text.
 - Playwright stripe check: compact rows measured `284x28px` and stayed inside the fixed control panel; the larger inspection pattern remained in the overlay.
-- Playwright autosave check: initial load left `localStorage` untouched after 1.2 seconds; toggling the color model wrote `colorModel: "ycbcr"` after the 1 second debounce and showed the autosave toast.
-- Playwright advanced standby DOM: `RGB` and `YCbCr` buttons had native `disabled` state.
+- Playwright autosave check: initial load left `localStorage` untouched after 1.2 seconds; changing the display gamut wrote the setting after the 1 second debounce and showed the autosave toast.
+- Playwright advanced standby DOM: display-gamut buttons had native `disabled` state.
 - Playwright advanced active DOM: disabled controls cleared after enabling, chart text was present, and the chart surface rendered at `319x192`.
 - Playwright full chart overlay DOM: full chart button was present, the overlay rendered, the chart surface measured `1535x420`, and the caption text was visible.
 - Final browser console: no UI runtime errors and no Recharts sizing warnings; only the React DevTools development info message and the local dev server's missing `favicon.ico` request were present.

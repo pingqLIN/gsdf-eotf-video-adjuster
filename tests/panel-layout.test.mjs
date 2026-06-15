@@ -58,9 +58,9 @@ test('reference pattern and curve open from the right side panel', () => {
   assert.match(panelSource, /onOpenFull=\{setInspectionMode\}/);
   assert.match(panelSource, /GSDF_PATTERN_VIEW_CHANGED/);
   assert.match(panelSource, /useExpandedOverlayViewport\(inspectionMode !== null \|\| sidePanelOpen\)/);
-  assert.match(panelSource, /PANEL_DEFAULT_WIDTH = 800/);
-  assert.match(panelSource, /PANEL_DEFAULT_HEIGHT = 520/);
-  assert.match(panelSource, /PANEL_SIDE_PANEL_WIDTH = 1160/);
+  assert.match(panelSource, /PANEL_DEFAULT_WIDTH = 400/);
+  assert.match(panelSource, /PANEL_DEFAULT_HEIGHT = 680/);
+  assert.match(panelSource, /PANEL_SIDE_PANEL_WIDTH = 800/);
   assert.doesNotMatch(basicPanelBlock, /referenceSummaryTitle|referenceSummaryBody/);
   assert.doesNotMatch(basicPanelBlock, /openSidePanel\('pattern'\)|openSidePanel\('chart'\)/);
   assert.doesNotMatch(diagnosticPanelBlock, /openSidePanel\('pattern'\)|openSidePanel\('chart'\)/);
@@ -73,6 +73,8 @@ test('panel keeps project-owned GSDF pattern and chart logic', () => {
   assert.match(panelSource, /drawLinePairBand/);
   assert.match(panelSource, /drawVerticalGradient/);
   assert.match(panelSource, /drawContinuousSweepCell/);
+  assert.match(panelSource, /getRecommendedImageDefaults\(prev\.lmax\)/);
+  assert.match(panelSource, /getRecommendedImageDefaults\(nextLmax\)/);
   assert.match(typesSource, /const transferTable = buildGsdfTableValues\(normalized\)/);
   assert.match(typesSource, /sampleTableValue\(transferTable, baseRatio\)/);
   assert.match(typesSource, /gammaCorrectionToTarget/);
@@ -162,10 +164,10 @@ test('i18n supports system language detection and persisted language preference'
 test('standalone video preview uses the shared GSDF table model', () => {
   assert.match(videoBackgroundSource, /buildGsdfTableValues\(settings\)/);
   assert.match(videoBackgroundSource, /tableValues=\{gsdfTableValues\}/);
-  assert.match(videoBackgroundSource, /eotf-ycbcr/);
+  assert.doesNotMatch(videoBackgroundSource, /eotf-ycbcr/);
   assert.match(videoBackgroundSource, /eotf-color/);
   assert.match(videoBackgroundSource, /hueRotate/);
   assert.match(videoBackgroundSource, /settings\.saturation/);
-  assert.match(videoBackgroundSource, /settings\.colorModel === 'ycbcr'/);
+  assert.doesNotMatch(videoBackgroundSource, /settings\.colorModel/);
   assert.doesNotMatch(videoBackgroundSource, /type="gamma"/);
 });

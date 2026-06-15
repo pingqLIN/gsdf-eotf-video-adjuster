@@ -3,7 +3,7 @@ export interface AppSettings {
   lmax: number;
   curveMode: GsdfCurveMode;
   gammaTarget: number;
-  colorModel: GsdfColorModel;
+  displayGamut: DisplayGamut;
   strength: number;
   blackPoint: number;
   whitePoint: number;
@@ -14,7 +14,7 @@ export interface AppSettings {
 }
 
 export type GsdfCurveMode = 'relative';
-export type GsdfColorModel = 'rgb' | 'ycbcr';
+export type DisplayGamut = 'srgb' | 'display-p3' | 'adobe-rgb';
 
 export const LUMINANCE_MIN_NITS = 10;
 export const LUMINANCE_MAX_NITS = 500;
@@ -23,6 +23,7 @@ export const LUMINANCE_SLIDER_MAX = 1000;
 export const GAMMA_TARGET_MIN = 1.0;
 export const GAMMA_TARGET_MAX = 3.0;
 export const DEFAULT_GAMMA_TARGET = 2.2;
+export const DEFAULT_DISPLAY_GAMUT: DisplayGamut = 'srgb';
 export const GAMMA_CORRECTION_MIN = -100;
 export const GAMMA_CORRECTION_MAX = 100;
 const LUMINANCE_LOG_RANGE = Math.log(LUMINANCE_MAX_NITS / LUMINANCE_MIN_NITS);
@@ -41,19 +42,94 @@ const GSDF_COEFFICIENTS = {
   k: 1.2992634e-4,
   m: 1.3635334e-3,
 };
+const RECOMMENDED_BLACK_POINT_STOPS = [
+  { lmax: 10, value: 10 },
+  { lmax: 50, value: 8 },
+  { lmax: 100, value: 6 },
+  { lmax: 350, value: 3 },
+  { lmax: 500, value: 0 },
+] as const;
+const RECOMMENDED_WHITE_POINT_STOPS = [
+  { lmax: 10, value: 90 },
+  { lmax: 50, value: 97 },
+  { lmax: 100, value: 90 },
+  { lmax: 500, value: 100 },
+] as const;
+const RECOMMENDED_SATURATION_STOPS = [
+  { lmax: 10, value: 90 },
+  { lmax: 50, value: 100 },
+  { lmax: 100, value: 90 },
+  { lmax: 500, value: 90 },
+] as const;
+
+function clampRecommendedLuminance(value: unknown): number {
+  const numeric = Number(value);
+  const clamped = Number.isFinite(numeric)
+    ? Math.max(LUMINANCE_MIN_NITS, Math.min(LUMINANCE_MAX_NITS, numeric))
+    : DEFAULT_TARGET_LUMINANCE_NITS;
+
+  return Number(clamped.toFixed(clamped < 100 ? 1 : 0));
+}
+
+function interpolateRecommendedPercent(
+  lmax: number,
+  stops: readonly { lmax: number; value: number }[],
+): number {
+  const firstStop = stops[0];
+  const lastStop = stops[stops.length - 1];
+
+  if (!firstStop || !lastStop) {
+    return 0;
+  }
+
+  if (lmax <= firstStop.lmax) {
+    return firstStop.value;
+  }
+
+  if (lmax >= lastStop.lmax) {
+    return lastStop.value;
+  }
+
+  for (let index = 1; index < stops.length; index += 1) {
+    const lowerStop = stops[index - 1];
+    const upperStop = stops[index];
+
+    if (lmax <= upperStop.lmax) {
+      const ratio = (lmax - lowerStop.lmax) / Math.max(1, upperStop.lmax - lowerStop.lmax);
+      return Math.round(lowerStop.value + (upperStop.value - lowerStop.value) * ratio);
+    }
+  }
+
+  return lastStop.value;
+}
+
+export function getRecommendedImageDefaults(
+  lmax: unknown,
+): Pick<AppSettings, 'displayGamut' | 'blackPoint' | 'whitePoint' | 'saturation'> {
+  const targetLuminance = clampRecommendedLuminance(lmax);
+
+  return {
+    displayGamut: DEFAULT_DISPLAY_GAMUT,
+    blackPoint: interpolateRecommendedPercent(targetLuminance, RECOMMENDED_BLACK_POINT_STOPS),
+    whitePoint: interpolateRecommendedPercent(targetLuminance, RECOMMENDED_WHITE_POINT_STOPS),
+    saturation: interpolateRecommendedPercent(targetLuminance, RECOMMENDED_SATURATION_STOPS),
+  };
+}
+
+const DEFAULT_IMAGE_SETTINGS = getRecommendedImageDefaults(DEFAULT_TARGET_LUMINANCE_NITS);
 
 export const DEFAULT_APP_SETTINGS: AppSettings = {
   enabled: false,
   lmax: DEFAULT_TARGET_LUMINANCE_NITS,
   curveMode: 'relative',
   gammaTarget: DEFAULT_GAMMA_TARGET,
-  colorModel: 'ycbcr',
+  displayGamut: DEFAULT_IMAGE_SETTINGS.displayGamut,
   strength: 90,
-  blackPoint: 5,
-  whitePoint: 92,
+  blackPoint: DEFAULT_IMAGE_SETTINGS.blackPoint,
+  whitePoint: DEFAULT_IMAGE_SETTINGS.whitePoint,
   sharpness: 5,
   temperature: 0,
-  saturation: 100,
+  saturation: DEFAULT_IMAGE_SETTINGS.saturation,
   hue: 0,
 };
 
@@ -74,8 +150,10 @@ function normalizeCurveMode(_value: unknown): GsdfCurveMode {
   return DEFAULT_APP_SETTINGS.curveMode;
 }
 
-function normalizeColorModel(value: unknown): GsdfColorModel {
-  return value === 'rgb' || value === 'ycbcr' ? value : DEFAULT_APP_SETTINGS.colorModel;
+function normalizeDisplayGamut(value: unknown): DisplayGamut {
+  return value === 'srgb' || value === 'display-p3' || value === 'adobe-rgb'
+    ? value
+    : DEFAULT_APP_SETTINGS.displayGamut;
 }
 
 function normalizeGammaTarget(value: unknown): number {
@@ -109,7 +187,7 @@ export function gammaTargetToCorrection(value: unknown): number {
 }
 
 export function clampLuminance(value: unknown): number {
-  return roundLuminance(clampNumber(value, LUMINANCE_MIN_NITS, LUMINANCE_MAX_NITS, DEFAULT_APP_SETTINGS.lmax));
+  return roundLuminance(clampNumber(value, LUMINANCE_MIN_NITS, LUMINANCE_MAX_NITS, DEFAULT_TARGET_LUMINANCE_NITS));
 }
 
 export function sliderValueToLuminance(value: unknown): number {
@@ -278,18 +356,20 @@ export function formatLuminance(value: number): string {
 
 export function normalizeAppSettings(value: Partial<AppSettings> | null | undefined): AppSettings {
   const settings = value ?? {};
+  const lmax = clampLuminance(settings.lmax);
+  const recommendedImageSettings = getRecommendedImageDefaults(lmax);
   const normalized: AppSettings = {
     enabled: settings.enabled === true,
-    lmax: clampLuminance(settings.lmax),
+    lmax,
     curveMode: normalizeCurveMode(settings.curveMode),
     gammaTarget: normalizeGammaTarget(settings.gammaTarget),
-    colorModel: normalizeColorModel(settings.colorModel),
+    displayGamut: normalizeDisplayGamut(settings.displayGamut),
     strength: clampNumber(settings.strength, 0, 100, DEFAULT_APP_SETTINGS.strength),
-    blackPoint: clampNumber(settings.blackPoint, 0, 20, DEFAULT_APP_SETTINGS.blackPoint),
-    whitePoint: clampNumber(settings.whitePoint, 80, 100, DEFAULT_APP_SETTINGS.whitePoint),
+    blackPoint: clampNumber(settings.blackPoint, 0, 20, recommendedImageSettings.blackPoint),
+    whitePoint: clampNumber(settings.whitePoint, 80, 100, recommendedImageSettings.whitePoint),
     sharpness: clampNumber(settings.sharpness, 0, 50, DEFAULT_APP_SETTINGS.sharpness),
     temperature: clampNumber(settings.temperature, -50, 50, DEFAULT_APP_SETTINGS.temperature),
-    saturation: clampNumber(settings.saturation, 0, 125, DEFAULT_APP_SETTINGS.saturation),
+    saturation: clampNumber(settings.saturation, 0, 125, recommendedImageSettings.saturation),
     hue: clampNumber(settings.hue, -30, 30, DEFAULT_APP_SETTINGS.hue),
   };
 

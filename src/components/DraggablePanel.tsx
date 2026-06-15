@@ -31,6 +31,7 @@ import {
   GAMMA_CORRECTION_MAX,
   GAMMA_CORRECTION_MIN,
   gammaTargetToCorrection,
+  getRecommendedImageDefaults,
   LUMINANCE_MAX_NITS,
   LUMINANCE_MIN_NITS,
   LUMINANCE_SLIDER_MAX,
@@ -52,11 +53,11 @@ const INSPECTION_MIN_WIDTH = 560;
 const INSPECTION_MIN_HEIGHT = 420;
 const INSPECTION_DEFAULT_WIDTH = 960;
 const INSPECTION_DEFAULT_HEIGHT = 720;
-const PANEL_DEFAULT_WIDTH = 800;
-const PANEL_DEFAULT_HEIGHT = 520;
-const PANEL_SIDE_PANEL_WIDTH = 1160;
+const PANEL_DEFAULT_WIDTH = 400;
+const PANEL_DEFAULT_HEIGHT = 680;
+const PANEL_SIDE_PANEL_WIDTH = 800;
 const PANEL_MIN_HEIGHT = 520;
-const PANEL_MIN_WIDTH = 640;
+const PANEL_MIN_WIDTH = 400;
 const PANEL_VIEWPORT_MARGIN = 16;
 let expandedOverlayCount = 0;
 
@@ -121,7 +122,7 @@ function ModePill({
         : 'border-white/10 bg-white/[0.04] text-zinc-300';
 
   return (
-    <span title={title} data-tone={tone} className={`gsdf-mode-pill inline-flex h-7 min-w-0 items-center justify-center gap-1 rounded-md border px-2 text-[10px] font-semibold ${toneClass}`}>
+    <span title={title} data-tone={tone} className={`gsdf-mode-pill inline-flex h-7 min-w-0 items-center justify-center gap-1 rounded-md border px-2.5 text-[10px] font-semibold ${toneClass}`}>
       {children}
     </span>
   );
@@ -143,7 +144,7 @@ function SegmentedControl<T extends string>({
         </span>
         {label}
       </label>
-      <div className="gsdf-segmented-control grid grid-cols-2 gap-1 rounded-md border border-white/10 bg-[#080b0f] p-1">
+      <div className="gsdf-segmented-control grid grid-cols-3 gap-1 rounded-md border border-white/10 bg-[#080b0f] p-1">
         {options.map((option) => (
           <button
             key={option.value}
@@ -293,6 +294,17 @@ function postExpandedOverlayState(open: boolean) {
   }, '*');
 }
 
+function postPanelLayoutRequest(width: number, height: number) {
+  if (!window.parent || window.parent === window) {
+    return;
+  }
+
+  window.parent.postMessage({
+    type: 'GSDF_PANEL_LAYOUT_REQUEST',
+    payload: { width, height },
+  }, '*');
+}
+
 function useExpandedOverlayViewport(open: boolean) {
   React.useEffect(() => {
     if (!open) {
@@ -353,7 +365,7 @@ function PanelTabSwitch({
     <div
       role="tablist"
       aria-label={messages.panel.panelTabs}
-      className="gsdf-tab-switch relative grid h-8 w-[212px] shrink-0 grid-cols-3 rounded-md border border-white/10 bg-[#080b0f] p-1"
+      className="gsdf-tab-switch relative grid h-8 min-w-[184px] max-w-[212px] flex-1 grid-cols-3 rounded-md border border-white/10 bg-[#080b0f] p-1"
       data-no-drag
     >
       <span
@@ -408,7 +420,7 @@ function StatusDeck({
   const statusLabel = settings.enabled ? messages.panel.active : messages.panel.standby;
 
   return (
-    <section className="gsdf-status-deck space-y-3 rounded-md border border-white/10 bg-[#0a0e13] p-3 shadow-inner">
+    <section className="gsdf-status-deck space-y-3 rounded-md border border-white/10 bg-[#0a0e13] p-4 shadow-inner">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 flex-wrap items-center gap-2.5">
           <div className="flex shrink-0 items-center gap-2 text-[11px] font-semibold text-zinc-400">
@@ -435,7 +447,7 @@ function StatusDeck({
             </ModePill>
             <ModePill>
               <BarChart3 size={13} />
-              {settings.colorModel === 'ycbcr' ? 'YCbCr' : 'RGB'}
+              {settings.displayGamut === 'display-p3' ? 'P3' : settings.displayGamut === 'adobe-rgb' ? 'Adobe RGB' : 'sRGB'}
             </ModePill>
           </div>
         </div>
@@ -453,7 +465,7 @@ function StatusDeck({
         title={messages.panel.lmaxTitle}
         className="flex flex-wrap items-baseline gap-x-2 gap-y-1"
       >
-        <span className="font-mono text-[24px] leading-none text-zinc-50 tabular-nums">{formatLuminance(settings.lmax)}</span>
+        <span className="font-mono text-[30px] leading-none text-zinc-50 tabular-nums">{formatLuminance(settings.lmax)}</span>
         <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-zinc-500">nits</span>
         <span className="text-[11px] font-semibold text-zinc-300">{messages.panel.lmaxLabel}</span>
         <span className="text-[9px] font-semibold text-zinc-500">{messages.panel.lmaxNote}</span>
@@ -961,7 +973,7 @@ function LanguageSelector({
         aria-label={messages.language.label}
         value={locale}
         onChange={(event) => onLocaleChange(event.target.value as SupportedLocale)}
-        className="max-w-[92px] bg-transparent text-[11px] font-semibold text-inherit outline-none"
+      className="max-w-[112px] bg-transparent text-[11px] font-semibold text-inherit outline-none"
       >
         {supportedLocales.map((option) => (
           <option key={option} value={option}>
@@ -1011,12 +1023,47 @@ export function DraggablePanel({
     setSettings((prev) => ({ ...prev, enabled: !prev.enabled }));
   };
 
-  const handleLmaxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSettings((prev) => ({ ...prev, lmax: sliderValueToLuminance(e.target.value) }));
+  const applyOptimizedPreset = () => {
+    setSettings((prev) => ({
+      ...prev,
+      ...getRecommendedImageDefaults(100),
+      enabled: true,
+      lmax: 100,
+      gammaTarget: 1,
+      strength: 90,
+      sharpness: DEFAULT_APP_SETTINGS.sharpness,
+      temperature: DEFAULT_APP_SETTINGS.temperature,
+      hue: DEFAULT_APP_SETTINGS.hue,
+    }));
   };
 
-  const setColorModel = (value: AppSettings['colorModel']) => {
-    setSettings((prev) => ({ ...prev, colorModel: value }));
+  const handleLmaxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const nextLmax = sliderValueToLuminance(e.target.value);
+
+    setSettings((prev) => {
+      const currentRecommended = getRecommendedImageDefaults(prev.lmax);
+      const nextRecommended = getRecommendedImageDefaults(nextLmax);
+      const next = { ...prev, lmax: nextLmax };
+
+      if (prev.blackPoint === currentRecommended.blackPoint) {
+        next.blackPoint = nextRecommended.blackPoint;
+      }
+      if (prev.whitePoint === currentRecommended.whitePoint) {
+        next.whitePoint = nextRecommended.whitePoint;
+      }
+      if (prev.displayGamut === currentRecommended.displayGamut) {
+        next.displayGamut = nextRecommended.displayGamut;
+      }
+      if (prev.saturation === currentRecommended.saturation) {
+        next.saturation = nextRecommended.saturation;
+      }
+
+      return next;
+    });
+  };
+
+  const setDisplayGamut = (value: AppSettings['displayGamut']) => {
+    setSettings((prev) => ({ ...prev, displayGamut: value }));
   };
 
   const setNumericSetting = (
@@ -1062,6 +1109,17 @@ export function DraggablePanel({
     }, sidePanelOpen));
   }, [extensionMode, inspectionMode, sidePanelOpen]);
 
+  React.useEffect(() => {
+    if (!extensionMode || inspectionMode) {
+      return;
+    }
+
+    postPanelLayoutRequest(
+      sidePanelOpen ? PANEL_SIDE_PANEL_WIDTH : PANEL_DEFAULT_WIDTH,
+      PANEL_DEFAULT_HEIGHT,
+    );
+  }, [extensionMode, inspectionMode, sidePanelOpen]);
+
   const renderBasicPanel = () => (
     <div className="space-y-3">
       <div className={`transition-opacity ${settings.enabled ? 'opacity-100' : 'opacity-75'}`}>
@@ -1104,13 +1162,14 @@ export function DraggablePanel({
       <SegmentedControl
         disabled={!settings.enabled}
         icon={<BarChart3 size={14} />}
-        label={messages.panel.colorModel}
-        value={settings.colorModel}
+        label={messages.panel.displayGamut}
+        value={settings.displayGamut}
         options={[
-          { value: 'rgb', label: 'RGB', title: messages.panel.rgbTitle },
-          { value: 'ycbcr', label: 'YCbCr', title: messages.panel.ycbcrTitle },
+          { value: 'srgb', label: 'sRGB', title: messages.panel.srgbGamutTitle },
+          { value: 'display-p3', label: 'Display P3', title: messages.panel.displayP3GamutTitle },
+          { value: 'adobe-rgb', label: 'Adobe RGB', title: messages.panel.adobeRgbGamutTitle },
         ]}
-        onChange={(value) => setColorModel(value)}
+        onChange={(value) => setDisplayGamut(value)}
       />
 
       <div className={`grid grid-cols-2 gap-3 transition-opacity ${settings.enabled ? 'opacity-100' : 'opacity-45 pointer-events-none'}`}>
@@ -1195,13 +1254,37 @@ export function DraggablePanel({
   const renderDiagnosticPlaceholder = () => (
     <section className="gsdf-diagnostic-placeholder flex min-h-[328px] flex-col justify-between rounded-md border border-white/10 bg-[#080b0f] p-4">
       <div className="space-y-3">
-        <div className="flex items-center gap-2 text-[11px] font-semibold text-zinc-200">
+        <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-zinc-200">
           <span className="gsdf-control-icon flex h-7 w-7 items-center justify-center rounded-md bg-white/[0.05] text-zinc-200">
             <Grid3X3 size={15} />
           </span>
           {messages.panel.diagnosticPlaceholderTitle}
         </div>
         <p className="max-w-[560px] text-[12px] leading-5 text-zinc-400">{messages.panel.diagnosticPlaceholderBody}</p>
+      </div>
+      <div className="mt-5 flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => {
+            setSidePanelMode('pattern');
+            setSidePanelOpen(true);
+          }}
+          className="gsdf-text-button flex h-9 items-center gap-2 rounded-md border border-white/10 px-3 text-[11px] font-semibold text-zinc-200 transition-colors hover:text-zinc-50"
+        >
+          <Grid3X3 size={13} />
+          Pattern
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setSidePanelMode('chart');
+            setSidePanelOpen(true);
+          }}
+          className="gsdf-text-button flex h-9 items-center gap-2 rounded-md border border-white/10 px-3 text-[11px] font-semibold text-zinc-200 transition-colors hover:text-zinc-50"
+        >
+          <BarChart3 size={13} />
+          Chart
+        </button>
       </div>
     </section>
   );
@@ -1340,7 +1423,7 @@ export function DraggablePanel({
       ) : (
         <>
           <div
-            className="gsdf-panel-header cursor-grab select-none space-y-3 border-b border-white/10 bg-[#181c21] px-4 py-3 active:cursor-grabbing"
+            className="gsdf-panel-header cursor-grab select-none space-y-3 border-b border-white/10 bg-[#181c21] px-4 py-2.5 active:cursor-grabbing"
             onPointerDown={handleHeaderPointerDown}
             onPointerMove={handleHeaderPointerMove}
             onPointerUp={handleHeaderPointerUp}
@@ -1348,16 +1431,15 @@ export function DraggablePanel({
           >
             <div className="flex items-center gap-3">
               <div className="flex min-w-0 flex-1 items-center gap-3">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-white/10 bg-white/[0.05] text-zinc-200">
+                <div className="gsdf-header-emblem flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-white/10 bg-white/[0.05] text-zinc-200">
                   <Settings size={16} />
                 </div>
                 <div className="min-w-0">
-                  <div className="truncate text-[14px] font-semibold text-white">GSDF EOTF Adjuster</div>
+                  <div className="truncate text-[12px] font-semibold uppercase tracking-[0.16em] text-white">GSDF EOTF Adjuster</div>
                   <div className="font-mono text-[9px] uppercase tracking-[0.16em] text-zinc-500">{messages.panel.subtitle}</div>
                 </div>
               </div>
-              <div className="ml-auto flex shrink-0 items-center gap-2" data-no-drag>
-                <PanelTabSwitch value={activeTab} onChange={setActiveTab} panelTheme={panelTheme} messages={messages} />
+              <div className="ml-auto flex shrink-0 items-center justify-end gap-2" data-no-drag>
                 <button
                   type="button"
                   title={messages.panel.toggleSidePanel}
@@ -1368,7 +1450,6 @@ export function DraggablePanel({
                 >
                   {sidePanelOpen ? <PanelRightClose size={14} /> : <PanelRightOpen size={14} />}
                 </button>
-                <LanguageSelector locale={locale} messages={messages} onLocaleChange={onLocaleChange} />
                 <button
                   type="button"
                   title={panelTheme === 'light' ? messages.panel.switchToDark : messages.panel.switchToLight}
@@ -1389,11 +1470,46 @@ export function DraggablePanel({
                 </button>
               </div>
             </div>
+            <div className="gsdf-nav-row flex min-w-0 flex-wrap items-center justify-between gap-2" data-no-drag>
+              <PanelTabSwitch value={activeTab} onChange={setActiveTab} panelTheme={panelTheme} messages={messages} />
+              <LanguageSelector locale={locale} messages={messages} onLocaleChange={onLocaleChange} />
+            </div>
             <div className="gsdf-header-controls flex shrink-0 flex-wrap items-center justify-between gap-2" data-no-drag>
-              <div className="flex min-w-0 items-center gap-2.5">
-                <EffectSwitch enabled={settings.enabled} onToggle={toggleEnabled} label={messages.panel.enableEotf} />
-                <span className="truncate text-[11px] font-semibold text-zinc-300">{settings.enabled ? messages.panel.effectOn : messages.panel.effectOff}</span>
-              </div>
+              <button
+                type="button"
+                onClick={toggleEnabled}
+                aria-pressed={settings.enabled}
+                aria-label={messages.panel.enableEotf}
+                title={messages.panel.enableEotf}
+                className="gsdf-power-cluster flex min-w-0 items-center gap-2.5 rounded-md border border-white/10 bg-[#080b0f] p-1 pr-3 text-left transition-colors hover:bg-white/[0.04]"
+              >
+                <span
+                  aria-hidden="true"
+                  data-state={settings.enabled ? 'on' : 'off'}
+                  className="gsdf-effect-switch relative inline-flex h-8 w-14 shrink-0 items-center rounded-md border border-white/10 bg-[#0b0d10] p-1 transition-colors"
+                >
+                  <span className={`pointer-events-none absolute inset-1 rounded transition-colors ${settings.enabled ? 'bg-white/[0.10]' : 'bg-white/[0.04]'}`} />
+                  <span className={`relative z-10 flex h-6 w-6 items-center justify-center rounded text-[#0b0d10] transition-transform ${settings.enabled ? 'translate-x-6 bg-zinc-100' : 'translate-x-0 bg-zinc-500'}`}>
+                    <Power size={13} />
+                  </span>
+                </span>
+                <span className="flex min-w-0 flex-col">
+                  <span className={`truncate text-[10px] font-semibold uppercase tracking-[0.12em] ${settings.enabled ? 'text-zinc-100' : 'text-zinc-400'}`}>
+                    {settings.enabled ? messages.panel.active : messages.panel.standby}
+                  </span>
+                  <span className="truncate text-[8px] font-semibold uppercase tracking-[0.14em] text-zinc-500">
+                    {settings.enabled ? messages.panel.effectOn : messages.panel.effectOff}
+                  </span>
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={applyOptimizedPreset}
+                title={messages.panel.optimizePresetTitle}
+                className="gsdf-quick-action rounded-md border border-white/10 px-3 py-2 text-[11px] font-semibold text-zinc-200 transition-colors hover:text-zinc-50"
+              >
+                {messages.panel.optimizePreset}
+              </button>
               <div className="flex min-w-0 flex-wrap items-center gap-1.5">
                 <ModePill tone={settings.enabled ? 'active' : 'neutral'} title={messages.panel.gsdfMixTitle}>
                   <MonitorUp size={13} />
@@ -1413,8 +1529,8 @@ export function DraggablePanel({
             </div>
           </div>
 
-          <div className={`grid min-h-0 flex-1 ${sidePanelOpen ? 'grid-cols-[minmax(0,1fr)_360px]' : 'grid-cols-1'}`}>
-            <div className="min-h-0 overflow-y-auto overflow-x-hidden p-4">
+          <div className={`grid min-h-0 flex-1 ${sidePanelOpen ? 'grid-cols-1 min-[760px]:grid-cols-[minmax(0,1fr)_minmax(390px,0.92fr)]' : 'grid-cols-1'}`}>
+            <div className={`gsdf-primary-pane min-h-0 overflow-y-auto overflow-x-hidden p-4 ${sidePanelOpen ? 'max-[759px]:hidden' : ''}`}>
               <div hidden={activeTab !== 'basic'} aria-hidden={activeTab !== 'basic'}>
                 {renderBasicPanel()}
               </div>

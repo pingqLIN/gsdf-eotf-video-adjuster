@@ -47,7 +47,7 @@
 
 - 依頁面偵測或選擇 SDR/HDR transfer assumption。
 - 增加 display profile 或量測儀輔助校正輸入。
-- 用完整 color-managed pipeline 取代 RGB/YCbCr SVG approximation。這通常超出輕量 MV3 extension 能可靠控制的瀏覽器表面。
+- 用完整 color-managed、display-profile-aware pipeline 取代目前瀏覽器 SVG approximation。這通常超出輕量 MV3 extension 能可靠控制的瀏覽器表面。
 
 ## UI 審查輸入
 
@@ -86,12 +86,12 @@
 - `npm test`：23/23 passing。
 - `npm run lint`：TypeScript check passed。
 - `npm run build:ext`：Vite build passed，並已將 rebuilt assets 複製到 `extension/ui`。
-- Playwright `?mode=extension` basic view on `http://127.0.0.1:3108`：panel rendered at `400x680px`，且可見 `STANDBY`、`GSDF`、filter 總量與色彩模型狀態。
+- Playwright `?mode=extension` basic view on `http://127.0.0.1:3108`：panel rendered at `400x680px`，且可見 `STANDBY`、`GSDF`、filter 總量與顯示色域狀態。
 - Playwright DOM check：沒有可見的 `Pure`、`純 GSDF`、`曲線模式`、target-luminance neutral-anchor text、caveat paragraph、手動儲存按鈕、body scrollbar、page scrollbar 或 panel overflow。
 - Playwright tooltip check：full-GSDF 與 filter-amount explanations 已放在 hover `title` text。
 - Playwright stripe check：compact rows measured `284x28px`，並保持在 fixed control panel 範圍內；較大的 inspection pattern 保留在 overlay。
-- Playwright autosave check：初始載入 1.2 秒後 `localStorage` 仍未被誤寫；切換色彩模型後，1 秒 debounce 會把 `colorModel: "ycbcr"` 寫入，並顯示 autosave toast。
-- Playwright advanced standby DOM：`RGB`、`YCbCr` buttons 具備原生 `disabled` state。
+- Playwright autosave check：初始載入 1.2 秒後 `localStorage` 仍未被誤寫；切換顯示色域後，1 秒 debounce 會寫入新設定，並顯示 autosave toast。
+- Playwright advanced standby DOM：顯示色域 buttons 具備原生 `disabled` state。
 - Playwright advanced active DOM：啟用後 disabled controls cleared，chart text 存在，chart surface rendered at `319x192`。
 - Playwright full chart overlay DOM：完整圖表按鈕存在，overlay rendered，chart surface measured `1535x420`，且圖說文字可見。
 - 最終 browser console：沒有 UI runtime errors，也沒有 Recharts sizing warnings；只剩 React DevTools development info message 與 local dev server 缺少 `favicon.ico` 的請求。

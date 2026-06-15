@@ -7,22 +7,34 @@ import React, { useState, useEffect, useRef } from 'react';
 import { DraggablePanel } from './components/DraggablePanel';
 import { VideoBackground } from './components/VideoBackground';
 import { getInitialLocale, LANGUAGE_STORAGE_KEY, messagesByLocale, type SupportedLocale } from './i18n';
-import { DEFAULT_APP_SETTINGS, normalizeAppSettings, type AppSettings } from './types';
+import { DEFAULT_APP_SETTINGS, getRecommendedImageDefaults, normalizeAppSettings, type AppSettings } from './types';
 
 function normalizeSavedSettings(value: Partial<AppSettings>): AppSettings {
   const normalized = normalizeAppSettings(value);
+  const legacyValue = value as Partial<AppSettings> & { colorModel?: string };
   const hasLegacyProcessedDefaults =
     value.blackPoint === 2 &&
     value.whitePoint === 98 &&
     value.sharpness === 20 &&
     value.temperature === 0;
+  const hasPreviousImageDefaults =
+    value.blackPoint === 5 &&
+    value.whitePoint === 92 &&
+    value.saturation === 100 &&
+    (legacyValue.colorModel === undefined || legacyValue.colorModel === 'ycbcr');
 
   if (hasLegacyProcessedDefaults) {
     return {
       ...normalized,
-      blackPoint: DEFAULT_APP_SETTINGS.blackPoint,
-      whitePoint: DEFAULT_APP_SETTINGS.whitePoint,
+      ...getRecommendedImageDefaults(normalized.lmax),
       sharpness: DEFAULT_APP_SETTINGS.sharpness,
+    };
+  }
+
+  if (hasPreviousImageDefaults) {
+    return {
+      ...normalized,
+      ...getRecommendedImageDefaults(normalized.lmax),
     };
   }
 

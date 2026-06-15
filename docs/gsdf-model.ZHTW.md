@@ -79,7 +79,7 @@ m =  1.3635334e-3
 
 ```mermaid
 flowchart TD
-  A["使用者控制<br/>enabled, lmax, gammaTarget, strength, colorModel,<br/>blackPoint, whitePoint, sharpness, temperature"] --> B["normalizeAppSettings / normalizeSettings"]
+  A["使用者控制<br/>enabled, lmax, gammaTarget, strength, displayGamut,<br/>blackPoint, whitePoint, sharpness, temperature"] --> B["normalizeAppSettings / normalizeSettings"]
   B --> C["Gamma 前級補償<br/>0 = 2.2, left 3.0, right 1.0"]
   C --> D["GSDF transfer model<br/>src/types.ts and extension/content.js"]
   D --> E["buildGsdfTableValues(settings, 256)"]
@@ -167,9 +167,11 @@ mixedLevel = gammaLevel + (gsdfLevel - gammaLevel) * filterAmount
 
 若舊儲存設定含有 `curveMode: "pure"`，目前會正規化回這套單一 GSDF 路徑。使用者應調整 filter 總量，而不是在多套 GSDF 解讀之間切換。
 
-### RGB vs YCbCr
+### CSDF-inspired 顯示色域假設
 
-`colorModel: "rgb"` 會對 R/G/B 三個 channel 套用同一張 table。`colorModel: "ycbcr"` 會先轉成 luma/chroma space，只調整 luma component，再轉回 RGB。luma-only 路徑的目的，是在強亮度修正時更好地保留 chroma 關係。
+UI 不再讓使用者選 RGB/YCbCr 這種工程處理路徑，而是提供顯示色域假設：`sRGB`、`Display P3`、`Adobe RGB`，三者皆以 D65 white point 處理。extension 會用所選標準 primaries 推導 luminance coefficients，建立瀏覽器 SVG filter 可執行的 luma/chroma path，再把 GSDF-shaped table 套在 luminance component 上。
+
+這是 CSDF-inspired 近似，不是完整 CSDF calibration。完整 Color Standard Display Function workflow 需要 display characterization、以 perceptual color-difference metric 重新分配 color lines，通常也需要比 SVG filter pipeline 更完整的 3D transform。因此本專案把色域選項視為實務瀏覽器影片調整的明確假設，而不是 display compliance 證明。
 
 ### Black/White Point、Sharpness、Temperature
 

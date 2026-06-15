@@ -194,8 +194,8 @@ test('content script opens the full GSDF pattern view as a movable and resizable
 
   const iframe = context.__testState.bodyChildren[0];
   const messageListener = context.__testState.listeners.find((listener) => listener.type === 'message');
-  assert.equal(iframe.style.width, '800px');
-  assert.equal(iframe.style.height, '520px');
+  assert.equal(iframe.style.width, '400px');
+  assert.equal(iframe.style.height, '680px');
   assert.ok(messageListener, 'message listener should be registered');
 
   messageListener.callback({
@@ -243,8 +243,8 @@ test('content script opens the full GSDF pattern view as a movable and resizable
     }
   });
 
-  assert.equal(iframe.style.width, '800px');
-  assert.equal(iframe.style.height, '520px');
+  assert.equal(iframe.style.width, '400px');
+  assert.equal(iframe.style.height, '680px');
 });
 
 test('content script keeps a stable default panel size', () => {
@@ -255,8 +255,8 @@ test('content script keeps a stable default panel size', () => {
 
   const iframe = context.__testState.bodyChildren[0];
   const messageListener = context.__testState.listeners.find((listener) => listener.type === 'message');
-  assert.equal(iframe.style.width, '800px');
-  assert.equal(iframe.style.height, '520px');
+  assert.equal(iframe.style.width, '400px');
+  assert.equal(iframe.style.height, '680px');
   assert.ok(messageListener, 'message listener should be registered');
   assert.doesNotMatch(contentSource, /GSDF_PANEL_MODE_CHANGED/);
 
@@ -268,8 +268,8 @@ test('content script keeps a stable default panel size', () => {
     }
   });
 
-  assert.equal(iframe.style.width, '880px');
-  assert.equal(iframe.style.height, '520px');
+  assert.equal(iframe.style.width, '480px');
+  assert.equal(iframe.style.height, '600px');
 });
 
 test('maps target luminance on a 10 to 500 nits logarithmic slider', () => {
@@ -278,15 +278,15 @@ test('maps target luminance on a 10 to 500 nits logarithmic slider', () => {
   assert.equal(hooks.normalizeSettings({ lmax: 1 }).lmax, 10);
   assert.equal(hooks.normalizeSettings({ lmax: 900 }).lmax, 500);
   assert.equal(hooks.normalizeSettings({}).lmax, 100);
-  assert.equal(hooks.normalizeSettings({}).blackPoint, 5);
-  assert.equal(hooks.normalizeSettings({}).whitePoint, 92);
+  assert.equal(hooks.normalizeSettings({}).blackPoint, 6);
+  assert.equal(hooks.normalizeSettings({}).whitePoint, 90);
   assert.equal(hooks.normalizeSettings({}).sharpness, 5);
   assert.equal(hooks.normalizeSettings({}).gammaTarget, 2.2);
-  assert.equal(hooks.normalizeSettings({}).colorModel, 'ycbcr');
+  assert.equal(hooks.normalizeSettings({}).displayGamut, 'srgb');
   assert.equal(hooks.normalizeSettings({}).strength, 90);
-  assert.equal(hooks.normalizeSettings({}).saturation, 100);
+  assert.equal(hooks.normalizeSettings({}).saturation, 90);
   assert.equal(hooks.normalizeSettings({}).hue, 0);
-  assert.equal(hooks.normalizeSettings({ colorModel: 'rgb' }).colorModel, 'rgb');
+  assert.equal(hooks.normalizeSettings({ displayGamut: 'display-p3' }).displayGamut, 'display-p3');
   assert.equal(hooks.normalizeSettings({ gammaTarget: 0.5 }).gammaTarget, 1.0);
   assert.equal(hooks.normalizeSettings({ gammaTarget: 4 }).gammaTarget, 3.0);
   assert.equal(hooks.normalizeSettings({ gammaTarget: 1.2367 }).gammaTarget, 1.237);
@@ -305,8 +305,8 @@ test('maps target luminance on a 10 to 500 nits logarithmic slider', () => {
   assert.equal(hooks.gammaTargetToCorrection(1.0), 100);
   assert.equal(hooks.normalizeSettings({ curveMode: 'pure' }).curveMode, 'relative');
   assert.equal(hooks.normalizeSettings({ curveMode: 'unknown' }).curveMode, 'relative');
-  assert.equal(hooks.normalizeSettings({ colorModel: 'ycbcr' }).colorModel, 'ycbcr');
-  assert.equal(hooks.normalizeSettings({ colorModel: 'ictcp' }).colorModel, 'ycbcr');
+  assert.equal(hooks.normalizeSettings({ displayGamut: 'adobe-rgb' }).displayGamut, 'adobe-rgb');
+  assert.equal(hooks.normalizeSettings({ displayGamut: 'rec2020' }).displayGamut, 'srgb');
   assert.equal(hooks.sliderValueToLuminance(0), 10);
   assert.equal(hooks.sliderValueToLuminance(1000), 500);
 
@@ -316,6 +316,53 @@ test('maps target luminance on a 10 to 500 nits logarithmic slider', () => {
   const lowStep = hooks.sliderValueToLuminance(101) - hooks.sliderValueToLuminance(100);
   const highStep = hooks.sliderValueToLuminance(901) - hooks.sliderValueToLuminance(900);
   assert.ok(lowStep < highStep, 'log scale should provide finer absolute control at low nits');
+});
+
+test('derives luminance-aware recommended image defaults', () => {
+  const hooks = loadContentHooks();
+  const defaultsAt = (lmax) => ({ ...hooks.getRecommendedImageDefaults(lmax) });
+
+  assert.deepEqual(defaultsAt(10), {
+    displayGamut: 'srgb',
+    blackPoint: 10,
+    whitePoint: 90,
+    saturation: 90
+  });
+  assert.deepEqual(defaultsAt(50), {
+    displayGamut: 'srgb',
+    blackPoint: 8,
+    whitePoint: 97,
+    saturation: 100
+  });
+  assert.deepEqual(defaultsAt(75), {
+    displayGamut: 'srgb',
+    blackPoint: 7,
+    whitePoint: 94,
+    saturation: 95
+  });
+  assert.deepEqual(defaultsAt(100), {
+    displayGamut: 'srgb',
+    blackPoint: 6,
+    whitePoint: 90,
+    saturation: 90
+  });
+  assert.deepEqual(defaultsAt(350), {
+    displayGamut: 'srgb',
+    blackPoint: 3,
+    whitePoint: 96,
+    saturation: 90
+  });
+  assert.deepEqual(defaultsAt(500), {
+    displayGamut: 'srgb',
+    blackPoint: 0,
+    whitePoint: 100,
+    saturation: 90
+  });
+  assert.equal(hooks.normalizeSettings({ lmax: 350 }).blackPoint, 3);
+  assert.equal(hooks.normalizeSettings({ lmax: 350 }).whitePoint, 96);
+  assert.equal(hooks.normalizeSettings({ lmax: 350, blackPoint: 7, whitePoint: 94, saturation: 105 }).blackPoint, 7);
+  assert.equal(hooks.normalizeSettings({ lmax: 350, blackPoint: 7, whitePoint: 94, saturation: 105 }).whitePoint, 94);
+  assert.equal(hooks.normalizeSettings({ lmax: 350, blackPoint: 7, whitePoint: 94, saturation: 105 }).saturation, 105);
 });
 
 test('applies the full GSDF table at every target luminance and uses strength as the filter amount', () => {
@@ -394,19 +441,26 @@ test('gamma target is applied before the GSDF filter amount blend', () => {
   assert.notEqual(liftedGsdf[128], defaultGsdf[128], 'GSDF should consume the gamma-adjusted input level');
 });
 
-test('YCbCr mode selects the luma-only managed filter', () => {
+test('display gamut selects the CSDF luma/chroma managed filter', () => {
   const hooks = loadContentHooks();
-  const profile = hooks.deriveToneProfile({
+  const srgbProfile = hooks.deriveToneProfile({
     enabled: true,
     lmax: 100,
     strength: 100,
-    colorModel: 'ycbcr'
+    displayGamut: 'srgb'
+  });
+  const p3Profile = hooks.deriveToneProfile({
+    enabled: true,
+    lmax: 100,
+    strength: 100,
+    displayGamut: 'display-p3'
   });
 
-  const filter = hooks.buildManagedFilterChain('', profile);
+  const filter = hooks.buildManagedFilterChain('', srgbProfile);
 
-  assert.match(filter, /url\("#gsdf-eotf-ycbcr"\)/);
+  assert.match(filter, /url\("#gsdf-eotf-csdf"\)/);
   assert.doesNotMatch(filter, /url\("#gsdf-eotf-gamma"\)/);
+  assert.notEqual(srgbProfile.csdfForwardMatrix[0], p3Profile.csdfForwardMatrix[0]);
 });
 
 test('replaces stale GSDF filters while preserving host page filter tokens', () => {
@@ -415,7 +469,7 @@ test('replaces stale GSDF filters while preserving host page filter tokens', () 
     enabled: true,
     lmax: 800,
     strength: 70,
-    colorModel: 'rgb',
+    displayGamut: 'adobe-rgb',
     blackPoint: 2,
     whitePoint: 98,
     sharpness: 20,
@@ -430,7 +484,8 @@ test('replaces stale GSDF filters while preserving host page filter tokens', () 
   assert.match(filter, /brightness\(90%\)/);
   assert.match(filter, /contrast\(105%\)/);
   assert.doesNotMatch(filter, /saturate\(/);
-  assert.equal((filter.match(/gsdf-eotf-gamma/g) ?? []).length, 1);
+  assert.doesNotMatch(filter, /gsdf-eotf-gamma/);
+  assert.equal((filter.match(/gsdf-eotf-csdf/g) ?? []).length, 1);
   assert.match(filter, /url\("#gsdf-eotf-temp"\)/);
   assert.match(filter, /url\("#gsdf-eotf-color"\)/);
 });

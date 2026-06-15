@@ -79,7 +79,7 @@ Important functions:
 
 ```mermaid
 flowchart TD
-  A["User controls<br/>enabled, lmax, gammaTarget, strength, colorModel,<br/>blackPoint, whitePoint, sharpness, temperature"] --> B["normalizeAppSettings / normalizeSettings"]
+  A["User controls<br/>enabled, lmax, gammaTarget, strength, displayGamut,<br/>blackPoint, whitePoint, sharpness, temperature"] --> B["normalizeAppSettings / normalizeSettings"]
   B --> C["Gamma pre-compensation<br/>0 = 2.2, left 3.0, right 1.0"]
   C --> D["GSDF transfer model<br/>src/types.ts and extension/content.js"]
   D --> E["buildGsdfTableValues(settings, 256)"]
@@ -167,9 +167,11 @@ At `0%`, the table keeps the gamma-adjusted signal. At `100%`, the table is the 
 
 Legacy saved settings that contain `curveMode: "pure"` are normalized back to the single GSDF path. Users should choose the filter amount instead of switching between multiple GSDF interpretations.
 
-### RGB vs YCbCr
+### CSDF-Inspired Display Gamut Assumption
 
-`colorModel: "rgb"` applies the same table to red, green, and blue channels. `colorModel: "ycbcr"` converts to a luma/chroma space, adjusts the luma component, then converts back. The luma-only path is intended to preserve chroma relationships better when strong luminance correction is active.
+The UI exposes a display gamut assumption instead of an RGB/YCbCr processing choice. Users can choose `sRGB`, `Display P3`, or `Adobe RGB`, all treated as D65 white-point displays. The extension uses the selected standard primaries to derive luminance coefficients for its browser-executable luma/chroma filter path, then applies the GSDF-shaped table on the luminance component.
+
+This is CSDF-inspired, not a full CSDF calibration. A complete Color Standard Display Function workflow requires display characterization, color-line redistribution with a perceptual color-difference metric, and usually a richer 3D transform than the SVG filter pipeline can provide. The project therefore treats the gamut selector as an explicit assumption for practical browser video adjustment, not as proof of display compliance.
 
 ### Black/White Point, Sharpness, and Temperature
 
