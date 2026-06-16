@@ -6,6 +6,9 @@ const panelSource = readFileSync(new URL('../src/components/DraggablePanel.tsx',
 const appSource = readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8');
 const typesSource = readFileSync(new URL('../src/types.ts', import.meta.url), 'utf8');
 const videoBackgroundSource = readFileSync(new URL('../src/components/VideoBackground.tsx', import.meta.url), 'utf8');
+const diagnosticProbeSource = readFileSync(new URL('../src/components/DiagnosticCameraProbe.tsx', import.meta.url), 'utf8');
+const cameraProbeSource = readFileSync(new URL('../src/diagnostics/cameraProbe.ts', import.meta.url), 'utf8');
+const luminanceEstimatorSource = readFileSync(new URL('../src/diagnostics/luminanceEstimator.ts', import.meta.url), 'utf8');
 const i18nIndexSource = readFileSync(new URL('../src/i18n/index.ts', import.meta.url), 'utf8');
 const i18nMessagesSource = readFileSync(new URL('../src/i18n/messages.ts', import.meta.url), 'utf8');
 const i18nLocalesSource = readFileSync(new URL('../src/i18n/locales.ts', import.meta.url), 'utf8');
@@ -18,6 +21,7 @@ test('control panel uses Basic Advanced Diagnostic tabs instead of A B C modes',
   assert.match(panelSource, /messages\.panel\.diagnosticTab/);
   assert.match(panelSource, /messages\.panel\.switchToDiagnostic/);
   assert.match(panelSource, /renderDiagnosticPlaceholder/);
+  assert.match(panelSource, /DiagnosticCameraProbe settings=\{settings\} setSettings=\{setSettings\} messages=\{messages\}/);
   assert.match(panelSource, /hidden=\{activeTab !== 'basic'\}/);
   assert.match(panelSource, /hidden=\{activeTab !== 'advanced'\}/);
   assert.match(panelSource, /hidden=\{activeTab !== 'diagnostic'\}/);
@@ -64,7 +68,9 @@ test('reference pattern and curve open from the right side panel', () => {
   assert.doesNotMatch(basicPanelBlock, /referenceSummaryTitle|referenceSummaryBody/);
   assert.doesNotMatch(basicPanelBlock, /openSidePanel\('pattern'\)|openSidePanel\('chart'\)/);
   assert.doesNotMatch(diagnosticPanelBlock, /openSidePanel\('pattern'\)|openSidePanel\('chart'\)/);
-  assert.doesNotMatch(diagnosticPanelBlock, /messages\.panel\.referencePanel|messages\.panel\.curvePanel/);
+  assert.match(diagnosticPanelBlock, /DiagnosticCameraProbe settings=\{settings\} setSettings=\{setSettings\} messages=\{messages\}/);
+  assert.match(diagnosticPanelBlock, /messages\.panel\.referencePanel/);
+  assert.match(diagnosticPanelBlock, /messages\.panel\.curvePanel/);
   assert.equal((panelSource.match(/openSidePanel\('pattern'\)|openSidePanel\('chart'\)/g) ?? []).length, 0);
 });
 
@@ -73,6 +79,17 @@ test('panel keeps project-owned GSDF pattern and chart logic', () => {
   assert.match(panelSource, /drawLinePairBand/);
   assert.match(panelSource, /drawVerticalGradient/);
   assert.match(panelSource, /drawContinuousSweepCell/);
+  assert.match(diagnosticProbeSource, /requestCameraStream/);
+  assert.match(diagnosticProbeSource, /createCameraCapabilitySnapshot/);
+  assert.match(diagnosticProbeSource, /analyzeLuminanceFrame/);
+  assert.match(diagnosticProbeSource, /estimateLuminance/);
+  assert.match(diagnosticProbeSource, /roughMeterBoundary/);
+  assert.match(cameraProbeSource, /getUserMedia/);
+  assert.match(cameraProbeSource, /getCapabilities/);
+  assert.match(cameraProbeSource, /getPhotoCapabilities/);
+  assert.match(luminanceEstimatorSource, /srgbToLinear/);
+  assert.match(luminanceEstimatorSource, /clipHighRatio/);
+  assert.match(luminanceEstimatorSource, /stabilityScore/);
   assert.match(panelSource, /getRecommendedImageDefaults\(prev\.lmax\)/);
   assert.match(panelSource, /getRecommendedImageDefaults\(nextLmax\)/);
   assert.match(typesSource, /const transferTable = buildGsdfTableValues\(normalized\)/);
@@ -110,6 +127,8 @@ test('visual language keeps the precision-panel styling hooks', () => {
   assert.match(cssSource, /\.gsdf-tab-switch/);
   assert.match(cssSource, /\.gsdf-reference-panel/);
   assert.match(cssSource, /\.gsdf-diagnostic-placeholder/);
+  assert.match(cssSource, /\.gsdf-camera-probe/);
+  assert.match(cssSource, /\.gsdf-camera-preview/);
   assert.match(cssSource, /\.gsdf-range::-webkit-slider-thumb \{\s*width: 12px;\s*height: 18px;/);
   assert.match(cssSource, /touch-action: manipulation/);
   assert.match(cssSource, /touch-action: none/);
@@ -133,11 +152,15 @@ test('English UI strings do not contain CJK characters', () => {
   assert.match(i18nMessagesSource, /Japanese/);
 });
 
-test('design docs describe tabs and side panel rather than obsolete A B C modes', () => {
-  assert.match(designSource, /Basic, Advanced, and placeholder Diagnostic tabs/);
+test('design docs describe tabs, camera diagnostics, and side panel rather than obsolete A B C modes', () => {
+  assert.match(designSource, /Basic, Advanced, and Diagnostic tabs/);
+  assert.match(designSource, /Diagnostic web-camera luminance probe/);
+  assert.match(designSource, /rough estimates/);
   assert.match(designSource, /upper-right side-panel control/);
   assert.match(designSource, /side-panel open\/closed states/);
-  assert.match(designZhTwSource, /基本、進階、診斷暫位頁籤/);
+  assert.match(designZhTwSource, /基本、進階、診斷頁籤/);
+  assert.match(designZhTwSource, /Web 相機亮度偵測/);
+  assert.match(designZhTwSource, /粗略估計/);
   assert.match(designZhTwSource, /右上角側邊欄控制/);
   assert.match(designZhTwSource, /側邊欄開啟\/關閉狀態/);
   assert.doesNotMatch(designSource, /A, B, and C|compact, split, and expanded work modes/);
@@ -158,7 +181,10 @@ test('i18n supports system language detection and persisted language preference'
   assert.match(i18nLocalesSource, /export const zhTwMessages: Messages =/);
   assert.match(i18nLocalesSource, /export const zhCnMessages: Messages =/);
   assert.match(i18nLocalesSource, /export const jaMessages: Messages =/);
-  assert.match(i18nLocalesSource, /診斷工作區暫位/);
+  assert.match(i18nMessagesSource, /title: 'Camera luminance probe'/);
+  assert.match(i18nMessagesSource, /roughMeterBoundary/);
+  assert.match(i18nMessagesSource, /Start camera probe/);
+  assert.match(i18nLocalesSource, /相機亮度偵測/);
 });
 
 test('standalone video preview uses the shared GSDF table model', () => {

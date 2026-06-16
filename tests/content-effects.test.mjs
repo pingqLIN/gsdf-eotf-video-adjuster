@@ -184,6 +184,7 @@ test('content script exposes a direct toggle API for fallback activation', () =>
 
   assert.equal(context.__testState.bodyChildren.length, 1);
   assert.equal(context.__testState.bodyChildren[0].id, 'gsdf-eotf-ui-iframe');
+  assert.equal(context.__testState.bodyChildren[0].allow, 'camera');
 });
 
 test('content script opens the full GSDF pattern view as a movable and resizable frame', () => {

@@ -10,7 +10,8 @@ The first-screen priority is operation:
 
 - enable or bypass the EOTF/GSDF effect
 - adjust target luminance, gamma compensation, and filter amount
-- switch between Basic, Advanced, and placeholder Diagnostic tabs without losing context
+- switch between Basic, Advanced, and Diagnostic tabs without losing context
+- run the Diagnostic web-camera luminance probe as a rough visual meter
 - open the project-owned continuous frequency resolution reference and live curve only through the upper-right side-panel control
 
 ## Reference Boundary
@@ -75,5 +76,6 @@ Before shipping a UI change:
 - run the TypeScript/build checks for the extension
 - verify the rendered panel in a browser, not just by reading code
 - check Basic, Advanced, Diagnostic, and the side-panel open/closed states where the change affects panel structure
+- for the camera luminance probe, keep camera data local and label results as rough estimates rather than colorimeter, DICOM, or CSDF validation
 - confirm text does not collide with controls at compact width
 - confirm dark and light themes keep visible button boundaries

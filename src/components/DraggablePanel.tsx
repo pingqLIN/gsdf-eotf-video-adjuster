@@ -39,6 +39,7 @@ import {
   sliderValueToLuminance,
 } from '../types';
 import { localeNames, supportedLocales, type Messages, type SupportedLocale } from '../i18n';
+import { DiagnosticCameraProbe } from './DiagnosticCameraProbe';
 
 const GSDFChart = React.lazy(() => import('./GSDFChart').then((module) => ({ default: module.GSDFChart })));
 
@@ -1252,17 +1253,9 @@ export function DraggablePanel({
   );
 
   const renderDiagnosticPlaceholder = () => (
-    <section className="gsdf-diagnostic-placeholder flex min-h-[328px] flex-col justify-between rounded-md border border-white/10 bg-[#080b0f] p-4">
-      <div className="space-y-3">
-        <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-zinc-200">
-          <span className="gsdf-control-icon flex h-7 w-7 items-center justify-center rounded-md bg-white/[0.05] text-zinc-200">
-            <Grid3X3 size={15} />
-          </span>
-          {messages.panel.diagnosticPlaceholderTitle}
-        </div>
-        <p className="max-w-[560px] text-[12px] leading-5 text-zinc-400">{messages.panel.diagnosticPlaceholderBody}</p>
-      </div>
-      <div className="mt-5 flex flex-wrap gap-2">
+    <div className="space-y-3">
+      <DiagnosticCameraProbe settings={settings} setSettings={setSettings} messages={messages} />
+      <div className="flex flex-wrap gap-2">
         <button
           type="button"
           onClick={() => {
@@ -1272,7 +1265,7 @@ export function DraggablePanel({
           className="gsdf-text-button flex h-9 items-center gap-2 rounded-md border border-white/10 px-3 text-[11px] font-semibold text-zinc-200 transition-colors hover:text-zinc-50"
         >
           <Grid3X3 size={13} />
-          Pattern
+          {messages.panel.referencePanel}
         </button>
         <button
           type="button"
@@ -1283,10 +1276,10 @@ export function DraggablePanel({
           className="gsdf-text-button flex h-9 items-center gap-2 rounded-md border border-white/10 px-3 text-[11px] font-semibold text-zinc-200 transition-colors hover:text-zinc-50"
         >
           <BarChart3 size={13} />
-          Chart
+          {messages.panel.curvePanel}
         </button>
       </div>
-    </section>
+    </div>
   );
 
   const handleHeaderPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {

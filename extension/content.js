@@ -1063,6 +1063,7 @@ function toggleUI() {
   uiIframe = document.createElement('iframe');
   uiIframe.src = chrome.runtime.getURL('ui/index.html?mode=extension');
   uiIframe.id = 'gsdf-eotf-ui-iframe';
+  uiIframe.allow = 'camera';
   
   Object.assign(uiIframe.style, {
     position: 'fixed',

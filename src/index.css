@@ -183,26 +183,30 @@
 
 .gsdf-primary-pane,
 .gsdf-reference-panel,
-.gsdf-diagnostic-placeholder {
+.gsdf-diagnostic-placeholder,
+.gsdf-camera-probe {
   scrollbar-width: thin;
   scrollbar-color: rgba(134, 149, 133, 0.55) transparent;
 }
 
 .gsdf-primary-pane::-webkit-scrollbar,
 .gsdf-reference-panel::-webkit-scrollbar,
-.gsdf-diagnostic-placeholder::-webkit-scrollbar {
+.gsdf-diagnostic-placeholder::-webkit-scrollbar,
+.gsdf-camera-probe::-webkit-scrollbar {
   width: 6px;
 }
 
 .gsdf-primary-pane::-webkit-scrollbar-track,
 .gsdf-reference-panel::-webkit-scrollbar-track,
-.gsdf-diagnostic-placeholder::-webkit-scrollbar-track {
+.gsdf-diagnostic-placeholder::-webkit-scrollbar-track,
+.gsdf-camera-probe::-webkit-scrollbar-track {
   background: transparent;
 }
 
 .gsdf-primary-pane::-webkit-scrollbar-thumb,
 .gsdf-reference-panel::-webkit-scrollbar-thumb,
-.gsdf-diagnostic-placeholder::-webkit-scrollbar-thumb {
+.gsdf-diagnostic-placeholder::-webkit-scrollbar-thumb,
+.gsdf-camera-probe::-webkit-scrollbar-thumb {
   border-radius: 999px;
   background: rgba(134, 149, 133, 0.42);
 }
@@ -215,6 +219,17 @@
   box-shadow:
     inset 1px 0 0 rgba(255, 255, 255, 0.035),
     inset 0 1px 0 rgba(255, 255, 255, 0.035);
+}
+
+.gsdf-camera-probe {
+  background:
+    linear-gradient(180deg, rgba(16, 20, 24, 0.98), rgba(7, 10, 14, 0.98)) !important;
+}
+
+.gsdf-camera-preview {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.012);
 }
 
 .gsdf-primary-pane {
@@ -707,7 +722,8 @@
 }
 
 .gsdf-panel.theme-light .gsdf-reference-panel,
-.gsdf-panel.theme-light .gsdf-diagnostic-placeholder {
+.gsdf-panel.theme-light .gsdf-diagnostic-placeholder,
+.gsdf-panel.theme-light .gsdf-camera-probe {
   background:
     linear-gradient(180deg, rgba(250, 252, 254, 0.98), rgba(238, 244, 249, 0.96)) !important;
   border-color: rgba(15, 23, 42, 0.14) !important;
