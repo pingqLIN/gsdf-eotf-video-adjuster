@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
+import { CameraExposureTestPage } from './components/CameraExposureTestPage';
 import { DraggablePanel } from './components/DraggablePanel';
 import { VideoBackground } from './components/VideoBackground';
 import { getInitialLocale, LANGUAGE_STORAGE_KEY, messagesByLocale, type SupportedLocale } from './i18n';
@@ -43,6 +44,8 @@ function normalizeSavedSettings(value: Partial<AppSettings>): AppSettings {
 
 export default function App() {
   const isExtension = window.location.search.includes('mode=extension');
+  const isCameraExposureTest = window.location.pathname === '/camera-exposure-test' ||
+    window.location.search.includes('mode=camera-exposure-test');
   const [locale, setLocale] = useState<SupportedLocale>(() => getInitialLocale());
   const [settings, setSettings] = useState<AppSettings>(() => {
     const saved = localStorage.getItem('gsdf_extension_settings');
@@ -148,6 +151,10 @@ export default function App() {
       type: 'GSDF_CLOSE_PANEL'
     }, '*');
   };
+
+  if (isCameraExposureTest) {
+    return <CameraExposureTestPage />;
+  }
 
   return (
     <div className={`relative w-full h-screen overflow-hidden font-sans ${isExtension ? 'bg-transparent pointer-events-none' : 'bg-[#050505]'}`}>

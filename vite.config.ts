@@ -13,6 +13,7 @@ export default defineConfig(() => {
       },
     },
     server: {
+      allowedHosts: ['.loca.lt', '.trycloudflare.com'],
       // Set DISABLE_HMR=true in automation when file watching should stay quiet.
       hmr: process.env.DISABLE_HMR !== 'true',
       watch: process.env.DISABLE_HMR === 'true' ? null : {},

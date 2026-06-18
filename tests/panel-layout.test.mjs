@@ -101,6 +101,20 @@ test('panel keeps project-owned GSDF pattern and chart logic', () => {
   assert.match(panelSource, /import\('\.\/GSDFChart'\)/);
 });
 
+test('optimize preset keeps the neutral gamma baseline', () => {
+  const optimizeBlock = panelSource.slice(
+    panelSource.indexOf('const applyOptimizedPreset = () =>'),
+    panelSource.indexOf('const handleLmaxChange ='),
+  );
+
+  assert.match(panelSource, /DEFAULT_GAMMA_TARGET/);
+  assert.match(optimizeBlock, /gammaTarget: DEFAULT_GAMMA_TARGET/);
+  assert.doesNotMatch(optimizeBlock, /gammaTarget:\s*1\b/);
+  assert.match(i18nMessagesSource, /neutral Gamma 2\.2 baseline/);
+  assert.match(i18nLocalesSource, /中性的 Gamma 2\.2 基準/);
+  assert.match(i18nLocalesSource, /中性的 Gamma 2\.2 基准/);
+});
+
 test('controls preserve expected interaction and resize affordances', () => {
   assert.match(panelSource, /function isInteractiveDragTarget/);
   assert.match(panelSource, /button, input, label, select, textarea, a/);

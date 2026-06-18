@@ -74,7 +74,7 @@ Browser baseline:
 - Collapsed the calibration stripe details behind an on-demand control, kept the compact stripe preview inside the panel bounds, and preserved the full multi-frequency overlay.
 - Added native disabled semantics for segmented buttons and range sliders.
 - Replaced fixed chart sizing with width-aware rendering and added a full chart overlay so the curve can be viewed outside the compact extension panel constraints.
-- Added chart captions that explain the axes, GSDF-Optimized line, and Standard sRGB reference.
+- Added chart captions that explain the axes, GSDF remap line, and Standard sRGB reference.
 - Removed the remote Google Fonts dependency and switched to local/system font stacks suitable for an extension.
 - Added midrange and monotonic GSDF regression coverage.
 - Clarified in model docs that the browser output step is an approximation outside DICOM PS3.14.

@@ -74,7 +74,7 @@
 - 將亮度校準條紋收合到 on-demand 控制；compact stripe preview 保持在面板範圍內，並保留完整多頻率 overlay。
 - 為 segmented buttons 與 range sliders 加上原生 disabled semantics。
 - 用 width-aware rendering 取代固定 chart 尺寸，並加入完整 chart overlay，讓曲線可以離開 compact extension panel 限制完整展示。
-- 增加圖說，說明 axes、GSDF-Optimized line 與 Standard sRGB reference。
+- 增加圖說，說明 axes、GSDF remap line 與 Standard sRGB reference。
 - 移除遠端 Google Fonts dependency，改用適合 extension 的 local/system font stacks。
 - 增加 GSDF 中段與單調性 regression coverage。
 - 在模型文件補上 browser output step 屬於 DICOM PS3.14 外的近似。

@@ -26,7 +26,7 @@ Built on the **Grayscale Standard Display Function (GSDF)** perceptual model beh
 | Capability | What it does |
 |---|---|
 | **GSDF-inspired luminance remap** | Rebuilds a 256-step transfer table from target luminance and JND spacing — steadier grayscale separation across dark, midtone, and bright regions |
-| **Pre-GSDF gamma compensation** | Keeps normal gamma viewing as the baseline — then lets the GSDF layer operate as a controlled rescue pass |
+| **Optional gamma compensation** | Keeps normal gamma viewing as the baseline, with an extra control for content, playback, or viewing-condition gamma bias |
 | **Filter amount blend** | Mixes the full GSDF result back toward the gamma-adjusted baseline — useful when full correction is too strong |
 | **Iframe control panel** | Injects a draggable extension UI over the page — compact A mode, split B mode, and expanded C inspection workspace |
 | **Inspection patterns** | Provides output stripes, fixed calibration stripes, full-field GSDF-QC pattern, and live curve chart — quick visual checks before trusting a setting |
@@ -85,7 +85,7 @@ Then load the unpacked extension:
 |---|---|
 | **Enable correction** | Toggle the panel switch from standby to active |
 | **Set target luminance** | Adjust `Lmax` for the display/viewing target, from `10..500 nits` |
-| **Balance gamma first** | Use Gamma compensation around `0 = gamma 2.2`, left toward `3.0`, right toward `1.0` |
+| **Adjust gamma only if needed** | Keep `0 = gamma 2.2` as the neutral baseline; move only when the source, playback path, or viewing conditions need a gamma offset |
 | **Blend gently** | Reduce Filter amount if the full GSDF table looks too strong |
 | **Inspect before trusting** | Check stripe preview, calibration stripes, full-field pattern, and curve chart |
 

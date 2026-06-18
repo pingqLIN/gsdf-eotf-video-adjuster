@@ -6,7 +6,7 @@ This document explains why the project uses a GSDF-inspired transfer model, wher
 
 The extension adjusts web video so dark-to-bright grayscale steps better follow a perceptual luminance scale. Its target is practical display preview and visual adjustment, not medical-device calibration or a claim of DICOM conformance.
 
-For ordinary color video, the viewing target should remain a gamma-style response. This extension is a remedial tool for special cases, such as poorly graded video, an inaccurate display EOTF, or viewing conditions where image detail is being lost. The project therefore keeps a configurable gamma target before the GSDF stage, then treats GSDF as an optional perceptual detail-recovery layer.
+For ordinary color video, the viewing target should remain a gamma-style response. This extension is a remedial tool for special cases, such as poorly graded video, an inaccurate display EOTF, or viewing conditions where image detail is being lost. The project therefore keeps gamma `2.2` as the neutral baseline, treats gamma compensation as an optional input-side offset, and treats GSDF as a perceptual detail-recovery layer.
 
 The GSDF model is useful because normal video code values are not evenly spaced in human visual response. DICOM PS3.14 defines a Grayscale Standard Display Function (GSDF) that maps presentation values through Just-Noticeable Difference (JND) indices to luminance. The project borrows that luminance/JND relationship to build an SVG component-transfer table for browser video.
 
@@ -50,7 +50,7 @@ Shared TypeScript implementation lives in [src/types.ts](../src/types.ts). The C
 The core flow is:
 
 1. Normalize settings with `normalizeAppSettings`.
-2. Apply the configured gamma target to each input code level. The UI presents this as a centered compensation slider: `0` means gamma `2.2`, the left edge maps to gamma `3.0`, and the right edge maps to gamma `1.0`.
+2. Optionally apply the configured gamma compensation to each input code level. The UI presents this as a centered offset slider: `0` keeps the neutral gamma `2.2` baseline, the left edge maps to gamma `3.0`, and the right edge maps to gamma `1.0`.
 3. Convert the gamma-adjusted code level into a target JND position between the display minimum and selected maximum luminance.
 4. Convert that JND back to luminance with `gsdfJndToLuminance`.
 5. Normalize luminance to `0..1`.
@@ -58,7 +58,7 @@ The core flow is:
 7. Blend the full GSDF result back with the gamma-adjusted level by the filter amount.
 8. Store 256 values in an SVG `feComponentTransfer` table.
 
-Step 6 is an extension approximation, not part of DICOM PS3.14. It gives the browser filter an encoded output value that is practical for web video, but it does not measure the actual page, GPU path, display EOTF, HDR mode, or ambient viewing condition.
+Step 6 is an extension approximation, not part of DICOM PS3.14. It is the point where the GSDF-derived luminance level is encoded back into a browser-facing output value. Users do not need to set gamma compensation to `1.0` before GSDF; gamma compensation is an extra correction for source, playback, or viewing-condition bias. The extension does not measure the actual page, GPU path, display EOTF, HDR mode, or ambient viewing condition.
 
 Important functions:
 
@@ -142,7 +142,7 @@ The slider is logarithmic. Low-luminance targets get finer control because perce
 
 ### Gamma Compensation Before GSDF
 
-The UI presents this as `Gamma compensation`, while the model stores the resulting value as `gammaTarget`. The control is intentionally placed before GSDF. The center value `0` means gamma `2.2`, the normal color-video viewing baseline. Moving left compensates for darker viewing environments by increasing the target up to gamma `3.0`; moving right compensates toward a linear response down to gamma `1.0`.
+The UI presents this as `Gamma compensation`, while the model stores the resulting value as `gammaTarget`. The control is intentionally placed before GSDF, but it is not a required manual linearization step. The center value `0` means gamma `2.2`, the normal color-video viewing baseline. Moving left deepens the input response up to gamma `3.0`; moving right brightens the input response toward gamma `1.0`, which can over-lift shadows if the source is already close to the expected baseline.
 
 ```text
 gammaCorrection = -100..0..+100
@@ -152,11 +152,11 @@ gammaCorrection +100 -> gammaTarget 1.0
 gammaLevel = pow(inputLevel, gammaTarget / 2.2)
 ```
 
-This is not a display measurement. It is a controllable pre-compensation stage for practical viewing rescue before the GSDF table is applied.
+This is not a display measurement and it does not recover scene-linear source footage. It is a controllable pre-compensation stage for practical viewing rescue when the source, playback path, or viewing condition appears gamma-biased.
 
 ### Full GSDF and Filter Amount
 
-The UI exposes one GSDF path. It first applies the gamma target, then builds the full GSDF-shaped table for the selected target luminance, and finally blends that full table output with the gamma-adjusted input by the user-facing filter amount. No target luminance is treated as a neutral no-compensation point.
+The UI exposes one GSDF path. It first applies any optional gamma offset, then builds the full GSDF-shaped table for the selected target luminance, encodes the luminance result back for browser output, and finally blends that full table output with the gamma-adjusted input by the user-facing filter amount. No target luminance is treated as a neutral no-compensation point.
 
 ```text
 filterAmount = strength/100
