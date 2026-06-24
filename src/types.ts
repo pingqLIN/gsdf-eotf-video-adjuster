@@ -3,13 +3,16 @@ export interface AppSettings {
   lmax: number;
   curveMode: GsdfCurveMode;
   gammaTarget: number;
+  sourceIsLinear: boolean;
   displayGamut: DisplayGamut;
   strength: number;
   blackPoint: number;
   whitePoint: number;
-  sharpness: number;
+  fineSharpness: number;
+  mediumSharpness: number;
   temperature: number;
   saturation: number;
+  grayscale: boolean;
   hue: number;
 }
 
@@ -26,6 +29,15 @@ export const DEFAULT_GAMMA_TARGET = 2.2;
 export const DEFAULT_DISPLAY_GAMUT: DisplayGamut = 'srgb';
 export const GAMMA_CORRECTION_MIN = -100;
 export const GAMMA_CORRECTION_MAX = 100;
+export const TONE_LEVEL_COUNT = 256;
+export const BLACK_CLIP_TONE_MIN = 0;
+export const BLACK_CLIP_TONE_MAX = 16;
+export const WHITE_CLIP_TONE_MIN = 240;
+export const WHITE_CLIP_TONE_MAX = 256;
+export const SATURATION_MIN = 50;
+export const SATURATION_MAX = 150;
+export const TEMPERATURE_MIN_K = -1000;
+export const TEMPERATURE_MAX_K = 1000;
 const LUMINANCE_LOG_RANGE = Math.log(LUMINANCE_MAX_NITS / LUMINANCE_MIN_NITS);
 const GSDF_DISPLAY_LMIN_NITS = 0.05;
 const GSDF_JND_MIN = 1;
@@ -42,25 +54,9 @@ const GSDF_COEFFICIENTS = {
   k: 1.2992634e-4,
   m: 1.3635334e-3,
 };
-const RECOMMENDED_BLACK_POINT_STOPS = [
-  { lmax: 10, value: 10 },
-  { lmax: 50, value: 8 },
-  { lmax: 100, value: 6 },
-  { lmax: 350, value: 3 },
-  { lmax: 500, value: 0 },
-] as const;
-const RECOMMENDED_WHITE_POINT_STOPS = [
-  { lmax: 10, value: 90 },
-  { lmax: 50, value: 97 },
-  { lmax: 100, value: 90 },
-  { lmax: 500, value: 100 },
-] as const;
-const RECOMMENDED_SATURATION_STOPS = [
-  { lmax: 10, value: 90 },
-  { lmax: 50, value: 100 },
-  { lmax: 100, value: 90 },
-  { lmax: 500, value: 90 },
-] as const;
+const DEFAULT_BLACK_POINT = 0;
+const DEFAULT_WHITE_POINT = TONE_LEVEL_COUNT;
+const DEFAULT_SATURATION = 100;
 
 function clampRecommendedLuminance(value: unknown): number {
   const numeric = Number(value);
@@ -71,48 +67,16 @@ function clampRecommendedLuminance(value: unknown): number {
   return Number(clamped.toFixed(clamped < 100 ? 1 : 0));
 }
 
-function interpolateRecommendedPercent(
-  lmax: number,
-  stops: readonly { lmax: number; value: number }[],
-): number {
-  const firstStop = stops[0];
-  const lastStop = stops[stops.length - 1];
-
-  if (!firstStop || !lastStop) {
-    return 0;
-  }
-
-  if (lmax <= firstStop.lmax) {
-    return firstStop.value;
-  }
-
-  if (lmax >= lastStop.lmax) {
-    return lastStop.value;
-  }
-
-  for (let index = 1; index < stops.length; index += 1) {
-    const lowerStop = stops[index - 1];
-    const upperStop = stops[index];
-
-    if (lmax <= upperStop.lmax) {
-      const ratio = (lmax - lowerStop.lmax) / Math.max(1, upperStop.lmax - lowerStop.lmax);
-      return Math.round(lowerStop.value + (upperStop.value - lowerStop.value) * ratio);
-    }
-  }
-
-  return lastStop.value;
-}
-
 export function getRecommendedImageDefaults(
   lmax: unknown,
 ): Pick<AppSettings, 'displayGamut' | 'blackPoint' | 'whitePoint' | 'saturation'> {
-  const targetLuminance = clampRecommendedLuminance(lmax);
+  clampRecommendedLuminance(lmax);
 
   return {
     displayGamut: DEFAULT_DISPLAY_GAMUT,
-    blackPoint: interpolateRecommendedPercent(targetLuminance, RECOMMENDED_BLACK_POINT_STOPS),
-    whitePoint: interpolateRecommendedPercent(targetLuminance, RECOMMENDED_WHITE_POINT_STOPS),
-    saturation: interpolateRecommendedPercent(targetLuminance, RECOMMENDED_SATURATION_STOPS),
+    blackPoint: DEFAULT_BLACK_POINT,
+    whitePoint: DEFAULT_WHITE_POINT,
+    saturation: DEFAULT_SATURATION,
   };
 }
 
@@ -123,13 +87,16 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   lmax: DEFAULT_TARGET_LUMINANCE_NITS,
   curveMode: 'relative',
   gammaTarget: DEFAULT_GAMMA_TARGET,
+  sourceIsLinear: false,
   displayGamut: DEFAULT_IMAGE_SETTINGS.displayGamut,
-  strength: 90,
+  strength: 100,
   blackPoint: DEFAULT_IMAGE_SETTINGS.blackPoint,
   whitePoint: DEFAULT_IMAGE_SETTINGS.whitePoint,
-  sharpness: 5,
+  fineSharpness: 0,
+  mediumSharpness: 0,
   temperature: 0,
   saturation: DEFAULT_IMAGE_SETTINGS.saturation,
+  grayscale: false,
   hue: 0,
 };
 
@@ -154,6 +121,34 @@ function normalizeDisplayGamut(value: unknown): DisplayGamut {
   return value === 'srgb' || value === 'display-p3' || value === 'adobe-rgb'
     ? value
     : DEFAULT_APP_SETTINGS.displayGamut;
+}
+
+function hasNewImageControlSchema(settings: Partial<AppSettings> & { sharpness?: unknown }): boolean {
+  return (
+    settings.sourceIsLinear !== undefined ||
+    settings.fineSharpness !== undefined ||
+    settings.mediumSharpness !== undefined ||
+    settings.grayscale !== undefined ||
+    Number(settings.whitePoint) > 100 ||
+    Math.abs(Number(settings.temperature)) > 50
+  );
+}
+
+function migrateLegacyWhitePercent(value: unknown, fallback: number): number {
+  if (value === undefined || value === null) {
+    return fallback;
+  }
+
+  const percent = clampNumber(value, 80, 100, 90);
+  const tone = percent <= 90
+    ? 240 + (percent - 80)
+    : 250 + (percent - 90) * 0.6;
+
+  return Math.round(clampNumber(tone, WHITE_CLIP_TONE_MIN, WHITE_CLIP_TONE_MAX, fallback));
+}
+
+function migrateLegacyTemperature(value: unknown): number {
+  return Math.round(clampNumber(value, -50, 50, 0) * 20);
 }
 
 function normalizeGammaTarget(value: unknown): number {
@@ -263,9 +258,14 @@ export function getGsdfDisplayCode(inputLevel: number, lmax: number): number {
   return clampNumber(Math.pow(linearDisplayLevel, 1 / 2.2), 0, 1, normalized);
 }
 
-export function getGammaAdjustedInputLevel(inputLevel: number, gammaTarget: number): number {
+export function getGammaAdjustedInputLevel(inputLevel: number, gammaTarget: number, sourceIsLinear = false): number {
   const normalized = clampNumber(inputLevel, 0, 1, 0);
   const targetGamma = normalizeGammaTarget(gammaTarget);
+
+  if (sourceIsLinear) {
+    return clampNumber(Math.pow(normalized, 1 / targetGamma), 0, 1, normalized);
+  }
+
   const exponent = targetGamma / DEFAULT_GAMMA_TARGET;
 
   return clampNumber(Math.pow(normalized, exponent), 0, 1, normalized);
@@ -277,9 +277,10 @@ export function buildGsdfTableValues(settings: Partial<AppSettings>, tableSize =
 
   return Array.from({ length: tableSize }, (_, index) => {
     const inputLevel = index / Math.max(1, tableSize - 1);
-    const gammaLevel = getGammaAdjustedInputLevel(inputLevel, normalized.gammaTarget);
-    const gsdfLevel = getGsdfDisplayCode(gammaLevel, normalized.lmax);
-    const mixedLevel = gammaLevel + (gsdfLevel - gammaLevel) * filterAmount;
+    const baselineLevel = getGammaAdjustedInputLevel(inputLevel, normalized.gammaTarget, normalized.sourceIsLinear);
+    const gsdfInputLevel = normalized.sourceIsLinear ? inputLevel : baselineLevel;
+    const gsdfLevel = getGsdfDisplayCode(gsdfInputLevel, normalized.lmax);
+    const mixedLevel = baselineLevel + (gsdfLevel - baselineLevel) * filterAmount;
 
     return Number(clampNumber(mixedLevel, 0, 1, inputLevel).toFixed(5));
   });
@@ -356,25 +357,40 @@ export function formatLuminance(value: number): string {
 
 export function normalizeAppSettings(value: Partial<AppSettings> | null | undefined): AppSettings {
   const settings = value ?? {};
+  const legacySettings = settings as Partial<AppSettings> & { sharpness?: unknown };
   const lmax = clampLuminance(settings.lmax);
   const recommendedImageSettings = getRecommendedImageDefaults(lmax);
+  const fallbackFineSharpness = clampNumber(legacySettings.sharpness, 0, 50, DEFAULT_APP_SETTINGS.fineSharpness);
+  const usesLegacyImageSchema = !hasNewImageControlSchema(legacySettings);
+  const blackPoint = usesLegacyImageSchema
+    ? Math.round(clampNumber(settings.blackPoint, BLACK_CLIP_TONE_MIN, BLACK_CLIP_TONE_MAX, recommendedImageSettings.blackPoint))
+    : Math.round(clampNumber(settings.blackPoint, BLACK_CLIP_TONE_MIN, BLACK_CLIP_TONE_MAX, recommendedImageSettings.blackPoint));
+  const whitePoint = usesLegacyImageSchema
+    ? migrateLegacyWhitePercent(settings.whitePoint, recommendedImageSettings.whitePoint)
+    : Math.round(clampNumber(settings.whitePoint, WHITE_CLIP_TONE_MIN, WHITE_CLIP_TONE_MAX, recommendedImageSettings.whitePoint));
+  const temperature = usesLegacyImageSchema
+    ? migrateLegacyTemperature(settings.temperature)
+    : Math.round(clampNumber(settings.temperature, TEMPERATURE_MIN_K, TEMPERATURE_MAX_K, DEFAULT_APP_SETTINGS.temperature));
   const normalized: AppSettings = {
     enabled: settings.enabled === true,
     lmax,
     curveMode: normalizeCurveMode(settings.curveMode),
     gammaTarget: normalizeGammaTarget(settings.gammaTarget),
+    sourceIsLinear: settings.sourceIsLinear === true,
     displayGamut: normalizeDisplayGamut(settings.displayGamut),
     strength: clampNumber(settings.strength, 0, 100, DEFAULT_APP_SETTINGS.strength),
-    blackPoint: clampNumber(settings.blackPoint, 0, 20, recommendedImageSettings.blackPoint),
-    whitePoint: clampNumber(settings.whitePoint, 80, 100, recommendedImageSettings.whitePoint),
-    sharpness: clampNumber(settings.sharpness, 0, 50, DEFAULT_APP_SETTINGS.sharpness),
-    temperature: clampNumber(settings.temperature, -50, 50, DEFAULT_APP_SETTINGS.temperature),
-    saturation: clampNumber(settings.saturation, 0, 125, recommendedImageSettings.saturation),
+    blackPoint,
+    whitePoint,
+    fineSharpness: Math.round(clampNumber(settings.fineSharpness, 0, 50, fallbackFineSharpness)),
+    mediumSharpness: Math.round(clampNumber(settings.mediumSharpness, 0, 40, DEFAULT_APP_SETTINGS.mediumSharpness)),
+    temperature,
+    saturation: Math.round(clampNumber(settings.saturation, SATURATION_MIN, SATURATION_MAX, recommendedImageSettings.saturation)),
+    grayscale: settings.grayscale === true,
     hue: clampNumber(settings.hue, -30, 30, DEFAULT_APP_SETTINGS.hue),
   };
 
-  if (normalized.whitePoint <= normalized.blackPoint + 10) {
-    normalized.whitePoint = Math.min(100, normalized.blackPoint + 10);
+  if (normalized.whitePoint <= normalized.blackPoint) {
+    normalized.whitePoint = Math.min(WHITE_CLIP_TONE_MAX, normalized.blackPoint + 1);
   }
 
   return normalized;

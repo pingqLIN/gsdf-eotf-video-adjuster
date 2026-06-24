@@ -12,11 +12,11 @@ import { DEFAULT_APP_SETTINGS, getRecommendedImageDefaults, normalizeAppSettings
 
 function normalizeSavedSettings(value: Partial<AppSettings>): AppSettings {
   const normalized = normalizeAppSettings(value);
-  const legacyValue = value as Partial<AppSettings> & { colorModel?: string };
+  const legacyValue = value as Partial<AppSettings> & { colorModel?: string; sharpness?: number };
   const hasLegacyProcessedDefaults =
     value.blackPoint === 2 &&
     value.whitePoint === 98 &&
-    value.sharpness === 20 &&
+    legacyValue.sharpness === 20 &&
     value.temperature === 0;
   const hasPreviousImageDefaults =
     value.blackPoint === 5 &&
@@ -28,7 +28,8 @@ function normalizeSavedSettings(value: Partial<AppSettings>): AppSettings {
     return {
       ...normalized,
       ...getRecommendedImageDefaults(normalized.lmax),
-      sharpness: DEFAULT_APP_SETTINGS.sharpness,
+      fineSharpness: DEFAULT_APP_SETTINGS.fineSharpness,
+      mediumSharpness: DEFAULT_APP_SETTINGS.mediumSharpness,
     };
   }
 

@@ -1,5 +1,10 @@
 import React from 'react';
-import { AppSettings, buildGsdfTableValues } from '../types';
+import {
+  AppSettings,
+  buildGsdfTableValues,
+  TEMPERATURE_MAX_K,
+  TONE_LEVEL_COUNT,
+} from '../types';
 
 interface VideoBackgroundProps {
   settings: AppSettings;
@@ -7,18 +12,31 @@ interface VideoBackgroundProps {
 
 export function VideoBackground({ settings }: VideoBackgroundProps) {
   const gsdfTableValues = React.useMemo(() => buildGsdfTableValues(settings).join(' '), [settings]);
-  const blackPoint = settings.blackPoint / 100;
-  const whitePoint = settings.whitePoint / 100;
+  const blackPoint = settings.blackPoint / TONE_LEVEL_COUNT;
+  const whitePoint = settings.whitePoint / TONE_LEVEL_COUNT;
   const usableRange = Math.max(0.05, whitePoint - blackPoint);
   const slope = 1 / usableRange;
   const intercept = -blackPoint / usableRange;
-  const temperatureRatio = settings.temperature / 50;
-  const redGain = Math.max(0.78, Math.min(1.22, 1 + temperatureRatio * 0.16));
-  const greenGain = Math.max(0.92, Math.min(1.08, 1 + temperatureRatio * 0.035));
-  const blueGain = Math.max(0.78, Math.min(1.22, 1 - temperatureRatio * 0.16));
-  const saturation = Math.max(0, Math.min(1.25, settings.saturation / 100));
+  const temperatureRatio = settings.temperature / TEMPERATURE_MAX_K;
+  const redGain = Math.max(0.82, Math.min(1.18, 1 + temperatureRatio * 0.14));
+  const greenGain = Math.max(0.94, Math.min(1.06, 1 + temperatureRatio * 0.025));
+  const blueGain = Math.max(0.82, Math.min(1.18, 1 - temperatureRatio * 0.14));
+  const saturation = settings.grayscale ? 0 : Math.max(0.5, Math.min(1.5, settings.saturation / 100));
   const hue = Math.max(-30, Math.min(30, settings.hue));
-  const sharpnessFilter = settings.sharpness < 8 ? '' : settings.sharpness < 20 ? 'url(#eotf-sharpen-1)' : settings.sharpness < 35 ? 'url(#eotf-sharpen-2)' : 'url(#eotf-sharpen-3)';
+  const fineSharpenAmount = Math.max(0, Math.min(50, settings.fineSharpness)) / 180;
+  const mediumSharpenAmount = Math.max(0, Math.min(40, settings.mediumSharpness)) / 250;
+  const fineSharpenKernel = `0 ${-fineSharpenAmount} 0 ${-fineSharpenAmount} ${1 + fineSharpenAmount * 4} ${-fineSharpenAmount} 0 ${-fineSharpenAmount} 0`;
+  const mediumSharpenKernel = [
+    0, 0, -mediumSharpenAmount, 0, 0,
+    0, -mediumSharpenAmount, 0, -mediumSharpenAmount, 0,
+    -mediumSharpenAmount, 0, 1 + mediumSharpenAmount * 8, 0, -mediumSharpenAmount,
+    0, -mediumSharpenAmount, 0, -mediumSharpenAmount, 0,
+    0, 0, -mediumSharpenAmount, 0, 0,
+  ].join(' ');
+  const sharpnessFilter = [
+    settings.fineSharpness > 0 ? 'url(#eotf-sharpen-fine)' : '',
+    settings.mediumSharpness > 0 ? 'url(#eotf-sharpen-medium)' : '',
+  ].filter(Boolean).join(' ');
 
   return (
     <div className="fixed inset-0 w-full h-full bg-black overflow-hidden select-none pointer-events-none">
@@ -47,14 +65,11 @@ export function VideoBackground({ settings }: VideoBackgroundProps) {
           <feColorMatrix type="saturate" values={String(saturation)} />
           <feColorMatrix type="hueRotate" values={String(hue)} />
         </filter>
-        <filter id="eotf-sharpen-1">
-          <feConvolveMatrix order="3" kernelMatrix="0 -0.22 0 -0.22 1.88 -0.22 0 -0.22 0" />
+        <filter id="eotf-sharpen-fine">
+          <feConvolveMatrix order="3" preserveAlpha="true" kernelMatrix={fineSharpenKernel} />
         </filter>
-        <filter id="eotf-sharpen-2">
-          <feConvolveMatrix order="3" kernelMatrix="0 -0.38 0 -0.38 2.52 -0.38 0 -0.38 0" />
-        </filter>
-        <filter id="eotf-sharpen-3">
-          <feConvolveMatrix order="3" kernelMatrix="0 -0.55 0 -0.55 3.20 -0.55 0 -0.55 0" />
+        <filter id="eotf-sharpen-medium">
+          <feConvolveMatrix order="5" preserveAlpha="true" kernelMatrix={mediumSharpenKernel} />
         </filter>
       </svg>
       {/* Big Buck Bunny standard test video */}
@@ -67,7 +82,7 @@ export function VideoBackground({ settings }: VideoBackgroundProps) {
         className="w-full h-full object-cover"
         style={{
           filter: settings.enabled
-            ? `${sharpnessFilter} url(#eotf-levels) url(#eotf-filter) url(#eotf-temp) url(#eotf-color)`.trim()
+            ? `${sharpnessFilter} url(#eotf-filter) url(#eotf-levels) url(#eotf-temp) url(#eotf-color)`.trim()
             : 'none',
           transition: 'filter 0.3s ease-in-out'
         }}

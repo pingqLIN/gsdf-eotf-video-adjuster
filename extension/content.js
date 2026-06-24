@@ -11,13 +11,16 @@ const DEFAULT_SETTINGS = {
   lmax: 100,
   curveMode: 'relative',
   gammaTarget: 2.2,
+  sourceIsLinear: false,
   displayGamut: 'srgb',
-  strength: 90,
-  blackPoint: 6,
-  whitePoint: 90,
-  sharpness: 5,
+  strength: 100,
+  blackPoint: 0,
+  whitePoint: 256,
+  fineSharpness: 0,
+  mediumSharpness: 0,
   temperature: 0,
-  saturation: 90,
+  saturation: 100,
+  grayscale: false,
   hue: 0
 };
 
@@ -29,6 +32,15 @@ const GAMMA_TARGET_MAX = 3.0;
 const DEFAULT_GAMMA_TARGET = 2.2;
 const GAMMA_CORRECTION_MIN = -100;
 const GAMMA_CORRECTION_MAX = 100;
+const TONE_LEVEL_COUNT = 256;
+const BLACK_CLIP_TONE_MIN = 0;
+const BLACK_CLIP_TONE_MAX = 16;
+const WHITE_CLIP_TONE_MIN = 240;
+const WHITE_CLIP_TONE_MAX = 256;
+const SATURATION_MIN = 50;
+const SATURATION_MAX = 150;
+const TEMPERATURE_MIN_K = -1000;
+const TEMPERATURE_MAX_K = 1000;
 const LUMINANCE_LOG_RANGE = Math.log(LUMINANCE_MAX_NITS / LUMINANCE_MIN_NITS);
 const GSDF_DISPLAY_LMIN_NITS = 0.05;
 const GSDF_JND_MIN = 1;
@@ -39,25 +51,9 @@ const DISPLAY_GAMUT_PROFILES = {
   'display-p3': { kr: 0.2290, kg: 0.6917, kb: 0.0793 },
   'adobe-rgb': { kr: 0.2974, kg: 0.6274, kb: 0.0752 }
 };
-const RECOMMENDED_BLACK_POINT_STOPS = [
-  { lmax: 10, value: 10 },
-  { lmax: 50, value: 8 },
-  { lmax: 100, value: 6 },
-  { lmax: 350, value: 3 },
-  { lmax: 500, value: 0 }
-];
-const RECOMMENDED_WHITE_POINT_STOPS = [
-  { lmax: 10, value: 90 },
-  { lmax: 50, value: 97 },
-  { lmax: 100, value: 90 },
-  { lmax: 500, value: 100 }
-];
-const RECOMMENDED_SATURATION_STOPS = [
-  { lmax: 10, value: 90 },
-  { lmax: 50, value: 100 },
-  { lmax: 100, value: 90 },
-  { lmax: 500, value: 90 }
-];
+const DEFAULT_BLACK_POINT = 0;
+const DEFAULT_WHITE_POINT = TONE_LEVEL_COUNT;
+const DEFAULT_SATURATION = 100;
 const GSDF_COEFFICIENTS = {
   a: -1.3011877,
   b: -2.5840191e-2,
@@ -77,12 +73,11 @@ const FILTER_IDS = {
   levels: 'gsdf-eotf-levels',
   temperature: 'gsdf-eotf-temp',
   color: 'gsdf-eotf-color',
-  sharpen1: 'gsdf-eotf-sharpen-1',
-  sharpen2: 'gsdf-eotf-sharpen-2',
-  sharpen3: 'gsdf-eotf-sharpen-3'
+  sharpenFine: 'gsdf-eotf-sharpen-fine',
+  sharpenMedium: 'gsdf-eotf-sharpen-medium'
 };
 const MANAGED_FILTER_RE =
-  /\s*url\((["']?)#gsdf-eotf-(?:gamma|ycbcr|csdf|levels|temp|color|sharpen-[123])\1\)\s*/g;
+  /\s*url\((["']?)#gsdf-eotf-(?:gamma|ycbcr|csdf|levels|temp|color|sharpen-(?:[123]|fine|medium))\1\)\s*/g;
 const MIN_VISIBLE_AREA = 8000;
 const PANEL_VIEWPORT_MARGIN = 16;
 const PANEL_DEFAULT_WIDTH = 400;
@@ -104,8 +99,18 @@ let panelPatternFrame = null;
 let panelExpandedForPattern = false;
 let scanTimer = null;
 let mutationObserver = null;
+let pendingPanelDrag = null;
+let pendingPanelDragFrame = 0;
 const managedVideos = new Set();
 const originalVideoStyles = new WeakMap();
+
+function scheduleAnimationFrame(callback) {
+  if (typeof requestAnimationFrame === 'function') {
+    return requestAnimationFrame(callback);
+  }
+
+  return setTimeout(callback, 16);
+}
 
 function clampNumber(value, min, max, fallback = min) {
   const numeric = Number(value);
@@ -129,43 +134,14 @@ function clampRecommendedLuminance(value) {
   return roundLuminance(clamped);
 }
 
-function interpolateRecommendedPercent(lmax, stops) {
-  const firstStop = stops[0];
-  const lastStop = stops[stops.length - 1];
-
-  if (!firstStop || !lastStop) {
-    return 0;
-  }
-
-  if (lmax <= firstStop.lmax) {
-    return firstStop.value;
-  }
-
-  if (lmax >= lastStop.lmax) {
-    return lastStop.value;
-  }
-
-  for (let index = 1; index < stops.length; index += 1) {
-    const lowerStop = stops[index - 1];
-    const upperStop = stops[index];
-
-    if (lmax <= upperStop.lmax) {
-      const ratio = (lmax - lowerStop.lmax) / Math.max(1, upperStop.lmax - lowerStop.lmax);
-      return Math.round(lowerStop.value + (upperStop.value - lowerStop.value) * ratio);
-    }
-  }
-
-  return lastStop.value;
-}
-
 function getRecommendedImageDefaults(lmax) {
-  const targetLuminance = clampRecommendedLuminance(lmax);
+  clampRecommendedLuminance(lmax);
 
   return {
     displayGamut: 'srgb',
-    blackPoint: interpolateRecommendedPercent(targetLuminance, RECOMMENDED_BLACK_POINT_STOPS),
-    whitePoint: interpolateRecommendedPercent(targetLuminance, RECOMMENDED_WHITE_POINT_STOPS),
-    saturation: interpolateRecommendedPercent(targetLuminance, RECOMMENDED_SATURATION_STOPS)
+    blackPoint: DEFAULT_BLACK_POINT,
+    whitePoint: DEFAULT_WHITE_POINT,
+    saturation: DEFAULT_SATURATION
   };
 }
 
@@ -175,6 +151,34 @@ function normalizeCurveMode(_value) {
 
 function normalizeDisplayGamut(value) {
   return Object.prototype.hasOwnProperty.call(DISPLAY_GAMUT_PROFILES, value) ? value : DEFAULT_SETTINGS.displayGamut;
+}
+
+function hasNewImageControlSchema(settings) {
+  return (
+    settings.sourceIsLinear !== undefined ||
+    settings.fineSharpness !== undefined ||
+    settings.mediumSharpness !== undefined ||
+    settings.grayscale !== undefined ||
+    Number(settings.whitePoint) > 100 ||
+    Math.abs(Number(settings.temperature)) > 50
+  );
+}
+
+function migrateLegacyWhitePercent(value, fallback) {
+  if (value === undefined || value === null) {
+    return fallback;
+  }
+
+  const percent = clampNumber(value, 80, 100, 90);
+  const tone = percent <= 90
+    ? 240 + (percent - 80)
+    : 250 + (percent - 90) * 0.6;
+
+  return Math.round(clampNumber(tone, WHITE_CLIP_TONE_MIN, WHITE_CLIP_TONE_MAX, fallback));
+}
+
+function migrateLegacyTemperature(value) {
+  return Math.round(clampNumber(value, -50, 50, 0) * 20);
 }
 
 function normalizeGammaTarget(value) {
@@ -284,9 +288,14 @@ function getGsdfDisplayCode(inputLevel, lmax) {
   return clampNumber(Math.pow(linearDisplayLevel, 1 / 2.2), 0, 1, normalized);
 }
 
-function getGammaAdjustedInputLevel(inputLevel, gammaTarget) {
+function getGammaAdjustedInputLevel(inputLevel, gammaTarget, sourceIsLinear = false) {
   const normalized = clampNumber(inputLevel, 0, 1, 0);
   const targetGamma = normalizeGammaTarget(gammaTarget);
+
+  if (sourceIsLinear) {
+    return clampNumber(Math.pow(normalized, 1 / targetGamma), 0, 1, normalized);
+  }
+
   const exponent = targetGamma / DEFAULT_GAMMA_TARGET;
 
   return clampNumber(Math.pow(normalized, exponent), 0, 1, normalized);
@@ -298,9 +307,10 @@ function buildGsdfTableValues(settings = currentSettings, tableSize = GSDF_TABLE
 
   return Array.from({ length: tableSize }, (_, index) => {
     const inputLevel = index / Math.max(1, tableSize - 1);
-    const gammaLevel = getGammaAdjustedInputLevel(inputLevel, normalized.gammaTarget);
-    const gsdfLevel = getGsdfDisplayCode(gammaLevel, normalized.lmax);
-    const mixedLevel = gammaLevel + (gsdfLevel - gammaLevel) * filterAmount;
+    const baselineLevel = getGammaAdjustedInputLevel(inputLevel, normalized.gammaTarget, normalized.sourceIsLinear);
+    const gsdfInputLevel = normalized.sourceIsLinear ? inputLevel : baselineLevel;
+    const gsdfLevel = getGsdfDisplayCode(gsdfInputLevel, normalized.lmax);
+    const mixedLevel = baselineLevel + (gsdfLevel - baselineLevel) * filterAmount;
 
     return Number(clampNumber(mixedLevel, 0, 1, inputLevel).toFixed(5));
   });
@@ -309,33 +319,58 @@ function buildGsdfTableValues(settings = currentSettings, tableSize = GSDF_TABLE
 function normalizeSettings(settings = {}) {
   const lmax = clampLuminance(settings.lmax);
   const recommendedImageSettings = getRecommendedImageDefaults(lmax);
+  const fallbackFineSharpness = clampNumber(settings.sharpness, 0, 50, DEFAULT_SETTINGS.fineSharpness);
+  const usesLegacyImageSchema = !hasNewImageControlSchema(settings);
+  const blackPoint = Math.round(clampNumber(settings.blackPoint, BLACK_CLIP_TONE_MIN, BLACK_CLIP_TONE_MAX, recommendedImageSettings.blackPoint));
+  const whitePoint = usesLegacyImageSchema
+    ? migrateLegacyWhitePercent(settings.whitePoint, recommendedImageSettings.whitePoint)
+    : Math.round(clampNumber(settings.whitePoint, WHITE_CLIP_TONE_MIN, WHITE_CLIP_TONE_MAX, recommendedImageSettings.whitePoint));
+  const temperature = usesLegacyImageSchema
+    ? migrateLegacyTemperature(settings.temperature)
+    : Math.round(clampNumber(settings.temperature, TEMPERATURE_MIN_K, TEMPERATURE_MAX_K, DEFAULT_SETTINGS.temperature));
   const normalized = {
     enabled: settings.enabled === true,
     lmax,
     curveMode: normalizeCurveMode(settings.curveMode),
     gammaTarget: normalizeGammaTarget(settings.gammaTarget),
+    sourceIsLinear: settings.sourceIsLinear === true,
     displayGamut: normalizeDisplayGamut(settings.displayGamut),
     strength: clampNumber(settings.strength, 0, 100, DEFAULT_SETTINGS.strength),
-    blackPoint: clampNumber(settings.blackPoint, 0, 20, recommendedImageSettings.blackPoint),
-    whitePoint: clampNumber(settings.whitePoint, 80, 100, recommendedImageSettings.whitePoint),
-    sharpness: clampNumber(settings.sharpness, 0, 50, DEFAULT_SETTINGS.sharpness),
-    temperature: clampNumber(settings.temperature, -50, 50, DEFAULT_SETTINGS.temperature),
-    saturation: clampNumber(settings.saturation, 0, 125, recommendedImageSettings.saturation),
+    blackPoint,
+    whitePoint,
+    fineSharpness: Math.round(clampNumber(settings.fineSharpness, 0, 50, fallbackFineSharpness)),
+    mediumSharpness: Math.round(clampNumber(settings.mediumSharpness, 0, 40, DEFAULT_SETTINGS.mediumSharpness)),
+    temperature,
+    saturation: Math.round(clampNumber(settings.saturation, SATURATION_MIN, SATURATION_MAX, recommendedImageSettings.saturation)),
+    grayscale: settings.grayscale === true,
     hue: clampNumber(settings.hue, -30, 30, DEFAULT_SETTINGS.hue)
   };
 
-  if (normalized.whitePoint <= normalized.blackPoint + 10) {
-    normalized.whitePoint = Math.min(100, normalized.blackPoint + 10);
+  if (normalized.whitePoint <= normalized.blackPoint) {
+    normalized.whitePoint = Math.min(WHITE_CLIP_TONE_MAX, normalized.blackPoint + 1);
   }
 
   return normalized;
 }
 
-function getSharpnessFilterId(sharpness) {
-  if (sharpness < 8) return '';
-  if (sharpness < 20) return FILTER_IDS.sharpen1;
-  if (sharpness < 35) return FILTER_IDS.sharpen2;
-  return FILTER_IDS.sharpen3;
+function buildFineSharpenKernel(strength) {
+  const amount = clampNumber(strength, 0, 50, 0) / 180;
+  return [
+    0, -amount, 0,
+    -amount, 1 + amount * 4, -amount,
+    0, -amount, 0
+  ];
+}
+
+function buildMediumSharpenKernel(strength) {
+  const amount = clampNumber(strength, 0, 40, 0) / 250;
+  return [
+    0, 0, -amount, 0, 0,
+    0, -amount, 0, -amount, 0,
+    -amount, 0, 1 + amount * 8, 0, -amount,
+    0, -amount, 0, -amount, 0,
+    0, 0, -amount, 0, 0
+  ];
 }
 
 function getDisplayGamutProfile(displayGamut) {
@@ -375,28 +410,31 @@ function isNeutralToneProfile(profile) {
   return (
     profile.strength === 0 &&
     profile.gammaTarget === DEFAULT_GAMMA_TARGET &&
+    profile.sourceIsLinear === false &&
     profile.blackPoint === 0 &&
-    profile.whitePoint === 100 &&
-    profile.sharpness < 8 &&
+    profile.whitePoint === TONE_LEVEL_COUNT &&
+    profile.fineSharpness === 0 &&
+    profile.mediumSharpness === 0 &&
     profile.temperature === 0 &&
     profile.saturation === 100 &&
+    profile.grayscale === false &&
     profile.hue === 0
   );
 }
 
 function deriveToneProfile(settings = currentSettings) {
   const normalized = normalizeSettings(settings);
-  const blackPoint = normalized.blackPoint / 100;
-  const whitePoint = normalized.whitePoint / 100;
+  const blackPoint = normalized.blackPoint / TONE_LEVEL_COUNT;
+  const whitePoint = normalized.whitePoint / TONE_LEVEL_COUNT;
   const usableRange = Math.max(0.05, whitePoint - blackPoint);
   const levelSlope = 1 / usableRange;
   const levelIntercept = -blackPoint / usableRange;
-  const temperatureRatio = normalized.temperature / 50;
-  const redGain = clampNumber(1 + temperatureRatio * 0.16, 0.78, 1.22, 1);
-  const greenGain = clampNumber(1 + temperatureRatio * 0.035, 0.92, 1.08, 1);
-  const blueGain = clampNumber(1 - temperatureRatio * 0.16, 0.78, 1.22, 1);
+  const temperatureRatio = normalized.temperature / TEMPERATURE_MAX_K;
+  const redGain = clampNumber(1 + temperatureRatio * 0.14, 0.82, 1.18, 1);
+  const greenGain = clampNumber(1 + temperatureRatio * 0.025, 0.94, 1.06, 1);
+  const blueGain = clampNumber(1 - temperatureRatio * 0.14, 0.82, 1.18, 1);
   const gsdfTableValues = buildGsdfTableValues(normalized);
-  const saturationValue = clampNumber(normalized.saturation / 100, 0, 1.25, 1);
+  const saturationValue = normalized.grayscale ? 0 : clampNumber(normalized.saturation / 100, 0.5, 1.5, 1);
   const hueValue = clampNumber(normalized.hue, -30, 30, 0);
   const lumaChromaMatrices = buildLumaChromaMatrices(normalized.displayGamut);
 
@@ -412,7 +450,10 @@ function deriveToneProfile(settings = currentSettings) {
     ],
     saturationValue,
     hueValue,
-    sharpenFilterId: getSharpnessFilterId(normalized.sharpness),
+    fineSharpenKernel: buildFineSharpenKernel(normalized.fineSharpness),
+    mediumSharpenKernel: buildMediumSharpenKernel(normalized.mediumSharpness),
+    fineSharpenFilterId: normalized.fineSharpness > 0 ? FILTER_IDS.sharpenFine : '',
+    mediumSharpenFilterId: normalized.mediumSharpness > 0 ? FILTER_IDS.sharpenMedium : '',
     gsdfTableValues,
     csdfForwardMatrix: lumaChromaMatrices.forward,
     csdfInverseMatrix: lumaChromaMatrices.inverse
@@ -435,9 +476,10 @@ function stripManagedFilterTokens(filterText = '') {
 function buildManagedFilterChain(existingFilter, profile = deriveToneProfile()) {
   const hostFilter = stripManagedFilterTokens(existingFilter);
   const managedFilters = [
-    profile.sharpenFilterId ? formatFilterUrl(profile.sharpenFilterId) : '',
-    formatFilterUrl(FILTER_IDS.levels),
+    profile.fineSharpenFilterId ? formatFilterUrl(profile.fineSharpenFilterId) : '',
+    profile.mediumSharpenFilterId ? formatFilterUrl(profile.mediumSharpenFilterId) : '',
     formatFilterUrl(FILTER_IDS.csdf),
+    formatFilterUrl(FILTER_IDS.levels),
     formatFilterUrl(FILTER_IDS.temperature),
     formatFilterUrl(FILTER_IDS.color)
   ].filter(Boolean);
@@ -505,14 +547,11 @@ function injectSVGFilter() {
         <feColorMatrix id="${FILTER_IDS.color}-saturation" type="saturate" values="1"></feColorMatrix>
         <feColorMatrix id="${FILTER_IDS.color}-hue" type="hueRotate" values="0"></feColorMatrix>
       </filter>
-      <filter id="${FILTER_IDS.sharpen1}">
-        <feConvolveMatrix order="3" kernelMatrix="0 -0.22 0 -0.22 1.88 -0.22 0 -0.22 0"></feConvolveMatrix>
+      <filter id="${FILTER_IDS.sharpenFine}">
+        <feConvolveMatrix id="${FILTER_IDS.sharpenFine}-kernel" order="3" preserveAlpha="true" kernelMatrix="0 0 0 0 1 0 0 0 0"></feConvolveMatrix>
       </filter>
-      <filter id="${FILTER_IDS.sharpen2}">
-        <feConvolveMatrix order="3" kernelMatrix="0 -0.38 0 -0.38 2.52 -0.38 0 -0.38 0"></feConvolveMatrix>
-      </filter>
-      <filter id="${FILTER_IDS.sharpen3}">
-        <feConvolveMatrix order="3" kernelMatrix="0 -0.55 0 -0.55 3.20 -0.55 0 -0.55 0"></feConvolveMatrix>
+      <filter id="${FILTER_IDS.sharpenMedium}">
+        <feConvolveMatrix id="${FILTER_IDS.sharpenMedium}-kernel" order="5" preserveAlpha="true" kernelMatrix="0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0"></feConvolveMatrix>
       </filter>
     </defs>
   `;
@@ -579,6 +618,16 @@ function updateFilterDefinitions(profile) {
   const saturationMatrix = document.getElementById(`${FILTER_IDS.color}-saturation`);
   if (saturationMatrix) {
     saturationMatrix.setAttribute('values', profile.saturationValue.toFixed(3));
+  }
+
+  const fineSharpenKernel = document.getElementById(`${FILTER_IDS.sharpenFine}-kernel`);
+  if (fineSharpenKernel) {
+    fineSharpenKernel.setAttribute('kernelMatrix', formatMatrixValues(profile.fineSharpenKernel));
+  }
+
+  const mediumSharpenKernel = document.getElementById(`${FILTER_IDS.sharpenMedium}-kernel`);
+  if (mediumSharpenKernel) {
+    mediumSharpenKernel.setAttribute('kernelMatrix', formatMatrixValues(profile.mediumSharpenKernel));
   }
 
   const hueMatrix = document.getElementById(`${FILTER_IDS.color}-hue`);
@@ -952,6 +1001,7 @@ function applyPanelFrameLayout() {
     uiIframe.style.height = `${height}px`;
     uiIframe.style.left = `${patternFrame.x}px`;
     uiIframe.style.top = `${patternFrame.y}px`;
+    uiIframe.style.transform = '';
     return;
   }
 
@@ -963,6 +1013,7 @@ function applyPanelFrameLayout() {
   uiIframe.style.height = `${height}px`;
   uiIframe.style.left = `${panelPosition.x}px`;
   uiIframe.style.top = `${panelPosition.y}px`;
+  uiIframe.style.transform = '';
 }
 
 function applyPanelDrag(deltaX, deltaY) {
@@ -994,10 +1045,31 @@ function applyPanelDrag(deltaX, deltaY) {
   };
   uiIframe.style.left = `${panelPosition.x}px`;
   uiIframe.style.top = `${panelPosition.y}px`;
+  uiIframe.style.transform = '';
 }
 
 function schedulePanelDrag(deltaX, deltaY) {
-  applyPanelDrag(deltaX, deltaY);
+  if (!Number.isFinite(deltaX) || !Number.isFinite(deltaY) || (deltaX === 0 && deltaY === 0)) {
+    return;
+  }
+
+  pendingPanelDrag = {
+    deltaX: (pendingPanelDrag?.deltaX ?? 0) + deltaX,
+    deltaY: (pendingPanelDrag?.deltaY ?? 0) + deltaY
+  };
+
+  if (pendingPanelDragFrame) {
+    return;
+  }
+
+  pendingPanelDragFrame = scheduleAnimationFrame(() => {
+    const drag = pendingPanelDrag;
+    pendingPanelDrag = null;
+    pendingPanelDragFrame = 0;
+    if (drag) {
+      applyPanelDrag(drag.deltaX, drag.deltaY);
+    }
+  });
 }
 
 function applyPanelResize(deltaWidth, deltaHeight) {
@@ -1075,7 +1147,9 @@ function toggleUI() {
     pointerEvents: 'auto',
     display: 'block',
     colorScheme: 'normal',
-    overflow: 'hidden'
+    overflow: 'hidden',
+    transform: '',
+    willChange: 'left, top, width, height'
   });
 
   document.body.appendChild(uiIframe);
