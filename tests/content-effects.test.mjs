@@ -145,7 +145,7 @@ test('derives a richer GSDF tone profile from luminance and image controls', () 
     enabled: true,
     lmax: 180,
     gammaTarget: 1.8,
-    sourceIsLinear: true,
+    displayGamma: 2.2,
     strength: 80,
     blackPoint: 6,
     whitePoint: 252,
@@ -291,6 +291,14 @@ test('maps target luminance on a 10 to 500 nits logarithmic slider', () => {
   assert.equal(hooks.normalizeSettings({}).blackPoint, 0);
   assert.equal(hooks.normalizeSettings({}).whitePoint, 256);
   assert.equal(hooks.normalizeSettings({}).sourceIsLinear, false);
+  assert.equal(hooks.normalizeSettings({}).displayGamma, 2.2);
+  assert.deepEqual(
+    [1, 1.8, 2.2, 2.4, 2.6].map((displayGamma) => hooks.normalizeSettings({ displayGamma }).displayGamma),
+    [1, 1.8, 2.2, 2.4, 2.6]
+  );
+  assert.equal(hooks.normalizeSettings({ displayGamma: 2.3 }).displayGamma, 2.2);
+  assert.equal(hooks.normalizeSettings({ displayGamma: 0.5 }).displayGamma, 2.2);
+  assert.equal(hooks.normalizeSettings({ sourceIsLinear: true }).sourceIsLinear, false);
   assert.equal(hooks.normalizeSettings({}).fineSharpness, 0);
   assert.equal(hooks.normalizeSettings({}).mediumSharpness, 0);
   assert.equal(hooks.normalizeSettings({}).gammaTarget, 2.2);
@@ -324,7 +332,18 @@ test('maps target luminance on a 10 to 500 nits logarithmic slider', () => {
   assert.equal(hooks.gammaTargetToCorrection(3.0), -100);
   assert.equal(hooks.gammaTargetToCorrection(2.2), 0);
   assert.equal(hooks.gammaTargetToCorrection(1.0), 100);
-  assert.ok(hooks.getGammaAdjustedInputLevel(0.25, 2.2, true) > 0.25);
+  const oetfMatch = hooks.getGammaAdjustedInputLevel(0.25, 2.2, 2.2);
+  const oetfLower = hooks.getGammaAdjustedInputLevel(0.25, 2.4, 2.2);
+  const oetfHigher = hooks.getGammaAdjustedInputLevel(0.25, 2.2, 2.4);
+  assert.equal(oetfMatch, 0.25);
+  assert.ok(oetfLower < oetfMatch, 'target gamma larger than display gamma should darken');
+  assert.ok(oetfHigher > oetfMatch, 'display gamma larger than target gamma should lighten');
+  assert.ok(hooks.getGammaAdjustedInputLevel(0.5, 2.4, 2.2) < 0.5);
+  assert.equal(
+    hooks.getGammaAdjustedInputLevel(0.5, 2.4, 2.2, true),
+    hooks.getGammaAdjustedInputLevel(0.5, 2.4, 2.2),
+    'legacy sourceIsLinear flag should not bypass display gamma compensation'
+  );
   assert.equal(hooks.normalizeSettings({ curveMode: 'pure' }).curveMode, 'relative');
   assert.equal(hooks.normalizeSettings({ curveMode: 'unknown' }).curveMode, 'relative');
   assert.equal(hooks.normalizeSettings({ displayGamut: 'adobe-rgb' }).displayGamut, 'adobe-rgb');
@@ -452,15 +471,21 @@ test('gamma target is applied before the GSDF filter amount blend', () => {
   const defaultGamma = hooks.buildGsdfTableValues({ lmax: 350, strength: 0, gammaTarget: 2.2 });
   const liftedGamma = hooks.buildGsdfTableValues({ lmax: 350, strength: 0, gammaTarget: 1.0 });
   const deepenedGamma = hooks.buildGsdfTableValues({ lmax: 350, strength: 0, gammaTarget: 3.0 });
+  const displayMismatchGamma = hooks.buildGsdfTableValues({ lmax: 350, strength: 0, gammaTarget: 2.4, displayGamma: 2.2 });
+  const legacyLinearMismatchGamma = hooks.buildGsdfTableValues({ lmax: 350, strength: 0, gammaTarget: 2.4, displayGamma: 2.2, sourceIsLinear: true });
   const liftedGsdf = hooks.buildGsdfTableValues({ lmax: 350, strength: 100, gammaTarget: 1.0 });
   const defaultGsdf = hooks.buildGsdfTableValues({ lmax: 350, strength: 100, gammaTarget: 2.2 });
+  const displayMatchedGsdf = hooks.buildGsdfTableValues({ lmax: 350, strength: 100, gammaTarget: 2.4, displayGamma: 2.4 });
 
   assert.equal(defaultGamma[128], identityMid);
   assert.ok(hooks.getGammaAdjustedInputLevel(0.5, 1.0) > 0.5);
   assert.ok(hooks.getGammaAdjustedInputLevel(0.5, 3.0) < 0.5);
   assert.ok(liftedGamma[128] > identityMid, 'gamma 1.0 should lift mid-level code values before GSDF');
   assert.ok(deepenedGamma[128] < identityMid, 'gamma 3.0 should deepen mid-level code values before GSDF');
+  assert.ok(displayMismatchGamma[128] < identityMid, 'display gamma mismatch 2.2 to 2.4 should deepen mid-level code values');
+  assert.equal(legacyLinearMismatchGamma[128], displayMismatchGamma[128], 'legacy linear flag should normalize out of the table path');
   assert.notEqual(liftedGsdf[128], defaultGsdf[128], 'GSDF should consume the gamma-adjusted input level');
+  assert.ok(displayMatchedGsdf[128] > defaultGsdf[128], 'full GSDF output should encode through the selected display EOTF');
 });
 
 test('display gamut selects the CSDF luma/chroma managed filter', () => {

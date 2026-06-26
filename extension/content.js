@@ -11,6 +11,7 @@ const DEFAULT_SETTINGS = {
   lmax: 100,
   curveMode: 'relative',
   gammaTarget: 2.2,
+  displayGamma: 2.2,
   sourceIsLinear: false,
   displayGamut: 'srgb',
   strength: 100,
@@ -54,6 +55,7 @@ const DISPLAY_GAMUT_PROFILES = {
 const DEFAULT_BLACK_POINT = 0;
 const DEFAULT_WHITE_POINT = TONE_LEVEL_COUNT;
 const DEFAULT_SATURATION = 100;
+const DISPLAY_GAMMA_OPTIONS = [1, 1.8, 2.2, 2.4, 2.6];
 const GSDF_COEFFICIENTS = {
   a: -1.3011877,
   b: -2.5840191e-2,
@@ -155,7 +157,7 @@ function normalizeDisplayGamut(value) {
 
 function hasNewImageControlSchema(settings) {
   return (
-    settings.sourceIsLinear !== undefined ||
+    settings.displayGamma !== undefined ||
     settings.fineSharpness !== undefined ||
     settings.mediumSharpness !== undefined ||
     settings.grayscale !== undefined ||
@@ -183,6 +185,17 @@ function migrateLegacyTemperature(value) {
 
 function normalizeGammaTarget(value) {
   return Number(clampNumber(value, GAMMA_TARGET_MIN, GAMMA_TARGET_MAX, DEFAULT_SETTINGS.gammaTarget).toFixed(3));
+}
+
+function normalizeDisplayGamma(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return DEFAULT_SETTINGS.gammaTarget;
+  }
+
+  const normalized = Number(numeric.toFixed(3));
+
+  return DISPLAY_GAMMA_OPTIONS.includes(normalized) ? normalized : DEFAULT_SETTINGS.gammaTarget;
 }
 
 function gammaCorrectionToTarget(value) {
@@ -270,9 +283,10 @@ function luminanceToGsdfJnd(luminance) {
   return (low + high) / 2;
 }
 
-function getGsdfDisplayCode(inputLevel, lmax) {
+function getGsdfDisplayCode(inputLevel, lmax, displayGamma = DEFAULT_GAMMA_TARGET) {
   const normalized = clampNumber(inputLevel, 0, 1, 0);
   const maxLuminance = clampLuminance(lmax);
+  const deviceGamma = normalizeDisplayGamma(displayGamma);
   const minLuminance = Math.min(GSDF_DISPLAY_LMIN_NITS, maxLuminance * 0.01);
   const jndMin = luminanceToGsdfJnd(minLuminance);
   const jndMax = luminanceToGsdfJnd(maxLuminance);
@@ -285,18 +299,14 @@ function getGsdfDisplayCode(inputLevel, lmax) {
     normalized
   );
 
-  return clampNumber(Math.pow(linearDisplayLevel, 1 / 2.2), 0, 1, normalized);
+  return clampNumber(Math.pow(linearDisplayLevel, 1 / deviceGamma), 0, 1, normalized);
 }
 
-function getGammaAdjustedInputLevel(inputLevel, gammaTarget, sourceIsLinear = false) {
+function getGammaAdjustedInputLevel(inputLevel, gammaTarget, displayGamma) {
   const normalized = clampNumber(inputLevel, 0, 1, 0);
   const targetGamma = normalizeGammaTarget(gammaTarget);
-
-  if (sourceIsLinear) {
-    return clampNumber(Math.pow(normalized, 1 / targetGamma), 0, 1, normalized);
-  }
-
-  const exponent = targetGamma / DEFAULT_GAMMA_TARGET;
+  const deviceGamma = normalizeDisplayGamma(displayGamma);
+  const exponent = targetGamma / deviceGamma;
 
   return clampNumber(Math.pow(normalized, exponent), 0, 1, normalized);
 }
@@ -307,9 +317,12 @@ function buildGsdfTableValues(settings = currentSettings, tableSize = GSDF_TABLE
 
   return Array.from({ length: tableSize }, (_, index) => {
     const inputLevel = index / Math.max(1, tableSize - 1);
-    const baselineLevel = getGammaAdjustedInputLevel(inputLevel, normalized.gammaTarget, normalized.sourceIsLinear);
-    const gsdfInputLevel = normalized.sourceIsLinear ? inputLevel : baselineLevel;
-    const gsdfLevel = getGsdfDisplayCode(gsdfInputLevel, normalized.lmax);
+    const baselineLevel = getGammaAdjustedInputLevel(
+      inputLevel,
+      normalized.gammaTarget,
+      normalized.displayGamma
+    );
+    const gsdfLevel = getGsdfDisplayCode(baselineLevel, normalized.lmax, normalized.displayGamma);
     const mixedLevel = baselineLevel + (gsdfLevel - baselineLevel) * filterAmount;
 
     return Number(clampNumber(mixedLevel, 0, 1, inputLevel).toFixed(5));
@@ -333,7 +346,8 @@ function normalizeSettings(settings = {}) {
     lmax,
     curveMode: normalizeCurveMode(settings.curveMode),
     gammaTarget: normalizeGammaTarget(settings.gammaTarget),
-    sourceIsLinear: settings.sourceIsLinear === true,
+    displayGamma: normalizeDisplayGamma(settings.displayGamma),
+    sourceIsLinear: false,
     displayGamut: normalizeDisplayGamut(settings.displayGamut),
     strength: clampNumber(settings.strength, 0, 100, DEFAULT_SETTINGS.strength),
     blackPoint,
@@ -411,6 +425,7 @@ function isNeutralToneProfile(profile) {
     profile.strength === 0 &&
     profile.gammaTarget === DEFAULT_GAMMA_TARGET &&
     profile.sourceIsLinear === false &&
+    profile.displayGamma === DEFAULT_SETTINGS.gammaTarget &&
     profile.blackPoint === 0 &&
     profile.whitePoint === TONE_LEVEL_COUNT &&
     profile.fineSharpness === 0 &&

@@ -3,6 +3,7 @@ export interface AppSettings {
   lmax: number;
   curveMode: GsdfCurveMode;
   gammaTarget: number;
+  displayGamma: number;
   sourceIsLinear: boolean;
   displayGamut: DisplayGamut;
   strength: number;
@@ -26,6 +27,7 @@ export const LUMINANCE_SLIDER_MAX = 1000;
 export const GAMMA_TARGET_MIN = 1.0;
 export const GAMMA_TARGET_MAX = 3.0;
 export const DEFAULT_GAMMA_TARGET = 2.2;
+export const DISPLAY_GAMMA_OPTIONS = [1, 1.8, 2.2, 2.4, 2.6] as const;
 export const DEFAULT_DISPLAY_GAMUT: DisplayGamut = 'srgb';
 export const GAMMA_CORRECTION_MIN = -100;
 export const GAMMA_CORRECTION_MAX = 100;
@@ -87,6 +89,7 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   lmax: DEFAULT_TARGET_LUMINANCE_NITS,
   curveMode: 'relative',
   gammaTarget: DEFAULT_GAMMA_TARGET,
+  displayGamma: DEFAULT_GAMMA_TARGET,
   sourceIsLinear: false,
   displayGamut: DEFAULT_IMAGE_SETTINGS.displayGamut,
   strength: 100,
@@ -125,7 +128,7 @@ function normalizeDisplayGamut(value: unknown): DisplayGamut {
 
 function hasNewImageControlSchema(settings: Partial<AppSettings> & { sharpness?: unknown }): boolean {
   return (
-    settings.sourceIsLinear !== undefined ||
+    settings.displayGamma !== undefined ||
     settings.fineSharpness !== undefined ||
     settings.mediumSharpness !== undefined ||
     settings.grayscale !== undefined ||
@@ -153,6 +156,21 @@ function migrateLegacyTemperature(value: unknown): number {
 
 function normalizeGammaTarget(value: unknown): number {
   return Number(clampNumber(value, GAMMA_TARGET_MIN, GAMMA_TARGET_MAX, DEFAULT_APP_SETTINGS.gammaTarget).toFixed(3));
+}
+
+function normalizeDisplayGamma(value: unknown): number {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return DEFAULT_GAMMA_TARGET;
+  }
+
+  const normalized = Number(numeric.toFixed(3));
+
+  if ((DISPLAY_GAMMA_OPTIONS as readonly number[]).includes(normalized)) {
+    return normalized;
+  }
+
+  return DEFAULT_GAMMA_TARGET;
 }
 
 export function gammaCorrectionToTarget(value: unknown): number {
@@ -240,9 +258,14 @@ export function luminanceToGsdfJnd(luminance: number): number {
   return (low + high) / 2;
 }
 
-export function getGsdfDisplayCode(inputLevel: number, lmax: number): number {
+export function getGsdfDisplayCode(
+  inputLevel: number,
+  lmax: number,
+  displayGamma = DEFAULT_GAMMA_TARGET,
+): number {
   const normalized = clampNumber(inputLevel, 0, 1, 0);
   const maxLuminance = clampLuminance(lmax);
+  const deviceGamma = normalizeDisplayGamma(displayGamma);
   const minLuminance = Math.min(GSDF_DISPLAY_LMIN_NITS, maxLuminance * 0.01);
   const jndMin = luminanceToGsdfJnd(minLuminance);
   const jndMax = luminanceToGsdfJnd(maxLuminance);
@@ -255,18 +278,18 @@ export function getGsdfDisplayCode(inputLevel: number, lmax: number): number {
     normalized,
   );
 
-  return clampNumber(Math.pow(linearDisplayLevel, 1 / 2.2), 0, 1, normalized);
+  return clampNumber(Math.pow(linearDisplayLevel, 1 / deviceGamma), 0, 1, normalized);
 }
 
-export function getGammaAdjustedInputLevel(inputLevel: number, gammaTarget: number, sourceIsLinear = false): number {
+export function getGammaAdjustedInputLevel(
+  inputLevel: number,
+  gammaTarget: number,
+  displayGamma = DEFAULT_GAMMA_TARGET,
+): number {
   const normalized = clampNumber(inputLevel, 0, 1, 0);
   const targetGamma = normalizeGammaTarget(gammaTarget);
-
-  if (sourceIsLinear) {
-    return clampNumber(Math.pow(normalized, 1 / targetGamma), 0, 1, normalized);
-  }
-
-  const exponent = targetGamma / DEFAULT_GAMMA_TARGET;
+  const deviceGamma = normalizeDisplayGamma(displayGamma);
+  const exponent = targetGamma / deviceGamma;
 
   return clampNumber(Math.pow(normalized, exponent), 0, 1, normalized);
 }
@@ -277,9 +300,12 @@ export function buildGsdfTableValues(settings: Partial<AppSettings>, tableSize =
 
   return Array.from({ length: tableSize }, (_, index) => {
     const inputLevel = index / Math.max(1, tableSize - 1);
-    const baselineLevel = getGammaAdjustedInputLevel(inputLevel, normalized.gammaTarget, normalized.sourceIsLinear);
-    const gsdfInputLevel = normalized.sourceIsLinear ? inputLevel : baselineLevel;
-    const gsdfLevel = getGsdfDisplayCode(gsdfInputLevel, normalized.lmax);
+    const baselineLevel = getGammaAdjustedInputLevel(
+      inputLevel,
+      normalized.gammaTarget,
+      normalized.displayGamma,
+    );
+    const gsdfLevel = getGsdfDisplayCode(baselineLevel, normalized.lmax, normalized.displayGamma);
     const mixedLevel = baselineLevel + (gsdfLevel - baselineLevel) * filterAmount;
 
     return Number(clampNumber(mixedLevel, 0, 1, inputLevel).toFixed(5));
@@ -376,7 +402,8 @@ export function normalizeAppSettings(value: Partial<AppSettings> | null | undefi
     lmax,
     curveMode: normalizeCurveMode(settings.curveMode),
     gammaTarget: normalizeGammaTarget(settings.gammaTarget),
-    sourceIsLinear: settings.sourceIsLinear === true,
+    displayGamma: normalizeDisplayGamma(settings.displayGamma),
+    sourceIsLinear: false,
     displayGamut: normalizeDisplayGamut(settings.displayGamut),
     strength: clampNumber(settings.strength, 0, 100, DEFAULT_APP_SETTINGS.strength),
     blackPoint,

@@ -9,11 +9,13 @@ import {
   Grid3X3,
   Languages,
   Maximize2,
+  Minus,
   MonitorUp,
   Moon,
   PanelRightClose,
   PanelRightOpen,
   Palette,
+  Plus,
   Power,
   RotateCcw,
   Settings,
@@ -26,6 +28,8 @@ import {
   AppSettings,
   BLACK_CLIP_TONE_MAX,
   BLACK_CLIP_TONE_MIN,
+  DISPLAY_GAMMA_OPTIONS,
+  buildGsdfTableValues,
   buildGsdfStripeRows,
   DEFAULT_APP_SETTINGS,
   DEFAULT_GAMMA_TARGET,
@@ -49,7 +53,7 @@ import {
   WHITE_CLIP_TONE_MAX,
   WHITE_CLIP_TONE_MIN,
 } from '../types';
-import { localeNames, supportedLocales, type Messages, type SupportedLocale } from '../i18n';
+import { localeNames, localeShortNames, supportedLocales, type Messages, type SupportedLocale } from '../i18n';
 import { DiagnosticCameraProbe } from './DiagnosticCameraProbe';
 
 const GSDFChart = React.lazy(() => import('./GSDFChart').then((module) => ({ default: module.GSDFChart })));
@@ -62,6 +66,8 @@ type ResizeHandle = 'e' | 's' | 'se';
 type InspectionScaleMode = 'actual' | 'cover' | 'fit';
 
 const PANEL_THEME_STORAGE_KEY = 'gsdf_panel_theme';
+const PANEL_TEXT_SCALE_STORAGE_KEY = 'gsdf_panel_text_scale';
+const PANEL_TEXT_SCALE_STEPS = [0.9, 1, 1.1, 1.2] as const;
 const INSPECTION_MIN_WIDTH = 560;
 const INSPECTION_MIN_HEIGHT = 420;
 const INSPECTION_DEFAULT_WIDTH = 960;
@@ -73,7 +79,6 @@ const COLOR_LINEARITY_PATTERN_WIDTH = 1800;
 const COLOR_LINEARITY_PATTERN_HEIGHT = 920;
 const BIDIRECTIONAL_COLOR_PATTERN_WIDTH = 1800;
 const BIDIRECTIONAL_COLOR_PATTERN_HEIGHT = 920;
-const BIDIRECTIONAL_COLOR_SAMPLE_COUNT = 50;
 const COLOR_RAMP_SINE_CYCLES = 9;
 const CHART_VIEW_WIDTH = 1040;
 const CHART_VIEW_HEIGHT = 640;
@@ -422,8 +427,40 @@ function CheckboxControl({
   );
 }
 
+function DisplayGammaSelect({
+  value,
+  onChange,
+  label,
+  note,
+  title,
+}: {
+  value: number;
+  onChange: (value: number) => void;
+  label: string;
+  note: string;
+  title?: string;
+}) {
+  return (
+    <label className="gsdf-inline-select flex shrink-0 flex-col items-end gap-1" title={title}>
+      <span className="text-[10px] font-semibold text-zinc-400">{label}</span>
+      <select
+        value={value}
+        onChange={(event) => onChange(Number(event.target.value))}
+        className="h-7 rounded border border-white/10 bg-[#080b0f] px-2 text-[11px] font-semibold text-zinc-200"
+      >
+        {DISPLAY_GAMMA_OPTIONS.map((option) => (
+          <option key={option} value={option} className="bg-[#111418]">
+            {option}
+          </option>
+        ))}
+      </select>
+      <span className="text-[9px] text-zinc-500">{note}</span>
+    </label>
+  );
+}
+
 function isInteractiveDragTarget(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) {
+  if (!(target instanceof Element)) {
     return false;
   }
 
@@ -431,7 +468,7 @@ function isInteractiveDragTarget(target: EventTarget | null): boolean {
 }
 
 function isViewportPanBlockedTarget(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) {
+  if (!(target instanceof Element)) {
     return false;
   }
 
@@ -440,6 +477,37 @@ function isViewportPanBlockedTarget(target: EventTarget | null): boolean {
 
 function clampValue(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
+}
+
+function normalizePanelTextScale(value: number): number {
+  if (!Number.isFinite(value)) {
+    return 1;
+  }
+
+  return PANEL_TEXT_SCALE_STEPS.reduce((nearest, option) => (
+    Math.abs(option - value) < Math.abs(nearest - value) ? option : nearest
+  ), PANEL_TEXT_SCALE_STEPS[1] ?? 1);
+}
+
+function getInitialPanelTextScale(): number {
+  if (typeof window === 'undefined') {
+    return 1;
+  }
+
+  const savedScale = Number.parseFloat(window.localStorage.getItem(PANEL_TEXT_SCALE_STORAGE_KEY) ?? '');
+  return normalizePanelTextScale(savedScale);
+}
+
+function getPanelTextScaleStep(value: number, direction: -1 | 1): number {
+  const normalized = normalizePanelTextScale(value);
+  const currentIndex = PANEL_TEXT_SCALE_STEPS.findIndex((option) => option === normalized);
+  const nextIndex = Math.round(clampValue(
+    (currentIndex >= 0 ? currentIndex : 1) + direction,
+    0,
+    PANEL_TEXT_SCALE_STEPS.length - 1,
+  ));
+
+  return PANEL_TEXT_SCALE_STEPS[nextIndex] ?? 1;
 }
 
 function getDefaultInspectionSize() {
@@ -787,11 +855,20 @@ function InteractiveInspectionViewport({
   const panStartRef = React.useRef<{ pointerId: number; x: number; y: number } | null>(null);
   const [containerSize, setContainerSize] = React.useState({ width: 1, height: 1 });
   const [viewport, setViewport] = React.useState({
-    scaleMode: 'fit' as InspectionScaleMode,
+    scaleMode: 'actual' as InspectionScaleMode,
     zoom: 1,
     offsetX: 0,
     offsetY: 0,
   });
+
+  React.useEffect(() => {
+    setViewport({
+      scaleMode: 'actual' as InspectionScaleMode,
+      zoom: 1,
+      offsetX: 0,
+      offsetY: 0,
+    });
+  }, [designWidth, designHeight]);
 
   React.useEffect(() => {
     const container = containerRef.current;
@@ -1208,12 +1285,88 @@ function formatRgb(color: RgbTuple): string {
   return `rgb(${clampTone(color[0])},${clampTone(color[1])},${clampTone(color[2])})`;
 }
 
+const REFERENCE_DISPLAY_GAMUT_PROFILES: Record<AppSettings['displayGamut'], { kr: number; kg: number; kb: number }> = {
+  srgb: { kr: 0.2126, kg: 0.7152, kb: 0.0722 },
+  'display-p3': { kr: 0.2290, kg: 0.6917, kb: 0.0793 },
+  'adobe-rgb': { kr: 0.2974, kg: 0.6274, kb: 0.0752 },
+};
+
+function getReferenceDisplayGamutProfile(displayGamut: AppSettings['displayGamut']) {
+  return REFERENCE_DISPLAY_GAMUT_PROFILES[displayGamut] ?? REFERENCE_DISPLAY_GAMUT_PROFILES.srgb;
+}
+
+function sampleReferenceToneTable(transferTable: number[], normalizedLevel: number): number {
+  const level = clampValue(normalizedLevel, 0, 1);
+  if (transferTable.length === 0) {
+    return level;
+  }
+
+  const position = level * (transferTable.length - 1);
+  const lowIndex = Math.floor(position);
+  const highIndex = Math.ceil(position);
+  const mix = position - lowIndex;
+  const lowValue = transferTable[lowIndex] ?? level;
+  const highValue = transferTable[highIndex] ?? lowValue;
+
+  return lowValue + (highValue - lowValue) * mix;
+}
+
+function applyReferenceCsdfToneTable(
+  color: RgbTuple,
+  transferTable: number[],
+  displayGamut: AppSettings['displayGamut'],
+): RgbTuple {
+  const { kr, kg, kb } = getReferenceDisplayGamutProfile(displayGamut);
+  const red = clampTone(color[0]) / 255;
+  const green = clampTone(color[1]) / 255;
+  const blue = clampTone(color[2]) / 255;
+  const cbScale = 2 * (1 - kb);
+  const crScale = 2 * (1 - kr);
+  const y = clampValue(kr * red + kg * green + kb * blue, 0, 1);
+  const cb = (blue - y) / cbScale;
+  const cr = (red - y) / crScale;
+  const mappedY = sampleReferenceToneTable(transferTable, y);
+  const redFromCr = crScale;
+  const blueFromCb = cbScale;
+  const greenFromCb = -(kb * cbScale) / kg;
+  const greenFromCr = -(kr * crScale) / kg;
+
+  return [
+    clampTone((mappedY + redFromCr * cr) * 255),
+    clampTone((mappedY + greenFromCb * cb + greenFromCr * cr) * 255),
+    clampTone((mappedY + blueFromCb * cb) * 255),
+  ];
+}
+
 function interpolateColor(from: RgbTuple, to: RgbTuple, amount: number): RgbTuple {
   return [
     from[0] + (to[0] - from[0]) * amount,
     from[1] + (to[1] - from[1]) * amount,
     from[2] + (to[2] - from[2]) * amount,
   ];
+}
+
+function getPrimarySecondaryPrimaryRatio(progress: number): number {
+  const triangle = progress < 0.5 ? progress * 2 : (1 - progress) * 2;
+  return 0.5 - Math.cos(triangle * Math.PI) / 2;
+}
+
+function getColorRampColor(
+  row: ColorLinearityRow,
+  progress: number,
+  calibrated: boolean,
+  bandBoost: number,
+  inverted = false,
+): RgbTuple {
+  const baseRatio = getPrimarySecondaryPrimaryRatio(progress);
+  const rampRatio = inverted ? 1 - baseRatio : baseRatio;
+  const color = interpolateColor(row.base, row.secondary, rampRatio);
+  const amplitude = (row.amplitudePercent / 100) * (calibrated ? 1.08 : 0.62) * bandBoost;
+  const uncalibratedVisibility = 0.18 + 0.72 * Math.exp(-((progress - 0.52) ** 2) / 0.028);
+  const visibility = calibrated ? 1 : uncalibratedVisibility;
+  const sine = Math.sin(progress * Math.PI * 2 * COLOR_RAMP_SINE_CYCLES) * amplitude * visibility * 255;
+  color[row.modulationChannel] = clampTone(color[row.modulationChannel] + sine);
+  return color;
 }
 
 function drawColorRamp(
@@ -1224,24 +1377,17 @@ function drawColorRamp(
   height: number,
   row: ColorLinearityRow,
   calibrated: boolean,
+  transferTable: number[],
+  displayGamut: AppSettings['displayGamut'],
   bandBoost = 1,
+  inverted = false,
 ) {
-  const amplitude = (row.amplitudePercent / 100) * 255 * (calibrated ? 1.08 : 0.62) * bandBoost;
-  const cycles = COLOR_RAMP_SINE_CYCLES;
-
   for (let column = 0; column < width; column += 1) {
     const progress = width <= 1 ? 0 : column / (width - 1);
-    const triangle = progress < 0.5 ? progress * 2 : (1 - progress) * 2;
-    const smoothProgress = 0.5 - Math.cos(triangle * Math.PI) / 2;
-    const color = interpolateColor(row.base, row.secondary, smoothProgress);
-    const uncalibratedVisibility = 0.18 + 0.72 * Math.exp(-((progress - 0.52) ** 2) / 0.028);
-    const visibility = calibrated ? 1 : uncalibratedVisibility;
-    const sine = Math.sin(progress * Math.PI * 2 * cycles) * amplitude * visibility;
-    color[row.modulationChannel] = clampTone(color[row.modulationChannel] + sine);
+    const color = applyReferenceCsdfToneTable(getColorRampColor(row, progress, calibrated, bandBoost, inverted), transferTable, displayGamut);
     context.fillStyle = formatRgb(color);
     context.fillRect(x + column, y, 1, height);
   }
-
 }
 
 function drawColorLinearityLogoBlock(
@@ -1251,6 +1397,8 @@ function drawColorLinearityLogoBlock(
   width: number,
   height: number,
   row: ColorLinearityRow,
+  transferTable: number[],
+  displayGamut: AppSettings['displayGamut'],
 ) {
   const faintBackground = [...row.base] as RgbTuple;
   const background = [...row.base] as RgbTuple;
@@ -1258,26 +1406,18 @@ function drawColorLinearityLogoBlock(
   background[row.modulationChannel] = clampTone(background[row.modulationChannel] + (row.differencePercent / 100) * 255);
   const splitX = x + width / 2;
 
-  context.fillStyle = formatRgb(faintBackground);
+  context.fillStyle = formatRgb(applyReferenceCsdfToneTable(faintBackground, transferTable, displayGamut));
   context.fillRect(x, y, width / 2, height);
-  context.fillStyle = formatRgb(background);
+  context.fillStyle = formatRgb(applyReferenceCsdfToneTable(background, transferTable, displayGamut));
   context.fillRect(splitX, y, width / 2, height);
 
-  context.fillStyle = formatRgb(row.base);
+  context.fillStyle = formatRgb(applyReferenceCsdfToneTable(row.base, transferTable, displayGamut));
   context.font = '62px Cascadia Mono, monospace';
   context.textAlign = 'center';
   context.textBaseline = 'middle';
   context.globalAlpha = 0.76;
   context.fillText('CSDF', x + width / 2, y + height / 2);
   context.globalAlpha = 1;
-
-  context.strokeStyle = 'rgba(0,0,0,0.25)';
-  context.lineWidth = 2;
-  context.beginPath();
-  context.moveTo(splitX, y);
-  context.lineTo(splitX, y + height);
-  context.stroke();
-  context.strokeRect(x, y, width, height);
 }
 
 function drawPaperComparisonRamp(
@@ -1288,22 +1428,22 @@ function drawPaperComparisonRamp(
   height: number,
   row: ColorLinearityRow,
   calibrated: boolean,
+  transferTable: number[],
+  displayGamut: AppSettings['displayGamut'],
 ) {
-  drawColorRamp(context, x, y, width, height, row, calibrated);
+  drawColorRamp(context, x, y, width, height, row, calibrated, transferTable, displayGamut);
 
   const bandHeight = Math.max(18, height * 0.3);
   const bandY = y + height * 0.36;
-  const bandInset = calibrated ? 0 : width * 0.09;
-  const bandWidth = calibrated ? width : width * 0.76;
   context.save();
   context.beginPath();
-  context.rect(x + bandInset, bandY, bandWidth, bandHeight);
+  context.rect(x, bandY, width, bandHeight);
   context.clip();
-  drawColorRamp(context, x, y, width, height, row, calibrated, calibrated ? 1.18 : 1.05);
+  drawColorRamp(context, x, y, width, height, row, calibrated, transferTable, displayGamut, calibrated ? 1.18 : 1.05, true);
   context.restore();
 }
 
-function ColorBidirectionalPattern({ messages }: { messages: Messages }) {
+function ColorBidirectionalPattern({ settings, messages }: { settings: AppSettings; messages: Messages }) {
   const canvasRef = React.useRef<HTMLCanvasElement | null>(null);
 
   React.useEffect(() => {
@@ -1323,8 +1463,8 @@ function ColorBidirectionalPattern({ messages }: { messages: Messages }) {
     }
     context.setTransform(dpr, 0, 0, dpr, 0, 0);
     context.imageSmoothingEnabled = false;
-    drawBidirectionalColorPattern(context);
-  }, []);
+    drawBidirectionalColorPattern(context, settings);
+  }, [settings]);
 
   return <canvas ref={canvasRef} className="h-full w-full bg-black" aria-label={messages.panel.bidirectionalPatternAria} />;
 }
@@ -1336,69 +1476,51 @@ function drawBidirectionalColorBand(
   width: number,
   height: number,
   row: ColorLinearityRow,
+  transferTable: number[],
+  displayGamut: AppSettings['displayGamut'],
 ) {
   const halfHeight = Math.floor(height / 2);
   const lowerHeight = height - halfHeight;
-  const sampleWidth = width / BIDIRECTIONAL_COLOR_SAMPLE_COUNT;
 
-  for (let sampleIndex = 0; sampleIndex < BIDIRECTIONAL_COLOR_SAMPLE_COUNT; sampleIndex += 1) {
-    const sampleX = x + sampleIndex * sampleWidth;
-    const sampleW = Math.ceil(sampleWidth + 0.5);
-    const forwardProgress = sampleIndex / (BIDIRECTIONAL_COLOR_SAMPLE_COUNT - 1);
-    const rotatedProgress = (BIDIRECTIONAL_COLOR_SAMPLE_COUNT - 1 - sampleIndex) / (BIDIRECTIONAL_COLOR_SAMPLE_COUNT - 1);
-    drawDiscreteGradientSample(context, sampleX, y, sampleW, halfHeight, row, forwardProgress);
-    drawDiscreteGradientSample(context, sampleX, y + halfHeight, sampleW, lowerHeight, row, rotatedProgress);
-  }
+  drawSingleDirectionColorRamp(context, x, y, width, halfHeight, row, false, transferTable, displayGamut);
+  drawSingleDirectionColorRamp(context, x, y + halfHeight, width, lowerHeight, row, true, transferTable, displayGamut);
 }
 
-function drawDiscreteGradientSample(
+function drawSingleDirectionColorRamp(
   context: CanvasRenderingContext2D,
   x: number,
   y: number,
   width: number,
   height: number,
   row: ColorLinearityRow,
-  progress: number,
+  reversed: boolean,
+  transferTable: number[],
+  displayGamut: AppSettings['displayGamut'],
 ) {
   for (let column = 0; column < width; column += 1) {
-    context.fillStyle = formatRgb(selectDiscreteGradientLineColor(row, progress, column));
+    const progress = width <= 1 ? 0 : column / (width - 1);
+    const rampProgress = reversed ? 1 - progress : progress;
+    const color = applyReferenceCsdfToneTable(interpolateColor(row.base, row.secondary, rampProgress), transferTable, displayGamut);
+    context.fillStyle = formatRgb(color);
     context.fillRect(x + column, y, 1, height);
   }
 }
 
-function selectDiscreteGradientLineColor(row: ColorLinearityRow, progress: number, localColumn: number): RgbTuple {
-  const linePeriod = 8;
-  const linePhase = ((localColumn % linePeriod) + 0.5) / linePeriod;
-  return linePhase < progress ? row.secondary : row.base;
-}
-
 function drawBidirectionalColorPattern(
   context: CanvasRenderingContext2D,
+  settings: AppSettings,
   renderWidth = BIDIRECTIONAL_COLOR_PATTERN_WIDTH,
   renderHeight = BIDIRECTIONAL_COLOR_PATTERN_HEIGHT,
 ) {
-  context.fillStyle = '#000000';
-  context.fillRect(0, 0, renderWidth, renderHeight);
-
-  const marginX = 68;
-  const rowHeight = 132;
-  const patternWidth = renderWidth - marginX * 2;
-  const patternHeight = COLOR_LINEARITY_ROWS.length * rowHeight;
-  const top = (renderHeight - patternHeight) / 2;
-
+  const transferTable = buildGsdfTableValues(settings);
   COLOR_LINEARITY_ROWS.forEach((row, index) => {
-    const y = top + index * rowHeight;
-    drawBidirectionalColorBand(context, marginX, y, patternWidth, rowHeight, row);
-
-    context.fillStyle = 'rgba(255,255,255,0.18)';
-    context.fillRect(marginX, y + rowHeight / 2 - 1, patternWidth, 2);
-    context.strokeStyle = 'rgba(0,0,0,0.36)';
-    context.lineWidth = 2;
-    context.strokeRect(marginX, y, patternWidth, rowHeight);
+    const y = Math.round((index * renderHeight) / COLOR_LINEARITY_ROWS.length);
+    const nextY = Math.round(((index + 1) * renderHeight) / COLOR_LINEARITY_ROWS.length);
+    drawBidirectionalColorBand(context, 0, y, renderWidth, nextY - y, row, transferTable, settings.displayGamut);
   });
 }
 
-function ColorLinearityPattern({ messages }: { messages: Messages }) {
+function ColorLinearityPattern({ settings, messages }: { settings: AppSettings; messages: Messages }) {
   const canvasRef = React.useRef<HTMLCanvasElement | null>(null);
 
   React.useEffect(() => {
@@ -1421,61 +1543,97 @@ function ColorLinearityPattern({ messages }: { messages: Messages }) {
 
       context.setTransform(dpr, 0, 0, dpr, 0, 0);
       context.imageSmoothingEnabled = false;
-      drawColorLinearityPattern(context);
+      drawColorLinearityPattern(context, settings);
     };
 
     draw();
 
     return undefined;
-  }, []);
+  }, [settings]);
 
   return <canvas ref={canvasRef} className="h-full w-full bg-black" aria-label={messages.panel.colorLinearityPatternAria} />;
 }
 
 function drawColorLinearityPattern(
   context: CanvasRenderingContext2D,
+  settings: AppSettings,
   renderWidth = COLOR_LINEARITY_PATTERN_WIDTH,
   renderHeight = COLOR_LINEARITY_PATTERN_HEIGHT,
 ) {
-  context.fillStyle = '#000';
-  context.fillRect(0, 0, renderWidth, renderHeight);
-
-  const rowHeight = 132;
-  const patternHeight = COLOR_LINEARITY_ROWS.length * rowHeight;
-  const top = (COLOR_LINEARITY_PATTERN_HEIGHT - patternHeight) / 2;
-  const leftWidth = 575;
-  const logoWidth = 420;
-  const rightWidth = 575;
-  const totalWidth = leftWidth + logoWidth + rightWidth;
-  const leftX = (COLOR_LINEARITY_PATTERN_WIDTH - totalWidth) / 2;
+  const transferTable = buildGsdfTableValues(settings);
+  const logoWidth = Math.round(renderWidth * 0.34);
+  const leftWidth = renderWidth - logoWidth;
+  const leftX = 0;
   const logoX = leftX + leftWidth;
-  const rightX = logoX + logoWidth;
 
   COLOR_LINEARITY_ROWS.forEach((row, index) => {
-    const y = top + index * rowHeight;
-    drawPaperComparisonRamp(context, leftX, y, leftWidth, rowHeight, row, false);
-    drawColorLinearityLogoBlock(context, logoX, y, logoWidth, rowHeight, row);
-    drawPaperComparisonRamp(context, rightX, y, rightWidth, rowHeight, row, true);
-
-    context.strokeStyle = 'rgba(0,0,0,0.34)';
-    context.lineWidth = 1.5;
-    context.strokeRect(leftX, y, totalWidth, rowHeight);
+    const y = Math.round((index * renderHeight) / COLOR_LINEARITY_ROWS.length);
+    const nextY = Math.round(((index + 1) * renderHeight) / COLOR_LINEARITY_ROWS.length);
+    const rowHeight = nextY - y;
+    drawPaperComparisonRamp(context, leftX, y, leftWidth, rowHeight, row, false, transferTable, settings.displayGamut);
+    drawColorLinearityLogoBlock(context, logoX, y, logoWidth, rowHeight, row, transferTable, settings.displayGamut);
   });
 }
 
+function getReferenceModeOptions(messages: Messages): Array<{ value: SidePanelMode; label: string; icon: React.ReactNode }> {
+  return [
+    { value: 'pattern', label: messages.panel.referencePanel, icon: <Grid3X3 size={13} /> },
+    { value: 'linearity', label: messages.panel.colorLinearityPanel, icon: <Palette size={13} /> },
+    { value: 'bidirectional', label: messages.panel.bidirectionalColorPanel, icon: <Palette size={13} /> },
+    { value: 'chart', label: messages.panel.curvePanel, icon: <BarChart3 size={13} /> },
+  ];
+}
+
+function ReferenceModeSwitch({
+  value,
+  onChange,
+  messages,
+  className = '',
+}: {
+  value: SidePanelMode;
+  onChange: (mode: SidePanelMode) => void;
+  messages: Messages;
+  className?: string;
+}) {
+  return (
+    <div className={`grid shrink-0 grid-cols-4 gap-1 ${className}`} data-no-drag>
+      {getReferenceModeOptions(messages).map((option) => (
+        <button
+          key={option.value}
+          type="button"
+          aria-pressed={value === option.value}
+          onClick={() => onChange(option.value)}
+          className={`gsdf-segment-button flex h-8 items-center justify-center gap-1.5 rounded-md text-[11px] font-semibold transition-colors ${
+            value === option.value
+              ? 'bg-zinc-100 text-[#111418]'
+              : 'border border-white/10 bg-white/[0.03] text-zinc-400 hover:bg-white/[0.07] hover:text-zinc-100'
+          }`}
+        >
+          {option.icon}
+          {option.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function InspectionModeHeader({
+  mode,
   title,
   subtitle,
   settings,
   setSettings,
+  onModeChange,
   onClose,
   dragHandlers,
   messages,
 }: {
+  mode: SidePanelMode;
   title: string;
   subtitle: string;
   settings: AppSettings;
   setSettings: React.Dispatch<React.SetStateAction<AppSettings>>;
+  onModeChange: (mode: SidePanelMode) => void;
   onClose: () => void;
   dragHandlers: PointerHandlers;
   messages: Messages;
@@ -1502,6 +1660,12 @@ function InspectionModeHeader({
           </button>
         </div>
       </div>
+      <ReferenceModeSwitch
+        value={mode}
+        onChange={onModeChange}
+        messages={messages}
+        className="mt-3 border-t border-white/10 pt-3"
+      />
       <div className="mt-3 flex items-center gap-3">
         <span className="shrink-0 text-[10px] font-semibold text-zinc-400">
           {messages.panel.currentLuminanceValue}
@@ -1571,6 +1735,7 @@ function InspectionModeView({
   mode,
   settings,
   setSettings,
+  onModeChange,
   onClose,
   panelTheme,
   dragHandlers,
@@ -1580,6 +1745,7 @@ function InspectionModeView({
   mode: Exclude<InspectionMode, null>;
   settings: AppSettings;
   setSettings: React.Dispatch<React.SetStateAction<AppSettings>>;
+  onModeChange: (mode: SidePanelMode) => void;
   onClose: () => void;
   panelTheme: PanelTheme;
   dragHandlers: PointerHandlers;
@@ -1589,10 +1755,12 @@ function InspectionModeView({
   return (
     <div className={`gsdf-inspection-mode gsdf-inspection-mode--${mode} flex h-full min-h-0 flex-col overflow-hidden`}>
       <InspectionModeHeader
+        mode={mode}
         title={getInspectionTitle(mode, messages)}
         subtitle={getInspectionSubtitle(mode, messages)}
         settings={settings}
         setSettings={setSettings}
+        onModeChange={onModeChange}
         onClose={onClose}
         dragHandlers={dragHandlers}
         messages={messages}
@@ -1615,7 +1783,7 @@ function InspectionModeView({
           ariaLabel={messages.panel.colorLinearityPatternAria}
           messages={messages}
         >
-          <ColorLinearityPattern messages={messages} />
+          <ColorLinearityPattern settings={settings} messages={messages} />
         </InteractiveInspectionViewport>
       ) : mode === 'bidirectional' ? (
         <InteractiveInspectionViewport
@@ -1625,7 +1793,7 @@ function InspectionModeView({
           ariaLabel={messages.panel.bidirectionalPatternAria}
           messages={messages}
         >
-          <ColorBidirectionalPattern messages={messages} />
+          <ColorBidirectionalPattern settings={settings} messages={messages} />
         </InteractiveInspectionViewport>
       ) : (
         <InteractiveInspectionViewport
@@ -1730,29 +1898,12 @@ function ReferenceSidePanel({
           <PanelRightClose size={14} />
         </button>
       </div>
-      <div className="grid shrink-0 grid-cols-4 gap-1 border-b border-white/10 p-3" data-no-drag>
-        {([
-          { value: 'pattern', label: messages.panel.referencePanel, icon: <Grid3X3 size={13} /> },
-          { value: 'linearity', label: messages.panel.colorLinearityPanel, icon: <Palette size={13} /> },
-          { value: 'bidirectional', label: messages.panel.bidirectionalColorPanel, icon: <Palette size={13} /> },
-          { value: 'chart', label: messages.panel.curvePanel, icon: <BarChart3 size={13} /> },
-        ] as Array<{ value: SidePanelMode; label: string; icon: React.ReactNode }>).map((option) => (
-          <button
-            key={option.value}
-            type="button"
-            aria-pressed={mode === option.value}
-            onClick={() => onModeChange(option.value)}
-            className={`gsdf-segment-button flex h-8 items-center justify-center gap-1.5 rounded-md text-[11px] font-semibold transition-colors ${
-              mode === option.value
-                ? 'bg-zinc-100 text-[#111418]'
-                : 'border border-white/10 bg-white/[0.03] text-zinc-400 hover:bg-white/[0.07] hover:text-zinc-100'
-            }`}
-          >
-            {option.icon}
-            {option.label}
-          </button>
-        ))}
-      </div>
+      <ReferenceModeSwitch
+        value={mode}
+        onChange={onModeChange}
+        messages={messages}
+        className="border-b border-white/10 p-3"
+      />
       <p className="shrink-0 border-b border-white/10 px-3 py-3 text-[12px] leading-5 text-zinc-400">
         {messages.panel.referenceSummaryBody}
       </p>
@@ -1763,11 +1914,11 @@ function ReferenceSidePanel({
           </div>
         ) : mode === 'linearity' ? (
           <div className="h-full min-h-0 overflow-hidden rounded-md border border-white/10 bg-black p-2">
-            <ColorLinearityPattern messages={messages} />
+            <ColorLinearityPattern settings={settings} messages={messages} />
           </div>
         ) : mode === 'bidirectional' ? (
           <div className="h-full min-h-0 overflow-hidden rounded-md border border-white/10 bg-black p-2">
-            <ColorBidirectionalPattern messages={messages} />
+            <ColorBidirectionalPattern settings={settings} messages={messages} />
           </div>
         ) : (
           <div className="h-full min-h-0 rounded-md border border-white/10 bg-[#080b0f] p-3">
@@ -1812,15 +1963,63 @@ function LanguageSelector({
         aria-label={messages.language.label}
         value={locale}
         onChange={(event) => onLocaleChange(event.target.value as SupportedLocale)}
-      className="max-w-[112px] bg-transparent text-[11px] font-semibold text-inherit outline-none"
+        className="w-[72px] bg-transparent text-[11px] font-semibold text-inherit outline-none"
       >
         {supportedLocales.map((option) => (
-          <option key={option} value={option}>
-            {localeNames[option]}
+          <option key={option} value={option} title={localeNames[option]}>
+            {localeShortNames[option]}
           </option>
         ))}
       </select>
     </label>
+  );
+}
+
+function TextScaleControls({
+  value,
+  messages,
+  onDecrease,
+  onIncrease,
+}: {
+  value: number;
+  messages: Messages;
+  onDecrease: () => void;
+  onIncrease: () => void;
+}) {
+  const normalizedValue = normalizePanelTextScale(value);
+  const atMinimum = normalizedValue <= (PANEL_TEXT_SCALE_STEPS[0] ?? 0.9);
+  const atMaximum = normalizedValue >= (PANEL_TEXT_SCALE_STEPS[PANEL_TEXT_SCALE_STEPS.length - 1] ?? 1.2);
+
+  return (
+    <div
+      className="gsdf-text-scale-controls gsdf-text-button flex h-8 shrink-0 items-center rounded-md border border-white/10 bg-[#0b0d10] p-0.5 text-zinc-400"
+      title={messages.panel.textSize}
+      data-no-drag
+    >
+      <button
+        type="button"
+        aria-label={messages.panel.decreaseTextSize}
+        title={messages.panel.decreaseTextSize}
+        disabled={atMinimum}
+        onClick={onDecrease}
+        className="flex h-7 w-7 items-center justify-center rounded text-zinc-400 transition-colors hover:bg-white/[0.06] hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-35"
+      >
+        <Minus size={13} />
+      </button>
+      <span className="w-9 text-center font-mono text-[10px] font-semibold tabular-nums text-zinc-300" aria-label={messages.panel.textSize}>
+        {Math.round(normalizedValue * 100)}%
+      </span>
+      <button
+        type="button"
+        aria-label={messages.panel.increaseTextSize}
+        title={messages.panel.increaseTextSize}
+        disabled={atMaximum}
+        onClick={onIncrease}
+        className="flex h-7 w-7 items-center justify-center rounded text-zinc-400 transition-colors hover:bg-white/[0.06] hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-35"
+      >
+        <Plus size={13} />
+      </button>
+    </div>
   );
 }
 
@@ -1849,7 +2048,26 @@ export function DraggablePanel({
     const savedTheme = localStorage.getItem(PANEL_THEME_STORAGE_KEY);
     return savedTheme === 'light' ? 'light' : 'dark';
   });
+  const [panelTextScale, setPanelTextScale] = React.useState(getInitialPanelTextScale);
   useExpandedOverlayViewport(inspectionMode !== null || sidePanelOpen);
+
+  React.useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    window.localStorage.setItem(PANEL_TEXT_SCALE_STORAGE_KEY, String(normalizePanelTextScale(panelTextScale)));
+  }, [panelTextScale]);
+
+  const openInspectionMode = (mode: SidePanelMode) => {
+    setSidePanelMode(mode);
+    setInspectionMode(mode);
+  };
+
+  const setInspectionReferenceMode = (mode: SidePanelMode) => {
+    setSidePanelMode(mode);
+    setInspectionMode(mode);
+  };
 
   React.useEffect(() => {
     localStorage.setItem(PANEL_THEME_STORAGE_KEY, panelTheme);
@@ -1874,8 +2092,9 @@ export function DraggablePanel({
       enabled: true,
       lmax: 100,
       gammaTarget: DEFAULT_GAMMA_TARGET,
+      displayGamma: DEFAULT_APP_SETTINGS.displayGamma,
+      sourceIsLinear: false,
       strength: DEFAULT_APP_SETTINGS.strength,
-      sourceIsLinear: DEFAULT_APP_SETTINGS.sourceIsLinear,
       fineSharpness: DEFAULT_APP_SETTINGS.fineSharpness,
       mediumSharpness: DEFAULT_APP_SETTINGS.mediumSharpness,
       temperature: DEFAULT_APP_SETTINGS.temperature,
@@ -1916,7 +2135,19 @@ export function DraggablePanel({
   };
 
   const setNumericSetting = (
-    key: keyof Pick<AppSettings, 'gammaTarget' | 'strength' | 'blackPoint' | 'whitePoint' | 'fineSharpness' | 'mediumSharpness' | 'temperature' | 'saturation' | 'hue'>,
+    key: keyof Pick<
+      AppSettings,
+      | 'gammaTarget'
+      | 'strength'
+      | 'blackPoint'
+      | 'whitePoint'
+      | 'displayGamma'
+      | 'fineSharpness'
+      | 'mediumSharpness'
+      | 'temperature'
+      | 'saturation'
+      | 'hue'
+    >,
     value: number,
   ) => {
     setSettings((prev) => {
@@ -1932,7 +2163,7 @@ export function DraggablePanel({
   };
 
   const setBooleanSetting = (
-    key: keyof Pick<AppSettings, 'sourceIsLinear' | 'grayscale'>,
+    key: keyof Pick<AppSettings, 'grayscale'>,
     value: boolean,
   ) => {
     setSettings((prev) => ({ ...prev, [key]: value }));
@@ -2003,6 +2234,8 @@ export function DraggablePanel({
         rangeRowClassName="pr-11"
         calibratedRange
         marks={[
+          { value: gammaTargetToAlignedSliderValue(1), label: '1', tone: 'default' },
+          { value: gammaTargetToAlignedSliderValue(1.8), label: '1.8', tone: 'default' },
           { value: gammaTargetToAlignedSliderValue(2.2), label: '2.2', tone: 'major' },
           { value: gammaTargetToAlignedSliderValue(2.4), label: '2.4', tone: 'major' },
           { value: gammaTargetToAlignedSliderValue(2.6), label: '2.6', tone: 'major' },
@@ -2010,22 +2243,16 @@ export function DraggablePanel({
         resetTitle={messages.panel.resetTitle}
         onReset={() => {
           setNumericSetting('gammaTarget', DEFAULT_GAMMA_TARGET);
-          setBooleanSetting('sourceIsLinear', DEFAULT_APP_SETTINGS.sourceIsLinear);
+          setNumericSetting('displayGamma', DEFAULT_APP_SETTINGS.displayGamma);
         }}
         headerAddon={(
-          <label
-            title={messages.panel.sourceLinearTitle}
-            className="gsdf-inline-checkbox flex shrink-0 cursor-pointer items-center gap-1.5 text-[10px] font-semibold text-zinc-400"
-          >
-            <span>{messages.panel.sourceLinearShort}</span>
-            <input
-              type="checkbox"
-              checked={settings.sourceIsLinear}
-              onChange={(event) => setBooleanSetting('sourceIsLinear', event.target.checked)}
-              aria-label={messages.panel.sourceLinear}
-              className="gsdf-checkbox h-4 w-4 shrink-0"
-            />
-          </label>
+          <DisplayGammaSelect
+            value={settings.displayGamma}
+            onChange={(value) => setNumericSetting('displayGamma', value)}
+            label={messages.panel.displayGamma}
+            note={messages.panel.displayGammaInverseHint}
+            title={messages.panel.displayGammaTitle}
+          />
         )}
         onChange={(value) => setGammaCorrection(alignedSliderValueToGammaCorrection(value))}
       />
@@ -2061,7 +2288,7 @@ export function DraggablePanel({
           <button
             type="button"
             title={messages.panel.openFullChart}
-            onClick={() => setInspectionMode('chart')}
+            onClick={() => openInspectionMode('chart')}
             className="gsdf-control-reset flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-white/10 bg-[#0b0d10] text-zinc-500 transition-colors hover:bg-white/[0.06] hover:text-zinc-100"
             data-no-drag
           >
@@ -2377,6 +2604,10 @@ export function DraggablePanel({
       ? { width: standaloneInspectionSize.width, height: standaloneInspectionSize.height }
       : { width: standalonePanelSize.width, height: standalonePanelSize.height }
     : undefined;
+  const scaledPanelStyle = {
+    ...(panelStyle ?? {}),
+    '--gsdf-ui-text-scale': String(normalizePanelTextScale(panelTextScale)),
+  } as React.CSSProperties;
 
   if (panelClosed) {
     return null;
@@ -2389,7 +2620,7 @@ export function DraggablePanel({
       dragListener={false}
       dragMomentum={false}
       initial={extensionMode ? false : { x: 24, y: 24 }}
-      style={panelStyle}
+      style={scaledPanelStyle}
       data-panel-theme={panelTheme}
       className={`${panelSizeClass} gsdf-panel gsdf-panel-shell theme-${panelTheme} top-0 left-0 z-50 flex flex-col overflow-hidden rounded-lg border border-white/10 bg-[#111418] font-sans text-zinc-200 shadow-2xl`}
     >
@@ -2400,27 +2631,31 @@ export function DraggablePanel({
           setSettings={setSettings}
           panelTheme={panelTheme}
           onClose={() => setInspectionMode(null)}
+          onModeChange={setInspectionReferenceMode}
           dragHandlers={dragHandlers}
           resizeHandlers={resizeHandlers}
           messages={messages}
         />
       ) : (
         <>
-          <div
-            className="gsdf-panel-header cursor-grab select-none space-y-3 border-b border-white/10 bg-[#181c21] px-4 py-2.5 active:cursor-grabbing"
-            onPointerDown={handleHeaderPointerDown}
-            onPointerMove={handleHeaderPointerMove}
-            onPointerUp={handleHeaderPointerUp}
-            onPointerCancel={handleHeaderPointerUp}
-          >
+          <div className="gsdf-panel-header select-none space-y-3 border-b border-white/10 bg-[#181c21] px-4 py-2.5">
             <div className="flex items-center gap-3">
               <div className="flex min-w-0 flex-1 items-center gap-3">
-                <div className="gsdf-header-emblem flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-white/10 bg-white/[0.05] text-zinc-200">
-                  <Settings size={16} />
-                </div>
-                <div className="min-w-0">
-                  <div className="truncate text-[14px] font-semibold text-white">LumaLift</div>
-                  <div className="truncate font-mono text-[9px] tracking-[0.08em] text-zinc-500">GSDF EOTF Adjuster · {messages.panel.subtitle}</div>
+                <div
+                  className="flex min-w-0 cursor-grab items-center gap-3 rounded-md pr-3 active:cursor-grabbing"
+                  data-panel-drag-handle
+                  onPointerDown={handleHeaderPointerDown}
+                  onPointerMove={handleHeaderPointerMove}
+                  onPointerUp={handleHeaderPointerUp}
+                  onPointerCancel={handleHeaderPointerUp}
+                >
+                  <div className="gsdf-header-emblem flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-white/10 bg-white/[0.05] text-zinc-200">
+                    <Settings size={16} />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="truncate text-[14px] font-semibold text-white">LumaLift</div>
+                    <div className="truncate font-mono text-[9px] tracking-[0.08em] text-zinc-500">GSDF EOTF Adjuster · {messages.panel.subtitle}</div>
+                  </div>
                 </div>
               </div>
               <div className="ml-auto flex shrink-0 items-center justify-end gap-2" data-no-drag>
@@ -2456,7 +2691,15 @@ export function DraggablePanel({
             </div>
             <div className="gsdf-nav-row flex min-w-0 flex-wrap items-center justify-between gap-2" data-no-drag>
               <PanelTabSwitch value={activeTab} onChange={setActiveTab} panelTheme={panelTheme} messages={messages} />
-              <LanguageSelector locale={locale} messages={messages} onLocaleChange={onLocaleChange} />
+              <div className="flex shrink-0 items-center gap-1.5">
+                <TextScaleControls
+                  value={panelTextScale}
+                  messages={messages}
+                  onDecrease={() => setPanelTextScale((current) => getPanelTextScaleStep(current, -1))}
+                  onIncrease={() => setPanelTextScale((current) => getPanelTextScaleStep(current, 1))}
+                />
+                <LanguageSelector locale={locale} messages={messages} onLocaleChange={onLocaleChange} />
+              </div>
             </div>
             <div className="gsdf-header-controls flex shrink-0 flex-wrap items-center justify-start gap-[5px]" data-no-drag>
               <button
@@ -2532,7 +2775,7 @@ export function DraggablePanel({
                 panelTheme={panelTheme}
                 messages={messages}
                 onModeChange={setSidePanelMode}
-                onOpenFull={setInspectionMode}
+                onOpenFull={openInspectionMode}
                 onClose={() => setSidePanelOpen(false)}
               />
             )}

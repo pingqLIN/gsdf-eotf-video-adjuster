@@ -1,7 +1,7 @@
 import { jaMessages, zhCnMessages, zhTwMessages } from './locales';
-import { enMessages, localeNames, supportedLocales, type Messages, type SupportedLocale } from './messages';
+import { enMessages, localeNames, localeShortNames, supportedLocales, type Messages, type SupportedLocale } from './messages';
 
-export { localeNames, supportedLocales, type Messages, type SupportedLocale };
+export { localeNames, localeShortNames, supportedLocales, type Messages, type SupportedLocale };
 
 export const LANGUAGE_STORAGE_KEY = 'gsdf_language';
 

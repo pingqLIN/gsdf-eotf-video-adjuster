@@ -9,6 +9,13 @@ export const localeNames: Record<SupportedLocale, string> = {
   ja: 'Japanese',
 };
 
+export const localeShortNames: Record<SupportedLocale, string> = {
+  en: 'EN',
+  'zh-TW': 'ZH-TW',
+  'zh-CN': 'ZH-CN',
+  ja: 'JA',
+};
+
 export const enMessages = {
   language: {
     label: 'Language',
@@ -26,6 +33,9 @@ export const enMessages = {
     switchToLight: 'Switch to light panel',
     closePanel: 'Close panel',
     close: 'Close',
+    textSize: 'Text size',
+    decreaseTextSize: 'Decrease text size',
+    increaseTextSize: 'Increase text size',
     panelTabs: 'Panel tabs',
     basicTab: 'Basic',
     advancedTab: 'Advanced',
@@ -57,9 +67,9 @@ export const enMessages = {
     lmaxNote: 'Target value, not measured',
     gammaLabel: 'Gamma compensation',
     gammaTitle: 'Center 0 is the neutral gamma 2.2 baseline. Move only to correct content, playback, or viewing-condition gamma bias; right brightens toward gamma 1.0 and can over-lift shadows.',
-    sourceLinear: 'Source video is linear',
-    sourceLinearShort: 'Linear',
-    sourceLinearTitle: 'Start the transfer calculation from linear source values, then encode the output for display.',
+    displayGamma: 'Display device (EOTF)',
+    displayGammaInverseHint: 'Value is inverse.',
+    displayGammaTitle: 'Set the display EOTF to compensate material OETF differences.',
     filterLabel: 'Filter amount',
     filterTitle: 'The complete GSDF table is calculated first, then this amount blends it back toward the gamma-adjusted baseline; 0% is the gamma-adjusted baseline and 100% is full GSDF.',
     displayGamut: 'Display gamut',
@@ -165,10 +175,9 @@ export const enMessages = {
   colorLinearityPattern: {
     title: 'CSDF VISUAL TEST PATTERN',
     subtitle: 'project-owned Fig. 9 style perceptual linearity reference',
-    leftReference: 'unmodified ramp',
+    leftReference: 'current output ramp',
     logoProbe: 'low-contrast mark',
-    calibratedSimulation: 'CSDF effect simulation',
-    footer: 'Rows use the Fig. 9 primary/secondary ramp amplitudes and logo-background differences.',
+    footer: 'Rows use the Fig. 9 primary/secondary ramp amplitudes, logo-background differences, and current tone-table output.',
   },
 };
 

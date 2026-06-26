@@ -122,6 +122,10 @@
   }
 }
 
+.gsdf-panel-shell {
+  --gsdf-ui-text-scale: 1;
+}
+
 .gsdf-panel-shell,
 .gsdf-inspection-mode {
   position: relative;
@@ -204,6 +208,64 @@
 .gsdf-panel-header .text-\[9px\],
 .gsdf-inspection-header .text-\[9px\] {
   letter-spacing: 0.18em;
+}
+
+.gsdf-panel-shell .text-\[30px\] {
+  font-size: calc(30px * var(--gsdf-ui-text-scale)) !important;
+}
+
+.gsdf-panel-shell .text-\[22px\] {
+  font-size: calc(22px * var(--gsdf-ui-text-scale)) !important;
+}
+
+.gsdf-panel-shell .text-\[18px\] {
+  font-size: calc(18px * var(--gsdf-ui-text-scale)) !important;
+}
+
+.gsdf-panel-shell .text-\[16px\] {
+  font-size: calc(16px * var(--gsdf-ui-text-scale)) !important;
+}
+
+.gsdf-panel-shell .text-\[14px\] {
+  font-size: calc(14px * var(--gsdf-ui-text-scale)) !important;
+}
+
+.gsdf-panel-shell .text-\[13px\] {
+  font-size: calc(13px * var(--gsdf-ui-text-scale)) !important;
+}
+
+.gsdf-panel-shell .text-\[12px\] {
+  font-size: calc(12px * var(--gsdf-ui-text-scale)) !important;
+}
+
+.gsdf-panel-shell .text-\[11px\],
+.gsdf-panel-shell .gsdf-control-label,
+.gsdf-panel-shell .gsdf-text-button,
+.gsdf-panel-shell .gsdf-segment-button,
+.gsdf-panel-shell .gsdf-quick-action,
+.gsdf-panel-shell .gsdf-inline-checkbox,
+.gsdf-panel-shell .gsdf-panel-header select {
+  font-size: calc(11px * var(--gsdf-ui-text-scale)) !important;
+}
+
+.gsdf-panel-shell .text-\[10px\] {
+  font-size: calc(10px * var(--gsdf-ui-text-scale)) !important;
+}
+
+.gsdf-panel-shell .text-\[9px\] {
+  font-size: calc(9px * var(--gsdf-ui-text-scale)) !important;
+}
+
+.gsdf-panel-shell .text-\[8px\] {
+  font-size: calc(8px * var(--gsdf-ui-text-scale)) !important;
+}
+
+.gsdf-panel-shell .gsdf-pill-metric {
+  font-size: calc(12px * var(--gsdf-ui-text-scale)) !important;
+}
+
+.gsdf-text-scale-controls {
+  min-width: 106px;
 }
 
 .gsdf-status-deck {
@@ -581,8 +643,8 @@
 }
 
 .gsdf-panel-header .gsdf-icon-button {
-  min-width: 40px;
-  min-height: 40px;
+  min-width: 44px;
+  min-height: 44px;
 }
 
 .gsdf-panel-header .gsdf-tab-switch {
@@ -746,7 +808,7 @@
   outline-offset: 2px;
 }
 
-.gsdf-panel-header,
+.gsdf-panel [data-panel-drag-handle],
 .gsdf-inspection-header,
 .gsdf-resize-edge,
 .gsdf-resize-grip {
