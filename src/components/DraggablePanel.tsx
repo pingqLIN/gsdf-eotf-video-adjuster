@@ -60,10 +60,12 @@ const GSDFChart = React.lazy(() => import('./GSDFChart').then((module) => ({ def
 
 type PanelTab = 'basic' | 'advanced' | 'diagnostic';
 type PanelTheme = 'dark' | 'light';
-type SidePanelMode = 'pattern' | 'linearity' | 'bidirectional' | 'chart';
+type SidePanelMode = 'pattern' | 'linearity' | 'legacy-linearity' | 'bidirectional' | 'chart';
 type InspectionMode = SidePanelMode | null;
 type ResizeHandle = 'e' | 's' | 'se';
 type InspectionScaleMode = 'actual' | 'cover' | 'fit';
+type ColorReferenceToneMode = 'runtime' | 'legacy-rgb';
+type CsdfFigureMode = 'split' | 'plain';
 
 const PANEL_THEME_STORAGE_KEY = 'gsdf_panel_theme';
 const PANEL_TEXT_SCALE_STORAGE_KEY = 'gsdf_panel_text_scale';
@@ -73,13 +75,24 @@ const INSPECTION_MIN_HEIGHT = 420;
 const INSPECTION_DEFAULT_WIDTH = 960;
 const INSPECTION_DEFAULT_HEIGHT = 720;
 const INSPECTION_VIEWPORT_MARGIN = 16;
+const INSPECTION_REFERENCE_RESERVED_HEIGHT = 176;
+const REFERENCE_RENDER_MARGIN = 32;
+const REFERENCE_RENDER_MAX_WIDTH = 2400;
+const REFERENCE_RENDER_MAX_HEIGHT = 1600;
 const DIAGNOSTIC_PATTERN_WIDTH = 1800;
 const DIAGNOSTIC_PATTERN_HEIGHT = 1200;
 const COLOR_LINEARITY_PATTERN_WIDTH = 1800;
 const COLOR_LINEARITY_PATTERN_HEIGHT = 920;
 const BIDIRECTIONAL_COLOR_PATTERN_WIDTH = 1800;
 const BIDIRECTIONAL_COLOR_PATTERN_HEIGHT = 920;
-const COLOR_RAMP_SINE_CYCLES = 9;
+const CSDF_FIG9_DEFAULT_CYCLES = 78;
+const CSDF_FIG9_MIN_CYCLES = 1;
+const CSDF_FIG9_MAX_CYCLES = 120;
+const CSDF_FIG9_DEFAULT_EXAGGERATION = 1;
+const CSDF_FIG9_MIN_EXAGGERATION = 0;
+const CSDF_FIG9_MAX_EXAGGERATION = 3;
+const LEGACY_COLOR_RAMP_SINE_CYCLES = 9;
+const LEGACY_COLOR_RAMP_SECONDARY_MIX_WIDTH = 0.34;
 const CHART_VIEW_WIDTH = 1040;
 const CHART_VIEW_HEIGHT = 640;
 const INSPECTION_ZOOM_MIN = 0.5;
@@ -103,6 +116,11 @@ interface DraggablePanelProps {
   onExtensionDrag?: (deltaX: number, deltaY: number) => void;
   onExtensionResize?: (deltaWidth: number, deltaHeight: number) => void;
   onExtensionClose?: () => void;
+}
+
+interface ReferenceRenderSize {
+  width: number;
+  height: number;
 }
 
 interface SliderControlProps {
@@ -160,6 +178,18 @@ interface RangeMark {
   label: string;
   tone?: 'default' | 'major';
 }
+
+interface CsdfFigureControls {
+  mode: CsdfFigureMode;
+  cycles: number;
+  exaggeration: number;
+}
+
+const DEFAULT_CSDF_FIGURE_CONTROLS: CsdfFigureControls = {
+  mode: 'split',
+  cycles: CSDF_FIG9_DEFAULT_CYCLES,
+  exaggeration: CSDF_FIG9_DEFAULT_EXAGGERATION,
+};
 
 function ControlResetButton({
   title,
@@ -522,6 +552,137 @@ function getDefaultInspectionSize() {
     width: Math.max(INSPECTION_MIN_WIDTH, window.innerWidth - INSPECTION_VIEWPORT_MARGIN),
     height: Math.max(INSPECTION_MIN_HEIGHT, window.innerHeight - INSPECTION_VIEWPORT_MARGIN),
   };
+}
+
+function getReferenceBaseSize(mode: SidePanelMode): ReferenceRenderSize {
+  if (mode === 'pattern') {
+    return { width: DIAGNOSTIC_PATTERN_WIDTH, height: DIAGNOSTIC_PATTERN_HEIGHT };
+  }
+  if (mode === 'linearity' || mode === 'legacy-linearity') {
+    return { width: COLOR_LINEARITY_PATTERN_WIDTH, height: COLOR_LINEARITY_PATTERN_HEIGHT };
+  }
+  if (mode === 'bidirectional') {
+    return { width: BIDIRECTIONAL_COLOR_PATTERN_WIDTH, height: BIDIRECTIONAL_COLOR_PATTERN_HEIGHT };
+  }
+  return { width: CHART_VIEW_WIDTH, height: CHART_VIEW_HEIGHT };
+}
+
+function fitReferenceSizeToBox(base: ReferenceRenderSize, box: ReferenceRenderSize): ReferenceRenderSize {
+  const scale = Math.min(box.width / base.width, box.height / base.height);
+  const normalizedScale = Number.isFinite(scale) && scale > 0 ? scale : 1;
+
+  return {
+    width: Math.max(1, Math.round(base.width * normalizedScale)),
+    height: Math.max(1, Math.round(base.height * normalizedScale)),
+  };
+}
+
+function getScreenAwareReferenceSize(mode: SidePanelMode): ReferenceRenderSize {
+  const base = getReferenceBaseSize(mode);
+  if (typeof window === 'undefined') {
+    return base;
+  }
+
+  const visualViewport = window.visualViewport;
+  const viewportWidth = visualViewport?.width ?? window.innerWidth;
+  const viewportHeight = visualViewport?.height ?? window.innerHeight;
+  const availableSize = {
+    width: Math.min(
+      REFERENCE_RENDER_MAX_WIDTH,
+      Math.max(1, viewportWidth - REFERENCE_RENDER_MARGIN),
+    ),
+    height: Math.min(
+      REFERENCE_RENDER_MAX_HEIGHT,
+      Math.max(1, viewportHeight - INSPECTION_REFERENCE_RESERVED_HEIGHT - REFERENCE_RENDER_MARGIN),
+    ),
+  };
+
+  return fitReferenceSizeToBox(base, availableSize);
+}
+
+function useScreenAwareReferenceSize(mode: SidePanelMode): ReferenceRenderSize {
+  const [size, setSize] = React.useState(() => getScreenAwareReferenceSize(mode));
+
+  React.useEffect(() => {
+    const updateSize = () => setSize(getScreenAwareReferenceSize(mode));
+    const visualViewport = window.visualViewport;
+
+    updateSize();
+    window.addEventListener('resize', updateSize);
+    visualViewport?.addEventListener('resize', updateSize);
+
+    return () => {
+      window.removeEventListener('resize', updateSize);
+      visualViewport?.removeEventListener('resize', updateSize);
+    };
+  }, [mode]);
+
+  return size;
+}
+
+function getMeasuredReferenceCanvasSize(canvas: HTMLCanvasElement): ReferenceRenderSize {
+  const rect = canvas.getBoundingClientRect();
+  return {
+    width: Math.max(1, Math.round(rect.width)),
+    height: Math.max(1, Math.round(rect.height)),
+  };
+}
+
+function useReferenceCanvas(
+  canvasRef: React.RefObject<HTMLCanvasElement | null>,
+  renderSize: ReferenceRenderSize | undefined,
+  draw: (context: CanvasRenderingContext2D, size: ReferenceRenderSize) => void,
+  dependencies: React.DependencyList,
+) {
+  React.useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) {
+      return undefined;
+    }
+
+    const drawCanvas = () => {
+      const size = renderSize ?? getMeasuredReferenceCanvasSize(canvas);
+      const dpr = window.devicePixelRatio || 1;
+
+      if (renderSize) {
+        canvas.style.width = `${size.width}px`;
+        canvas.style.height = `${size.height}px`;
+      } else {
+        canvas.style.removeProperty('width');
+        canvas.style.removeProperty('height');
+      }
+
+      canvas.width = Math.max(1, Math.floor(size.width * dpr));
+      canvas.height = Math.max(1, Math.floor(size.height * dpr));
+      const context = canvas.getContext('2d');
+      if (!context) {
+        return;
+      }
+
+      context.setTransform(dpr, 0, 0, dpr, 0, 0);
+      context.imageSmoothingEnabled = false;
+      draw(context, size);
+    };
+
+    const observer = new ResizeObserver(drawCanvas);
+    observer.observe(canvas);
+    drawCanvas();
+
+    return () => observer.disconnect();
+  }, [canvasRef, renderSize?.width, renderSize?.height, ...dependencies]);
+}
+
+function drawScaledReferenceDesign(
+  context: CanvasRenderingContext2D,
+  renderSize: ReferenceRenderSize,
+  baseSize: ReferenceRenderSize,
+  drawBase: () => void,
+) {
+  context.save();
+  context.clearRect(0, 0, renderSize.width, renderSize.height);
+  context.scale(renderSize.width / baseSize.width, renderSize.height / baseSize.height);
+  drawBase();
+  context.restore();
 }
 
 function getBaseInspectionScale(
@@ -1023,69 +1184,42 @@ function FullDiagnosticPattern({
   messages,
   zoom = 1,
   fixedDesignSize = false,
+  renderSize,
 }: {
   settings: AppSettings;
   messages: Messages;
   zoom?: number;
   fixedDesignSize?: boolean;
+  renderSize?: ReferenceRenderSize;
 }) {
   const canvasRef = React.useRef<HTMLCanvasElement | null>(null);
+  const fixedRenderSize = fixedDesignSize ? (renderSize ?? getReferenceBaseSize('pattern')) : undefined;
 
-  React.useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) {
+  useReferenceCanvas(canvasRef, fixedRenderSize, (context, size) => {
+    if (fixedDesignSize) {
+      drawScaledReferenceDesign(
+        context,
+        size,
+        getReferenceBaseSize('pattern'),
+        () => drawDiagnosticPattern(context, settings, messages),
+      );
       return;
     }
 
-    const draw = () => {
-      const dpr = window.devicePixelRatio || 1;
-      if (fixedDesignSize) {
-        canvas.width = Math.max(1, Math.floor(DIAGNOSTIC_PATTERN_WIDTH * dpr));
-        canvas.height = Math.max(1, Math.floor(DIAGNOSTIC_PATTERN_HEIGHT * dpr));
-        canvas.style.width = `${DIAGNOSTIC_PATTERN_WIDTH}px`;
-        canvas.style.height = `${DIAGNOSTIC_PATTERN_HEIGHT}px`;
-        const context = canvas.getContext('2d');
-        if (!context) {
-          return;
-        }
-        context.setTransform(dpr, 0, 0, dpr, 0, 0);
-        context.imageSmoothingEnabled = false;
-        drawDiagnosticPattern(context, settings, messages);
-        return;
-      }
+    context.fillStyle = '#050505';
+    context.fillRect(0, 0, size.width, size.height);
 
-      const rect = canvas.getBoundingClientRect();
-      canvas.width = Math.max(1, Math.floor(rect.width * dpr));
-      canvas.height = Math.max(1, Math.floor(rect.height * dpr));
+    const designWidth = DIAGNOSTIC_PATTERN_WIDTH;
+    const designHeight = DIAGNOSTIC_PATTERN_HEIGHT;
+    const scale = Math.min(size.width / designWidth, size.height / designHeight) * zoom;
+    const offsetX = (size.width - designWidth * scale) / 2;
+    const offsetY = (size.height - designHeight * scale) / 2;
 
-      const context = canvas.getContext('2d');
-      if (!context) {
-        return;
-      }
-
-      context.setTransform(dpr, 0, 0, dpr, 0, 0);
-      context.imageSmoothingEnabled = false;
-      context.fillStyle = '#050505';
-      context.fillRect(0, 0, rect.width, rect.height);
-
-      const designWidth = DIAGNOSTIC_PATTERN_WIDTH;
-      const designHeight = DIAGNOSTIC_PATTERN_HEIGHT;
-      const scale = Math.min(rect.width / designWidth, rect.height / designHeight) * zoom;
-      const offsetX = (rect.width - designWidth * scale) / 2;
-      const offsetY = (rect.height - designHeight * scale) / 2;
-
-      context.save();
-      context.translate(offsetX, offsetY);
-      context.scale(scale, scale);
-      drawDiagnosticPattern(context, settings, messages);
-      context.restore();
-    };
-
-    const observer = new ResizeObserver(draw);
-    observer.observe(canvas);
-    draw();
-
-    return () => observer.disconnect();
+    context.save();
+    context.translate(offsetX, offsetY);
+    context.scale(scale, scale);
+    drawDiagnosticPattern(context, settings, messages);
+    context.restore();
   }, [fixedDesignSize, messages, settings, zoom]);
 
   return <canvas ref={canvasRef} className="h-full w-full bg-black" aria-label={messages.panel.diagnosticPatternAria} />;
@@ -1338,6 +1472,26 @@ function applyReferenceCsdfToneTable(
   ];
 }
 
+function applyLegacyReferenceToneTable(color: RgbTuple, transferTable: number[]): RgbTuple {
+  return color.map((channel) => {
+    const toneIndex = clampTone(channel);
+    return clampTone((transferTable[toneIndex] ?? toneIndex / 255) * 255);
+  }) as RgbTuple;
+}
+
+function applyColorReferenceToneTable(
+  color: RgbTuple,
+  transferTable: number[],
+  displayGamut: AppSettings['displayGamut'],
+  toneMode: ColorReferenceToneMode,
+): RgbTuple {
+  if (toneMode === 'legacy-rgb') {
+    return applyLegacyReferenceToneTable(color, transferTable);
+  }
+
+  return applyReferenceCsdfToneTable(color, transferTable, displayGamut);
+}
+
 function interpolateColor(from: RgbTuple, to: RgbTuple, amount: number): RgbTuple {
   return [
     from[0] + (to[0] - from[0]) * amount,
@@ -1346,76 +1500,126 @@ function interpolateColor(from: RgbTuple, to: RgbTuple, amount: number): RgbTupl
   ];
 }
 
-function getPrimarySecondaryPrimaryRatio(progress: number): number {
-  const triangle = progress < 0.5 ? progress * 2 : (1 - progress) * 2;
-  return 0.5 - Math.cos(triangle * Math.PI) / 2;
+function getTriangleWave(progress: number): number {
+  const normalizedProgress = clampValue(progress, 0, 1);
+  return 1 - Math.abs(2 * normalizedProgress - 1);
 }
 
-function getColorRampColor(
-  row: ColorLinearityRow,
-  progress: number,
-  calibrated: boolean,
-  bandBoost: number,
-  inverted = false,
-): RgbTuple {
-  const baseRatio = getPrimarySecondaryPrimaryRatio(progress);
-  const rampRatio = inverted ? 1 - baseRatio : baseRatio;
-  const color = interpolateColor(row.base, row.secondary, rampRatio);
-  const amplitude = (row.amplitudePercent / 100) * (calibrated ? 1.08 : 0.62) * bandBoost;
-  const uncalibratedVisibility = 0.18 + 0.72 * Math.exp(-((progress - 0.52) ** 2) / 0.028);
-  const visibility = calibrated ? 1 : uncalibratedVisibility;
-  const sine = Math.sin(progress * Math.PI * 2 * COLOR_RAMP_SINE_CYCLES) * amplitude * visibility * 255;
-  color[row.modulationChannel] = clampTone(color[row.modulationChannel] + sine);
+function remapCsdfFig9Channel(value: number, exaggeration: number): number {
+  const normalizedValue = clampValue(value / 255, 0, 1);
+  const normalizedExaggeration = clampValue(
+    exaggeration,
+    CSDF_FIG9_MIN_EXAGGERATION,
+    CSDF_FIG9_MAX_EXAGGERATION,
+  );
+
+  if (normalizedExaggeration === 0 || normalizedValue <= 0) {
+    return clampTone(value);
+  }
+
+  const gamma = 1 / (1 + 0.8 * normalizedExaggeration);
+  return clampTone(255 * Math.pow(normalizedValue, gamma));
+}
+
+function applyCsdfFig9SplitChannel(
+  value: number,
+  globalX: number,
+  renderWidth: number,
+  controls: CsdfFigureControls,
+): number {
+  if (controls.mode !== 'split' || globalX < renderWidth / 2) {
+    return clampTone(value);
+  }
+
+  return remapCsdfFig9Channel(value, controls.exaggeration);
+}
+
+function makeCsdfFig9Color(row: ColorLinearityRow, channelValue: number): RgbTuple {
+  const color = [...row.base] as RgbTuple;
+  color[row.modulationChannel] = clampTone(channelValue);
   return color;
 }
 
-function drawColorRamp(
+function drawCsdfFig9VariableBlock(
   context: CanvasRenderingContext2D,
   x: number,
   y: number,
   width: number,
   height: number,
   row: ColorLinearityRow,
-  calibrated: boolean,
-  transferTable: number[],
-  displayGamut: AppSettings['displayGamut'],
-  bandBoost = 1,
-  inverted = false,
+  channelValue: number,
+  renderWidth: number,
+  controls: CsdfFigureControls,
 ) {
   for (let column = 0; column < width; column += 1) {
-    const progress = width <= 1 ? 0 : column / (width - 1);
-    const color = applyReferenceCsdfToneTable(getColorRampColor(row, progress, calibrated, bandBoost, inverted), transferTable, displayGamut);
+    const globalX = x + column;
+    const color = makeCsdfFig9Color(
+      row,
+      applyCsdfFig9SplitChannel(channelValue, globalX, renderWidth, controls),
+    );
     context.fillStyle = formatRgb(color);
     context.fillRect(x + column, y, 1, height);
   }
 }
 
-function drawColorLinearityLogoBlock(
+function drawCsdfFig9RampSide(
   context: CanvasRenderingContext2D,
   x: number,
   y: number,
   width: number,
   height: number,
   row: ColorLinearityRow,
-  transferTable: number[],
-  displayGamut: AppSettings['displayGamut'],
+  renderWidth: number,
+  controls: CsdfFigureControls,
 ) {
-  const faintBackground = [...row.base] as RgbTuple;
-  const background = [...row.base] as RgbTuple;
-  faintBackground[row.modulationChannel] = clampTone(faintBackground[row.modulationChannel] + (row.differencePercent / 100) * 255 * 0.28);
-  background[row.modulationChannel] = clampTone(background[row.modulationChannel] + (row.differencePercent / 100) * 255);
-  const splitX = x + width / 2;
+  const topHeight = Math.round(height * 0.32);
+  const middleHeight = Math.round(height * 0.36);
+  const bottomHeight = height - topHeight - middleHeight;
+  const amplitude = 255 * row.amplitudePercent / 100;
+  const cycles = clampValue(controls.cycles, CSDF_FIG9_MIN_CYCLES, CSDF_FIG9_MAX_CYCLES);
 
-  context.fillStyle = formatRgb(applyReferenceCsdfToneTable(faintBackground, transferTable, displayGamut));
-  context.fillRect(x, y, width / 2, height);
-  context.fillStyle = formatRgb(applyReferenceCsdfToneTable(background, transferTable, displayGamut));
-  context.fillRect(splitX, y, width / 2, height);
+  for (let column = 0; column < width; column += 1) {
+    const progress = width <= 1 ? 0 : column / (width - 1);
+    const triangle = getTriangleWave(progress);
+    const sinusoid = amplitude * Math.sin(2 * Math.PI * cycles * progress);
+    const topBottomValue = 255 * triangle + sinusoid;
+    const middleValue = 255 * (1 - triangle) + sinusoid;
+    const globalX = x + column;
+    const topBottomColor = makeCsdfFig9Color(
+      row,
+      applyCsdfFig9SplitChannel(topBottomValue, globalX, renderWidth, controls),
+    );
+    const middleColor = makeCsdfFig9Color(
+      row,
+      applyCsdfFig9SplitChannel(middleValue, globalX, renderWidth, controls),
+    );
 
-  context.fillStyle = formatRgb(applyReferenceCsdfToneTable(row.base, transferTable, displayGamut));
+    context.fillStyle = formatRgb(topBottomColor);
+    context.fillRect(x + column, y, 1, topHeight);
+    context.fillRect(x + column, y + topHeight + middleHeight, 1, bottomHeight);
+    context.fillStyle = formatRgb(middleColor);
+    context.fillRect(x + column, y + topHeight, 1, middleHeight);
+  }
+}
+
+function drawCsdfFig9LogoBlock(
+  context: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  row: ColorLinearityRow,
+  renderWidth: number,
+  controls: CsdfFigureControls,
+) {
+  const backgroundValue = 255 * row.differencePercent / 100;
+  drawCsdfFig9VariableBlock(context, x, y, width, height, row, backgroundValue, renderWidth, controls);
+
+  context.fillStyle = formatRgb(row.base);
   context.font = '62px Cascadia Mono, monospace';
   context.textAlign = 'center';
   context.textBaseline = 'middle';
-  context.globalAlpha = 0.76;
+  context.globalAlpha = 1;
   context.fillText('CSDF', x + width / 2, y + height / 2);
   context.globalAlpha = 1;
 }
@@ -1427,11 +1631,113 @@ function drawPaperComparisonRamp(
   width: number,
   height: number,
   row: ColorLinearityRow,
+  renderWidth: number,
+  controls: CsdfFigureControls,
+) {
+  drawCsdfFig9RampSide(context, x, y, width, height, row, renderWidth, controls);
+}
+
+function getLegacyPrimarySecondaryPrimaryRatio(progress: number): number {
+  const normalizedProgress = clampValue(progress, 0, 1);
+  const distanceFromCenter = Math.abs(normalizedProgress - 0.5);
+  const halfMixWidth = LEGACY_COLOR_RAMP_SECONDARY_MIX_WIDTH / 2;
+  if (distanceFromCenter >= halfMixWidth) {
+    return 0;
+  }
+
+  const mixProgress = 1 - distanceFromCenter / halfMixWidth;
+  return 0.5 - Math.cos(mixProgress * Math.PI) / 2;
+}
+
+function getLegacyColorRampColor(
+  row: ColorLinearityRow,
+  progress: number,
+  calibrated: boolean,
+  bandBoost: number,
+  inverted = false,
+): RgbTuple {
+  const rampRatio = getLegacyPrimarySecondaryPrimaryRatio(progress);
+  const modulationProgress = inverted ? 1 - progress : progress;
+  const color = interpolateColor(row.base, row.secondary, rampRatio);
+  const amplitude = (row.amplitudePercent / 100) * (calibrated ? 1.08 : 0.62) * bandBoost;
+  const uncalibratedVisibility = 0.18 + 0.72 * Math.exp(-((progress - 0.52) ** 2) / 0.028);
+  const visibility = calibrated ? 1 : uncalibratedVisibility;
+  const sine = Math.sin(modulationProgress * Math.PI * 2 * LEGACY_COLOR_RAMP_SINE_CYCLES) * amplitude * visibility * 255;
+  color[row.modulationChannel] = clampTone(color[row.modulationChannel] + sine);
+  return color;
+}
+
+function drawLegacyColorRamp(
+  context: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  row: ColorLinearityRow,
   calibrated: boolean,
   transferTable: number[],
   displayGamut: AppSettings['displayGamut'],
+  toneMode: ColorReferenceToneMode,
+  bandBoost = 1,
+  inverted = false,
 ) {
-  drawColorRamp(context, x, y, width, height, row, calibrated, transferTable, displayGamut);
+  for (let column = 0; column < width; column += 1) {
+    const progress = width <= 1 ? 0 : column / (width - 1);
+    const color = applyColorReferenceToneTable(
+      getLegacyColorRampColor(row, progress, calibrated, bandBoost, inverted),
+      transferTable,
+      displayGamut,
+      toneMode,
+    );
+    context.fillStyle = formatRgb(color);
+    context.fillRect(x + column, y, 1, height);
+  }
+}
+
+function drawLegacyColorLinearityLogoBlock(
+  context: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  row: ColorLinearityRow,
+  transferTable: number[],
+  displayGamut: AppSettings['displayGamut'],
+  toneMode: ColorReferenceToneMode,
+) {
+  const faintBackground = [...row.base] as RgbTuple;
+  const background = [...row.base] as RgbTuple;
+  faintBackground[row.modulationChannel] = clampTone(faintBackground[row.modulationChannel] + (row.differencePercent / 100) * 255 * 0.28);
+  background[row.modulationChannel] = clampTone(background[row.modulationChannel] + (row.differencePercent / 100) * 255);
+  const splitX = x + width / 2;
+
+  context.fillStyle = formatRgb(applyColorReferenceToneTable(faintBackground, transferTable, displayGamut, toneMode));
+  context.fillRect(x, y, width / 2, height);
+  context.fillStyle = formatRgb(applyColorReferenceToneTable(background, transferTable, displayGamut, toneMode));
+  context.fillRect(splitX, y, width / 2, height);
+
+  context.fillStyle = formatRgb(applyColorReferenceToneTable(row.base, transferTable, displayGamut, toneMode));
+  context.font = '62px Cascadia Mono, monospace';
+  context.textAlign = 'center';
+  context.textBaseline = 'middle';
+  context.globalAlpha = 0.76;
+  context.fillText('CSDF', x + width / 2, y + height / 2);
+  context.globalAlpha = 1;
+}
+
+function drawLegacyPaperComparisonRamp(
+  context: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  row: ColorLinearityRow,
+  calibrated: boolean,
+  transferTable: number[],
+  displayGamut: AppSettings['displayGamut'],
+  toneMode: ColorReferenceToneMode,
+) {
+  drawLegacyColorRamp(context, x, y, width, height, row, calibrated, transferTable, displayGamut, toneMode);
 
   const bandHeight = Math.max(18, height * 0.3);
   const bandY = y + height * 0.36;
@@ -1439,31 +1745,23 @@ function drawPaperComparisonRamp(
   context.beginPath();
   context.rect(x, bandY, width, bandHeight);
   context.clip();
-  drawColorRamp(context, x, y, width, height, row, calibrated, transferTable, displayGamut, calibrated ? 1.18 : 1.05, true);
+  drawLegacyColorRamp(context, x, y, width, height, row, calibrated, transferTable, displayGamut, toneMode, calibrated ? 1.18 : 1.05, true);
   context.restore();
 }
 
-function ColorBidirectionalPattern({ settings, messages }: { settings: AppSettings; messages: Messages }) {
+function ColorBidirectionalPattern({
+  settings,
+  messages,
+  renderSize,
+}: {
+  settings: AppSettings;
+  messages: Messages;
+  renderSize?: ReferenceRenderSize;
+}) {
   const canvasRef = React.useRef<HTMLCanvasElement | null>(null);
 
-  React.useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) {
-      return;
-    }
-
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = Math.max(1, Math.floor(BIDIRECTIONAL_COLOR_PATTERN_WIDTH * dpr));
-    canvas.height = Math.max(1, Math.floor(BIDIRECTIONAL_COLOR_PATTERN_HEIGHT * dpr));
-    canvas.style.width = `${BIDIRECTIONAL_COLOR_PATTERN_WIDTH}px`;
-    canvas.style.height = `${BIDIRECTIONAL_COLOR_PATTERN_HEIGHT}px`;
-    const context = canvas.getContext('2d');
-    if (!context) {
-      return;
-    }
-    context.setTransform(dpr, 0, 0, dpr, 0, 0);
-    context.imageSmoothingEnabled = false;
-    drawBidirectionalColorPattern(context, settings);
+  useReferenceCanvas(canvasRef, renderSize, (context, size) => {
+    drawBidirectionalColorPattern(context, settings, size.width, size.height);
   }, [settings]);
 
   return <canvas ref={canvasRef} className="h-full w-full bg-black" aria-label={messages.panel.bidirectionalPatternAria} />;
@@ -1478,12 +1776,13 @@ function drawBidirectionalColorBand(
   row: ColorLinearityRow,
   transferTable: number[],
   displayGamut: AppSettings['displayGamut'],
+  toneMode: ColorReferenceToneMode,
 ) {
   const halfHeight = Math.floor(height / 2);
   const lowerHeight = height - halfHeight;
 
-  drawSingleDirectionColorRamp(context, x, y, width, halfHeight, row, false, transferTable, displayGamut);
-  drawSingleDirectionColorRamp(context, x, y + halfHeight, width, lowerHeight, row, true, transferTable, displayGamut);
+  drawSingleDirectionColorRamp(context, x, y, width, halfHeight, row, false, transferTable, displayGamut, toneMode);
+  drawSingleDirectionColorRamp(context, x, y + halfHeight, width, lowerHeight, row, true, transferTable, displayGamut, toneMode);
 }
 
 function drawSingleDirectionColorRamp(
@@ -1496,11 +1795,17 @@ function drawSingleDirectionColorRamp(
   reversed: boolean,
   transferTable: number[],
   displayGamut: AppSettings['displayGamut'],
+  toneMode: ColorReferenceToneMode,
 ) {
   for (let column = 0; column < width; column += 1) {
     const progress = width <= 1 ? 0 : column / (width - 1);
     const rampProgress = reversed ? 1 - progress : progress;
-    const color = applyReferenceCsdfToneTable(interpolateColor(row.base, row.secondary, rampProgress), transferTable, displayGamut);
+    const color = applyColorReferenceToneTable(
+      interpolateColor(row.base, row.secondary, rampProgress),
+      transferTable,
+      displayGamut,
+      toneMode,
+    );
     context.fillStyle = formatRgb(color);
     context.fillRect(x + column, y, 1, height);
   }
@@ -1516,42 +1821,33 @@ function drawBidirectionalColorPattern(
   COLOR_LINEARITY_ROWS.forEach((row, index) => {
     const y = Math.round((index * renderHeight) / COLOR_LINEARITY_ROWS.length);
     const nextY = Math.round(((index + 1) * renderHeight) / COLOR_LINEARITY_ROWS.length);
-    drawBidirectionalColorBand(context, 0, y, renderWidth, nextY - y, row, transferTable, settings.displayGamut);
+    drawBidirectionalColorBand(context, 0, y, renderWidth, nextY - y, row, transferTable, settings.displayGamut, 'runtime');
   });
 }
 
-function ColorLinearityPattern({ settings, messages }: { settings: AppSettings; messages: Messages }) {
+function ColorLinearityPattern({
+  settings,
+  messages,
+  renderSize,
+  figureControls,
+  toneMode = 'runtime',
+}: {
+  settings: AppSettings;
+  messages: Messages;
+  renderSize?: ReferenceRenderSize;
+  figureControls: CsdfFigureControls;
+  toneMode?: ColorReferenceToneMode;
+}) {
   const canvasRef = React.useRef<HTMLCanvasElement | null>(null);
+  const ariaLabel = toneMode === 'legacy-rgb'
+    ? messages.panel.legacyColorLinearityPatternAria
+    : messages.panel.colorLinearityPatternAria;
 
-  React.useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) {
-      return;
-    }
+  useReferenceCanvas(canvasRef, renderSize, (context, size) => {
+    drawColorLinearityPattern(context, settings, size.width, size.height, toneMode, figureControls);
+  }, [settings, toneMode, figureControls]);
 
-    const draw = () => {
-      const dpr = window.devicePixelRatio || 1;
-      canvas.width = Math.max(1, Math.floor(COLOR_LINEARITY_PATTERN_WIDTH * dpr));
-      canvas.height = Math.max(1, Math.floor(COLOR_LINEARITY_PATTERN_HEIGHT * dpr));
-      canvas.style.width = `${COLOR_LINEARITY_PATTERN_WIDTH}px`;
-      canvas.style.height = `${COLOR_LINEARITY_PATTERN_HEIGHT}px`;
-
-      const context = canvas.getContext('2d');
-      if (!context) {
-        return;
-      }
-
-      context.setTransform(dpr, 0, 0, dpr, 0, 0);
-      context.imageSmoothingEnabled = false;
-      drawColorLinearityPattern(context, settings);
-    };
-
-    draw();
-
-    return undefined;
-  }, [settings]);
-
-  return <canvas ref={canvasRef} className="h-full w-full bg-black" aria-label={messages.panel.colorLinearityPatternAria} />;
+  return <canvas ref={canvasRef} className="h-full w-full bg-black" aria-label={ariaLabel} />;
 }
 
 function drawColorLinearityPattern(
@@ -1559,19 +1855,29 @@ function drawColorLinearityPattern(
   settings: AppSettings,
   renderWidth = COLOR_LINEARITY_PATTERN_WIDTH,
   renderHeight = COLOR_LINEARITY_PATTERN_HEIGHT,
+  toneMode: ColorReferenceToneMode = 'runtime',
+  figureControls: CsdfFigureControls = DEFAULT_CSDF_FIGURE_CONTROLS,
 ) {
   const transferTable = buildGsdfTableValues(settings);
-  const logoWidth = Math.round(renderWidth * 0.34);
-  const leftWidth = renderWidth - logoWidth;
-  const leftX = 0;
-  const logoX = leftX + leftWidth;
+  const sideWidth = Math.floor(renderWidth / 3);
+  const centerX = sideWidth;
+  const centerWidth = renderWidth - sideWidth * 2;
+  const rightX = renderWidth - sideWidth;
 
   COLOR_LINEARITY_ROWS.forEach((row, index) => {
     const y = Math.round((index * renderHeight) / COLOR_LINEARITY_ROWS.length);
     const nextY = Math.round(((index + 1) * renderHeight) / COLOR_LINEARITY_ROWS.length);
     const rowHeight = nextY - y;
-    drawPaperComparisonRamp(context, leftX, y, leftWidth, rowHeight, row, false, transferTable, settings.displayGamut);
-    drawColorLinearityLogoBlock(context, logoX, y, logoWidth, rowHeight, row, transferTable, settings.displayGamut);
+    if (toneMode === 'legacy-rgb') {
+      drawLegacyPaperComparisonRamp(context, 0, y, renderWidth - centerWidth, rowHeight, row, false, transferTable, settings.displayGamut, toneMode);
+      drawLegacyColorLinearityLogoBlock(context, centerX, y, centerWidth, rowHeight, row, transferTable, settings.displayGamut, toneMode);
+      return;
+    }
+
+    drawCsdfFig9VariableBlock(context, 0, y, renderWidth, rowHeight, row, 0, renderWidth, figureControls);
+    drawPaperComparisonRamp(context, 0, y, sideWidth, rowHeight, row, renderWidth, figureControls);
+    drawCsdfFig9LogoBlock(context, centerX, y, centerWidth, rowHeight, row, renderWidth, figureControls);
+    drawCsdfFig9RampSide(context, rightX, y, sideWidth, rowHeight, row, renderWidth, figureControls);
   });
 }
 
@@ -1579,6 +1885,7 @@ function getReferenceModeOptions(messages: Messages): Array<{ value: SidePanelMo
   return [
     { value: 'pattern', label: messages.panel.referencePanel, icon: <Grid3X3 size={13} /> },
     { value: 'linearity', label: messages.panel.colorLinearityPanel, icon: <Palette size={13} /> },
+    { value: 'legacy-linearity', label: messages.panel.legacyColorLinearityPanel, icon: <Palette size={13} /> },
     { value: 'bidirectional', label: messages.panel.bidirectionalColorPanel, icon: <Palette size={13} /> },
     { value: 'chart', label: messages.panel.curvePanel, icon: <BarChart3 size={13} /> },
   ];
@@ -1596,7 +1903,7 @@ function ReferenceModeSwitch({
   className?: string;
 }) {
   return (
-    <div className={`grid shrink-0 grid-cols-4 gap-1 ${className}`} data-no-drag>
+    <div className={`grid shrink-0 grid-cols-5 gap-1 ${className}`} data-no-drag>
       {getReferenceModeOptions(messages).map((option) => (
         <button
           key={option.value}
@@ -1617,12 +1924,111 @@ function ReferenceModeSwitch({
   );
 }
 
+function isCsdfFigureControlMode(mode: SidePanelMode): boolean {
+  return mode === 'linearity';
+}
+
+function CsdfFigureControlsPanel({
+  controls,
+  messages,
+  compact = false,
+  onChange,
+}: {
+  controls: CsdfFigureControls;
+  messages: Messages;
+  compact?: boolean;
+  onChange: React.Dispatch<React.SetStateAction<CsdfFigureControls>>;
+}) {
+  const updateMode = (mode: CsdfFigureMode) => {
+    onChange((current) => ({ ...current, mode }));
+  };
+  const updateCycles = (value: number) => {
+    onChange((current) => ({
+      ...current,
+      cycles: Math.round(clampValue(value, CSDF_FIG9_MIN_CYCLES, CSDF_FIG9_MAX_CYCLES)),
+    }));
+  };
+  const updateExaggeration = (value: number) => {
+    onChange((current) => ({
+      ...current,
+      exaggeration: Number(clampValue(value, CSDF_FIG9_MIN_EXAGGERATION, CSDF_FIG9_MAX_EXAGGERATION).toFixed(1)),
+    }));
+  };
+
+  return (
+    <div className={`gsdf-figure-controls ${compact ? 'grid gap-2' : 'grid gap-3'} rounded-md border border-white/10 bg-[#080b0f] p-3`} data-no-drag>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-2 text-[11px] font-semibold text-zinc-300">
+          <span className="gsdf-control-icon flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-white/[0.05] text-zinc-200">
+            <SlidersHorizontal size={14} />
+          </span>
+          <span className="truncate">{messages.panel.fig9Controls}</span>
+        </div>
+        <button
+          type="button"
+          title={messages.panel.resetFig9Controls}
+          aria-label={messages.panel.resetFig9Controls}
+          onClick={() => onChange(DEFAULT_CSDF_FIGURE_CONTROLS)}
+          className="gsdf-control-reset flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-white/10 bg-[#0b0d10] text-zinc-500 transition-colors hover:bg-white/[0.06] hover:text-zinc-100"
+        >
+          <RotateCcw size={13} />
+        </button>
+      </div>
+      <div className={`grid gap-3 ${compact ? 'grid-cols-1' : 'grid-cols-1 min-[880px]:grid-cols-[minmax(132px,0.7fr)_minmax(180px,1fr)_minmax(180px,1fr)]'}`}>
+        <label className="grid gap-1.5 text-[10px] font-semibold text-zinc-400" title={messages.panel.fig9ModeTitle}>
+          <span>{messages.panel.fig9Mode}</span>
+          <select
+            value={controls.mode}
+            onChange={(event) => updateMode(event.target.value as CsdfFigureMode)}
+            className="h-8 rounded border border-white/10 bg-[#0b0d10] px-2 text-[11px] font-semibold text-zinc-200"
+          >
+            <option value="split" className="bg-[#111418]">{messages.panel.fig9ModeSplit}</option>
+            <option value="plain" className="bg-[#111418]">{messages.panel.fig9ModePlain}</option>
+          </select>
+        </label>
+        <label className="grid gap-1.5 text-[10px] font-semibold text-zinc-400" title={messages.panel.fig9CyclesTitle}>
+          <span className="flex items-center justify-between gap-2">
+            <span>{messages.panel.fig9Cycles}</span>
+            <span className="font-mono text-[11px] text-zinc-200">{controls.cycles}</span>
+          </span>
+          <input
+            type="range"
+            min={CSDF_FIG9_MIN_CYCLES}
+            max={CSDF_FIG9_MAX_CYCLES}
+            step={1}
+            value={controls.cycles}
+            onChange={(event) => updateCycles(Number(event.target.value))}
+            className="gsdf-range w-full"
+          />
+        </label>
+        <label className="grid gap-1.5 text-[10px] font-semibold text-zinc-400" title={messages.panel.fig9ExaggerationTitle}>
+          <span className="flex items-center justify-between gap-2">
+            <span>{messages.panel.fig9Exaggeration}</span>
+            <span className="font-mono text-[11px] text-zinc-200">{controls.exaggeration.toFixed(1)}</span>
+          </span>
+          <input
+            type="range"
+            min={CSDF_FIG9_MIN_EXAGGERATION}
+            max={CSDF_FIG9_MAX_EXAGGERATION}
+            step={0.1}
+            value={controls.exaggeration}
+            onChange={(event) => updateExaggeration(Number(event.target.value))}
+            className="gsdf-range w-full"
+          />
+        </label>
+      </div>
+    </div>
+  );
+}
+
 function InspectionModeHeader({
   mode,
   title,
   subtitle,
   settings,
   setSettings,
+  figureControls,
+  setFigureControls,
   onModeChange,
   onClose,
   dragHandlers,
@@ -1633,6 +2039,8 @@ function InspectionModeHeader({
   subtitle: string;
   settings: AppSettings;
   setSettings: React.Dispatch<React.SetStateAction<AppSettings>>;
+  figureControls: CsdfFigureControls;
+  setFigureControls: React.Dispatch<React.SetStateAction<CsdfFigureControls>>;
   onModeChange: (mode: SidePanelMode) => void;
   onClose: () => void;
   dragHandlers: PointerHandlers;
@@ -1688,6 +2096,15 @@ function InspectionModeHeader({
         <span className="w-8 text-left font-mono text-[10px] text-zinc-500">{LUMINANCE_MAX_NITS}</span>
         <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-zinc-500">nits</span>
       </div>
+      {isCsdfFigureControlMode(mode) && (
+        <div className="mt-3">
+          <CsdfFigureControlsPanel
+            controls={figureControls}
+            messages={messages}
+            onChange={setFigureControls}
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -1698,6 +2115,9 @@ function getInspectionTitle(mode: SidePanelMode, messages: Messages): string {
   }
   if (mode === 'linearity') {
     return messages.panel.colorLinearityTitle;
+  }
+  if (mode === 'legacy-linearity') {
+    return messages.panel.legacyColorLinearityTitle;
   }
   if (mode === 'bidirectional') {
     return messages.panel.bidirectionalColorTitle;
@@ -1712,6 +2132,9 @@ function getInspectionSubtitle(mode: SidePanelMode, messages: Messages): string 
   if (mode === 'linearity') {
     return messages.panel.colorLinearitySubtitle;
   }
+  if (mode === 'legacy-linearity') {
+    return messages.panel.legacyColorLinearitySubtitle;
+  }
   if (mode === 'bidirectional') {
     return messages.panel.bidirectionalColorSubtitle;
   }
@@ -1725,6 +2148,9 @@ function getOpenFullInspectionLabel(mode: SidePanelMode, messages: Messages): st
   if (mode === 'linearity') {
     return messages.panel.openFullColorLinearity;
   }
+  if (mode === 'legacy-linearity') {
+    return messages.panel.openFullLegacyColorLinearity;
+  }
   if (mode === 'bidirectional') {
     return messages.panel.openFullBidirectionalColor;
   }
@@ -1735,6 +2161,8 @@ function InspectionModeView({
   mode,
   settings,
   setSettings,
+  figureControls,
+  setFigureControls,
   onModeChange,
   onClose,
   panelTheme,
@@ -1745,6 +2173,8 @@ function InspectionModeView({
   mode: Exclude<InspectionMode, null>;
   settings: AppSettings;
   setSettings: React.Dispatch<React.SetStateAction<AppSettings>>;
+  figureControls: CsdfFigureControls;
+  setFigureControls: React.Dispatch<React.SetStateAction<CsdfFigureControls>>;
   onModeChange: (mode: SidePanelMode) => void;
   onClose: () => void;
   panelTheme: PanelTheme;
@@ -1752,6 +2182,8 @@ function InspectionModeView({
   resizeHandlers: PointerHandlers;
   messages: Messages;
 }) {
+  const referenceSize = useScreenAwareReferenceSize(mode);
+
   return (
     <div className={`gsdf-inspection-mode gsdf-inspection-mode--${mode} flex h-full min-h-0 flex-col overflow-hidden`}>
       <InspectionModeHeader
@@ -1760,6 +2192,8 @@ function InspectionModeView({
         subtitle={getInspectionSubtitle(mode, messages)}
         settings={settings}
         setSettings={setSettings}
+        figureControls={figureControls}
+        setFigureControls={setFigureControls}
         onModeChange={onModeChange}
         onClose={onClose}
         dragHandlers={dragHandlers}
@@ -1767,38 +2201,48 @@ function InspectionModeView({
       />
       {mode === 'pattern' ? (
         <InteractiveInspectionViewport
-          designWidth={DIAGNOSTIC_PATTERN_WIDTH}
-          designHeight={DIAGNOSTIC_PATTERN_HEIGHT}
+          designWidth={referenceSize.width}
+          designHeight={referenceSize.height}
           className="bg-black p-2"
           ariaLabel={messages.panel.diagnosticPatternAria}
           messages={messages}
         >
-          <FullDiagnosticPattern settings={settings} messages={messages} fixedDesignSize />
+          <FullDiagnosticPattern settings={settings} messages={messages} renderSize={referenceSize} fixedDesignSize />
         </InteractiveInspectionViewport>
       ) : mode === 'linearity' ? (
         <InteractiveInspectionViewport
-          designWidth={COLOR_LINEARITY_PATTERN_WIDTH}
-          designHeight={COLOR_LINEARITY_PATTERN_HEIGHT}
+          designWidth={referenceSize.width}
+          designHeight={referenceSize.height}
           className="bg-black p-2"
           ariaLabel={messages.panel.colorLinearityPatternAria}
           messages={messages}
         >
-          <ColorLinearityPattern settings={settings} messages={messages} />
+          <ColorLinearityPattern settings={settings} messages={messages} renderSize={referenceSize} figureControls={figureControls} />
+        </InteractiveInspectionViewport>
+      ) : mode === 'legacy-linearity' ? (
+        <InteractiveInspectionViewport
+          designWidth={referenceSize.width}
+          designHeight={referenceSize.height}
+          className="bg-black p-2"
+          ariaLabel={messages.panel.legacyColorLinearityPatternAria}
+          messages={messages}
+        >
+          <ColorLinearityPattern settings={settings} messages={messages} renderSize={referenceSize} figureControls={figureControls} toneMode="legacy-rgb" />
         </InteractiveInspectionViewport>
       ) : mode === 'bidirectional' ? (
         <InteractiveInspectionViewport
-          designWidth={BIDIRECTIONAL_COLOR_PATTERN_WIDTH}
-          designHeight={BIDIRECTIONAL_COLOR_PATTERN_HEIGHT}
+          designWidth={referenceSize.width}
+          designHeight={referenceSize.height}
           className="bg-black p-2"
           ariaLabel={messages.panel.bidirectionalPatternAria}
           messages={messages}
         >
-          <ColorBidirectionalPattern settings={settings} messages={messages} />
+          <ColorBidirectionalPattern settings={settings} messages={messages} renderSize={referenceSize} />
         </InteractiveInspectionViewport>
       ) : (
         <InteractiveInspectionViewport
-          designWidth={CHART_VIEW_WIDTH}
-          designHeight={CHART_VIEW_HEIGHT}
+          designWidth={referenceSize.width}
+          designHeight={referenceSize.height}
           className="bg-[#10151b] p-4"
           ariaLabel={messages.panel.chartTitle}
           messages={messages}
@@ -1866,6 +2310,8 @@ function ReferenceSidePanel({
   mode,
   settings,
   panelTheme,
+  figureControls,
+  setFigureControls,
   messages,
   onModeChange,
   onOpenFull,
@@ -1874,6 +2320,8 @@ function ReferenceSidePanel({
   mode: SidePanelMode;
   settings: AppSettings;
   panelTheme: PanelTheme;
+  figureControls: CsdfFigureControls;
+  setFigureControls: React.Dispatch<React.SetStateAction<CsdfFigureControls>>;
   messages: Messages;
   onModeChange: (mode: SidePanelMode) => void;
   onOpenFull: (mode: SidePanelMode) => void;
@@ -1907,6 +2355,16 @@ function ReferenceSidePanel({
       <p className="shrink-0 border-b border-white/10 px-3 py-3 text-[12px] leading-5 text-zinc-400">
         {messages.panel.referenceSummaryBody}
       </p>
+      {isCsdfFigureControlMode(mode) && (
+        <div className="shrink-0 border-b border-white/10 p-3">
+          <CsdfFigureControlsPanel
+            controls={figureControls}
+            messages={messages}
+            compact
+            onChange={setFigureControls}
+          />
+        </div>
+      )}
       <div className="min-h-0 flex-1 overflow-hidden p-3">
         {mode === 'pattern' ? (
           <div className="h-full min-h-0 overflow-hidden rounded-md border border-white/10 bg-black p-2">
@@ -1914,7 +2372,11 @@ function ReferenceSidePanel({
           </div>
         ) : mode === 'linearity' ? (
           <div className="h-full min-h-0 overflow-hidden rounded-md border border-white/10 bg-black p-2">
-            <ColorLinearityPattern settings={settings} messages={messages} />
+            <ColorLinearityPattern settings={settings} messages={messages} figureControls={figureControls} />
+          </div>
+        ) : mode === 'legacy-linearity' ? (
+          <div className="h-full min-h-0 overflow-hidden rounded-md border border-white/10 bg-black p-2">
+            <ColorLinearityPattern settings={settings} messages={messages} figureControls={figureControls} toneMode="legacy-rgb" />
           </div>
         ) : mode === 'bidirectional' ? (
           <div className="h-full min-h-0 overflow-hidden rounded-md border border-white/10 bg-black p-2">
@@ -2041,6 +2503,7 @@ export function DraggablePanel({
   const [sidePanelOpen, setSidePanelOpen] = React.useState(false);
   const [sidePanelMode, setSidePanelMode] = React.useState<SidePanelMode>('pattern');
   const [inspectionMode, setInspectionMode] = React.useState<InspectionMode>(null);
+  const [figureControls, setFigureControls] = React.useState<CsdfFigureControls>(DEFAULT_CSDF_FIGURE_CONTROLS);
   const [panelClosed, setPanelClosed] = React.useState(false);
   const [standaloneInspectionSize, setStandaloneInspectionSize] = React.useState(() => getDefaultInspectionSize());
   const [standalonePanelSize, setStandalonePanelSize] = React.useState(() => getDefaultPanelSize());
@@ -2488,6 +2951,17 @@ export function DraggablePanel({
         <button
           type="button"
           onClick={() => {
+            setSidePanelMode('legacy-linearity');
+            setSidePanelOpen(true);
+          }}
+          className="gsdf-text-button flex h-9 items-center gap-2 rounded-md border border-white/10 px-3 text-[11px] font-semibold text-zinc-200 transition-colors hover:text-zinc-50"
+        >
+          <Palette size={13} />
+          {messages.panel.legacyColorLinearityPanel}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
             setSidePanelMode('chart');
             setSidePanelOpen(true);
           }}
@@ -2629,6 +3103,8 @@ export function DraggablePanel({
           mode={inspectionMode}
           settings={settings}
           setSettings={setSettings}
+          figureControls={figureControls}
+          setFigureControls={setFigureControls}
           panelTheme={panelTheme}
           onClose={() => setInspectionMode(null)}
           onModeChange={setInspectionReferenceMode}
@@ -2773,6 +3249,8 @@ export function DraggablePanel({
                 mode={sidePanelMode}
                 settings={settings}
                 panelTheme={panelTheme}
+                figureControls={figureControls}
+                setFigureControls={setFigureControls}
                 messages={messages}
                 onModeChange={setSidePanelMode}
                 onOpenFull={openInspectionMode}

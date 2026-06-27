@@ -51,7 +51,7 @@ test('reference pattern and curve open from the right side panel', () => {
     panelSource.indexOf('const handleHeaderPointerDown'),
   );
 
-  assert.match(panelSource, /type SidePanelMode = 'pattern' \| 'linearity' \| 'bidirectional' \| 'chart'/);
+  assert.match(panelSource, /type SidePanelMode = 'pattern' \| 'linearity' \| 'legacy-linearity' \| 'bidirectional' \| 'chart'/);
   assert.match(panelSource, /sidePanelOpen/);
   assert.match(panelSource, /sidePanelMode/);
   assert.match(panelSource, /ReferenceSidePanel/);
@@ -61,9 +61,13 @@ test('reference pattern and curve open from the right side panel', () => {
   assert.match(panelSource, /setSidePanelOpen\(\(value\) => !value\)/);
   assert.match(panelSource, /onModeChange=\{setSidePanelMode\}/);
   assert.match(panelSource, /FullDiagnosticPattern settings=\{settings\} messages=\{messages\}/);
-  assert.match(panelSource, /ColorLinearityPattern settings=\{settings\} messages=\{messages\}/);
+  assert.match(panelSource, /ColorLinearityPattern settings=\{settings\} messages=\{messages\} figureControls=\{figureControls\}/);
+  assert.match(panelSource, /ColorLinearityPattern settings=\{settings\} messages=\{messages\} renderSize=\{referenceSize\} figureControls=\{figureControls\} toneMode="legacy-rgb"/);
+  assert.match(panelSource, /CsdfFigureControlsPanel/);
+  assert.match(panelSource, /messages\.panel\.fig9Controls/);
   assert.match(panelSource, /ColorBidirectionalPattern settings=\{settings\} messages=\{messages\}/);
   assert.match(panelSource, /messages\.panel\.colorLinearityPanel/);
+  assert.match(panelSource, /messages\.panel\.legacyColorLinearityPanel/);
   assert.match(panelSource, /messages\.panel\.bidirectionalColorPanel/);
   assert.match(panelSource, /GSDFChart settings=\{settings\} panelTheme=\{panelTheme\}/);
   assert.match(panelSource, /function ReferenceModeSwitch/);
@@ -80,13 +84,14 @@ test('reference pattern and curve open from the right side panel', () => {
   assert.match(diagnosticPanelBlock, /DiagnosticCameraProbe settings=\{settings\} setSettings=\{setSettings\} messages=\{messages\}/);
   assert.match(diagnosticPanelBlock, /messages\.panel\.referencePanel/);
   assert.match(diagnosticPanelBlock, /setSidePanelMode\('linearity'\)/);
+  assert.match(diagnosticPanelBlock, /setSidePanelMode\('legacy-linearity'\)/);
   assert.match(diagnosticPanelBlock, /messages\.panel\.curvePanel/);
   assert.equal((panelSource.match(/openSidePanel\('pattern'\)|openSidePanel\('chart'\)/g) ?? []).length, 0);
 });
 
 test('panel keeps project-owned GSDF pattern and chart logic', () => {
   const colorLinearityBlock = panelSource.slice(
-    panelSource.indexOf('function drawColorRamp'),
+    panelSource.indexOf('function getTriangleWave'),
     panelSource.indexOf('function InspectionModeHeader'),
   );
   const bidirectionalBlock = panelSource.slice(
@@ -103,9 +108,21 @@ test('panel keeps project-owned GSDF pattern and chart logic', () => {
   assert.match(panelSource, /drawBidirectionalColorBand/);
   assert.match(panelSource, /const halfHeight = Math\.floor\(height \/ 2\)/);
   assert.match(panelSource, /function interpolateColor/);
-  assert.match(panelSource, /function getPrimarySecondaryPrimaryRatio/);
-  assert.match(panelSource, /function getColorRampColor/);
+  assert.match(panelSource, /type CsdfFigureMode = 'split' \| 'plain'/);
+  assert.match(panelSource, /CSDF_FIG9_DEFAULT_CYCLES = 78/);
+  assert.match(panelSource, /CSDF_FIG9_DEFAULT_EXAGGERATION = 1/);
+  assert.match(panelSource, /function getTriangleWave/);
+  assert.match(panelSource, /return 1 - Math\.abs\(2 \* normalizedProgress - 1\)/);
+  assert.match(panelSource, /function remapCsdfFig9Channel/);
+  assert.match(panelSource, /const gamma = 1 \/ \(1 \+ 0\.8 \* normalizedExaggeration\)/);
+  assert.match(panelSource, /function applyCsdfFig9SplitChannel/);
+  assert.match(panelSource, /controls\.mode !== 'split' \|\| globalX < renderWidth \/ 2/);
+  assert.match(panelSource, /function drawCsdfFig9RampSide/);
+  assert.match(panelSource, /const topHeight = Math\.round\(height \* 0\.32\)/);
+  assert.match(panelSource, /const middleHeight = Math\.round\(height \* 0\.36\)/);
   assert.match(panelSource, /function applyReferenceCsdfToneTable/);
+  assert.match(panelSource, /function applyLegacyReferenceToneTable/);
+  assert.match(panelSource, /toneMode === 'legacy-rgb'/);
   assert.match(panelSource, /REFERENCE_DISPLAY_GAMUT_PROFILES/);
   assert.match(panelSource, /settings\.displayGamut/);
   assert.match(panelSource, /const y = clampValue\(kr \* red \+ kg \* green \+ kb \* blue, 0, 1\)/);
@@ -113,8 +130,10 @@ test('panel keeps project-owned GSDF pattern and chart logic', () => {
   assert.match(panelSource, /const mappedY = sampleReferenceToneTable\(transferTable, y\)/);
   assert.match(panelSource, /const greenFromCb = -\(kb \* cbScale\) \/ kg/);
   assert.match(panelSource, /buildGsdfTableValues\(settings\)/);
-  assert.match(panelSource, /Math\.sin\(progress \* Math\.PI \* 2 \* COLOR_RAMP_SINE_CYCLES\)/);
-  assert.match(panelSource, /drawColorRamp\(context, x, y, width, height, row, calibrated, transferTable/);
+  assert.match(panelSource, /const modulationProgress = inverted \? 1 - progress : progress/);
+  assert.match(panelSource, /Math\.sin\(modulationProgress \* Math\.PI \* 2 \* LEGACY_COLOR_RAMP_SINE_CYCLES\)/);
+  assert.doesNotMatch(panelSource, /const rampRatio = inverted \? 1 - baseRatio : baseRatio/);
+  assert.match(panelSource, /drawLegacyColorRamp\(context, x, y, width, height, row, calibrated, transferTable/);
   assert.match(panelSource, /function drawSingleDirectionColorRamp/);
   assert.match(panelSource, /const rampProgress = reversed \? 1 - progress : progress/);
   assert.doesNotMatch(panelSource, /function selectDiscreteGradientLineColor/);
@@ -124,20 +143,25 @@ test('panel keeps project-owned GSDF pattern and chart logic', () => {
   assert.doesNotMatch(colorLinearityBlock, /context\.strokeRect/);
   assert.doesNotMatch(colorLinearityBlock, /strokeStyle = 'rgba\(0,0,0/);
   assert.doesNotMatch(panelSource, /context\.fillRect\(marginX, y \+ rowHeight \/ 2 - 1, patternWidth, 2\)/);
-  assert.doesNotMatch(colorLinearityBlock, /rightWidth|rightX|calibratedSimulation/);
+  assert.doesNotMatch(colorLinearityBlock, /calibratedSimulation/);
   assert.doesNotMatch(bidirectionalBlock, /sampleIndex/);
   assert.match(panelSource, /COLOR_LINEARITY_ROWS/);
   assert.match(panelSource, /amplitudePercent: 3\.0/);
   assert.match(panelSource, /differencePercent: 5\.9/);
   assert.match(panelSource, /COLOR_LINEARITY_PATTERN_HEIGHT = 920/);
-  assert.match(panelSource, /canvas\.width = Math\.max\(1, Math\.floor\(COLOR_LINEARITY_PATTERN_WIDTH \* dpr\)\)/);
+  assert.match(panelSource, /function getScreenAwareReferenceSize/);
+  assert.match(panelSource, /function useReferenceCanvas/);
+  assert.match(panelSource, /getMeasuredReferenceCanvasSize\(canvas\)/);
+  assert.match(panelSource, /renderSize \?\? getMeasuredReferenceCanvasSize\(canvas\)/);
   assert.match(panelSource, /drawPaperComparisonRamp/);
-  assert.match(panelSource, /drawColorLinearityLogoBlock/);
+  assert.match(panelSource, /drawCsdfFig9LogoBlock/);
+  assert.match(panelSource, /drawLegacyColorLinearityLogoBlock/);
   assert.match(panelSource, /BIDIRECTIONAL_COLOR_PATTERN_WIDTH = 1800/);
   assert.match(panelSource, /viewportScaleInfo/);
   assert.match(panelSource, /viewportScaleBest/);
   assert.match(panelSource, /fixedDesignSize/);
-  assert.match(panelSource, /canvas\.width = Math\.max\(1, Math\.floor\(DIAGNOSTIC_PATTERN_WIDTH \* dpr\)\)/);
+  assert.match(panelSource, /drawScaledReferenceDesign/);
+  assert.match(panelSource, /useScreenAwareReferenceSize\(mode\)/);
   assert.doesNotMatch(panelSource, /column % 22 === 0 \? '#ffffff' : '#000000'/);
   assert.match(i18nMessagesSource, /CSDF VISUAL TEST PATTERN/);
   assert.match(diagnosticProbeSource, /requestCameraStream/);
