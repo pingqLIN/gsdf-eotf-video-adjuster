@@ -54,7 +54,7 @@ export const enMessages = {
     referenceSummaryTitle: 'Reference and curve',
     referenceSummaryBody: 'Inspect the project-owned grayscale frequency pattern, current CSDF color pattern, legacy RGB color pattern, split-and-rotated color gradient join pattern, or live curve. Full-screen reference views show the current scale and measured render size.',
     fig9Controls: 'Fig. 9 render controls',
-    resetFig9Controls: 'Reset Fig. 9 render controls',
+    resetFig9Controls: 'Auto-tune Fig. 9 controls from the current display environment',
     fig9Mode: 'Mode',
     fig9ModeTitle: 'Choose whether the Fig. 9 reconstruction shows the right-half effect remap.',
     fig9ModeSplit: 'Split',

@@ -111,6 +111,15 @@ test('panel keeps project-owned GSDF pattern and chart logic', () => {
   assert.match(panelSource, /type CsdfFigureMode = 'split' \| 'plain'/);
   assert.match(panelSource, /CSDF_FIG9_DEFAULT_CYCLES = 78/);
   assert.match(panelSource, /CSDF_FIG9_DEFAULT_EXAGGERATION = 1/);
+  assert.match(panelSource, /function detectDisplayEnvironment/);
+  assert.match(panelSource, /matches\('\(dynamic-range: high\)'\)/);
+  assert.match(panelSource, /matches\('\(color-gamut: p3\)'\)/);
+  assert.match(panelSource, /window\.screen\?\.colorDepth/);
+  assert.match(panelSource, /window\.devicePixelRatio/);
+  assert.match(panelSource, /function getAutoTunedCsdfFigureControls/);
+  assert.match(panelSource, /targetPhysicalPixelsPerCycle/);
+  assert.match(panelSource, /settings\.lmax < 120/);
+  assert.match(panelSource, /mode: 'split'/);
   assert.match(panelSource, /function getTriangleWave/);
   assert.match(panelSource, /return 1 - Math\.abs\(2 \* normalizedProgress - 1\)/);
   assert.match(panelSource, /function remapCsdfFig9Channel/);
@@ -162,6 +171,8 @@ test('panel keeps project-owned GSDF pattern and chart logic', () => {
   assert.match(panelSource, /fixedDesignSize/);
   assert.match(panelSource, /drawScaledReferenceDesign/);
   assert.match(panelSource, /useScreenAwareReferenceSize\(mode\)/);
+  assert.match(panelSource, /onClick=\{\(\) => onChange\(getAutoTunedCsdfFigureControls\(settings, renderSize\)\)\}/);
+  assert.match(i18nMessagesSource, /resetFig9Controls: 'Auto-tune Fig\. 9 controls from the current display environment'/);
   assert.doesNotMatch(panelSource, /column % 22 === 0 \? '#ffffff' : '#000000'/);
   assert.match(i18nMessagesSource, /CSDF VISUAL TEST PATTERN/);
   assert.match(diagnosticProbeSource, /requestCameraStream/);

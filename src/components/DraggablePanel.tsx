@@ -191,6 +191,16 @@ const DEFAULT_CSDF_FIGURE_CONTROLS: CsdfFigureControls = {
   exaggeration: CSDF_FIG9_DEFAULT_EXAGGERATION,
 };
 
+interface DetectedDisplayEnvironment {
+  colorDepth: number;
+  devicePixelRatio: number;
+  highDynamicRange: boolean;
+  p3Gamut: boolean;
+  rec2020Gamut: boolean;
+  prefersMoreContrast: boolean;
+  viewportWidth: number;
+}
+
 function ControlResetButton({
   title,
   onReset,
@@ -1928,13 +1938,98 @@ function isCsdfFigureControlMode(mode: SidePanelMode): boolean {
   return mode === 'linearity';
 }
 
+function detectDisplayEnvironment(): DetectedDisplayEnvironment {
+  if (typeof window === 'undefined') {
+    return {
+      colorDepth: 24,
+      devicePixelRatio: 1,
+      highDynamicRange: false,
+      p3Gamut: false,
+      rec2020Gamut: false,
+      prefersMoreContrast: false,
+      viewportWidth: COLOR_LINEARITY_PATTERN_WIDTH,
+    };
+  }
+
+  const visualViewport = window.visualViewport;
+  const matchMedia = window.matchMedia.bind(window);
+  const matches = (query: string) => matchMedia(query).matches;
+
+  return {
+    colorDepth: window.screen?.colorDepth ?? 24,
+    devicePixelRatio: window.devicePixelRatio || 1,
+    highDynamicRange: matches('(dynamic-range: high)') || matches('(video-dynamic-range: high)'),
+    p3Gamut: matches('(color-gamut: p3)'),
+    rec2020Gamut: matches('(color-gamut: rec2020)'),
+    prefersMoreContrast: matches('(prefers-contrast: more)'),
+    viewportWidth: visualViewport?.width ?? window.innerWidth,
+  };
+}
+
+function getAutoTunedCsdfFigureControls(
+  settings: AppSettings,
+  renderSize?: ReferenceRenderSize,
+): CsdfFigureControls {
+  const environment = detectDisplayEnvironment();
+  const fallbackWidth = Math.min(
+    REFERENCE_RENDER_MAX_WIDTH,
+    Math.max(480, environment.viewportWidth - REFERENCE_RENDER_MARGIN),
+  );
+  const effectiveWidth = renderSize?.width ?? fallbackWidth;
+  const sideWidth = Math.max(160, effectiveWidth / 3);
+  const targetPhysicalPixelsPerCycle = environment.highDynamicRange
+    ? 9
+    : environment.colorDepth >= 30
+      ? 8
+      : 7;
+  const cycles = Math.round(clampValue(
+    (sideWidth * environment.devicePixelRatio) / targetPhysicalPixelsPerCycle,
+    CSDF_FIG9_MIN_CYCLES,
+    CSDF_FIG9_MAX_CYCLES,
+  ));
+  let exaggeration = CSDF_FIG9_DEFAULT_EXAGGERATION;
+
+  if (settings.lmax < 120) {
+    exaggeration += 0.25;
+  } else if (settings.lmax > 250) {
+    exaggeration -= 0.15;
+  }
+
+  if (environment.highDynamicRange) {
+    exaggeration -= 0.15;
+  }
+  if (environment.p3Gamut || environment.rec2020Gamut) {
+    exaggeration -= 0.1;
+  }
+  if (environment.colorDepth >= 30) {
+    exaggeration -= 0.1;
+  }
+  if (environment.prefersMoreContrast) {
+    exaggeration += 0.15;
+  }
+
+  return {
+    mode: 'split',
+    cycles,
+    exaggeration: Number(clampValue(
+      exaggeration,
+      CSDF_FIG9_MIN_EXAGGERATION,
+      CSDF_FIG9_MAX_EXAGGERATION,
+    ).toFixed(1)),
+  };
+}
+
 function CsdfFigureControlsPanel({
   controls,
+  settings,
+  renderSize,
   messages,
   compact = false,
   onChange,
 }: {
   controls: CsdfFigureControls;
+  settings: AppSettings;
+  renderSize?: ReferenceRenderSize;
   messages: Messages;
   compact?: boolean;
   onChange: React.Dispatch<React.SetStateAction<CsdfFigureControls>>;
@@ -1968,7 +2063,7 @@ function CsdfFigureControlsPanel({
           type="button"
           title={messages.panel.resetFig9Controls}
           aria-label={messages.panel.resetFig9Controls}
-          onClick={() => onChange(DEFAULT_CSDF_FIGURE_CONTROLS)}
+          onClick={() => onChange(getAutoTunedCsdfFigureControls(settings, renderSize))}
           className="gsdf-control-reset flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-white/10 bg-[#0b0d10] text-zinc-500 transition-colors hover:bg-white/[0.06] hover:text-zinc-100"
         >
           <RotateCcw size={13} />
@@ -2029,6 +2124,7 @@ function InspectionModeHeader({
   setSettings,
   figureControls,
   setFigureControls,
+  renderSize,
   onModeChange,
   onClose,
   dragHandlers,
@@ -2041,6 +2137,7 @@ function InspectionModeHeader({
   setSettings: React.Dispatch<React.SetStateAction<AppSettings>>;
   figureControls: CsdfFigureControls;
   setFigureControls: React.Dispatch<React.SetStateAction<CsdfFigureControls>>;
+  renderSize?: ReferenceRenderSize;
   onModeChange: (mode: SidePanelMode) => void;
   onClose: () => void;
   dragHandlers: PointerHandlers;
@@ -2100,6 +2197,8 @@ function InspectionModeHeader({
         <div className="mt-3">
           <CsdfFigureControlsPanel
             controls={figureControls}
+            settings={settings}
+            renderSize={renderSize}
             messages={messages}
             onChange={setFigureControls}
           />
@@ -2194,6 +2293,7 @@ function InspectionModeView({
         setSettings={setSettings}
         figureControls={figureControls}
         setFigureControls={setFigureControls}
+        renderSize={referenceSize}
         onModeChange={onModeChange}
         onClose={onClose}
         dragHandlers={dragHandlers}
@@ -2359,6 +2459,7 @@ function ReferenceSidePanel({
         <div className="shrink-0 border-b border-white/10 p-3">
           <CsdfFigureControlsPanel
             controls={figureControls}
+            settings={settings}
             messages={messages}
             compact
             onChange={setFigureControls}
