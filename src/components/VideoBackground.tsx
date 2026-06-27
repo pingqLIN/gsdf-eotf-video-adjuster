@@ -2,6 +2,7 @@ import React from 'react';
 import {
   AppSettings,
   buildGsdfTableValues,
+  buildLumaChromaMatrices,
   TEMPERATURE_MAX_K,
   TONE_LEVEL_COUNT,
 } from '../types';
@@ -12,6 +13,9 @@ interface VideoBackgroundProps {
 
 export function VideoBackground({ settings }: VideoBackgroundProps) {
   const gsdfTableValues = React.useMemo(() => buildGsdfTableValues(settings).join(' '), [settings]);
+  const gsdfLumaChromaMatrices = React.useMemo(() => buildLumaChromaMatrices(settings.displayGamut), [settings.displayGamut]);
+  const gsdfForwardMatrix = React.useMemo(() => gsdfLumaChromaMatrices.forward.map((value) => Number(value).toFixed(4)).join(' '), [gsdfLumaChromaMatrices]);
+  const gsdfInverseMatrix = React.useMemo(() => gsdfLumaChromaMatrices.inverse.map((value) => Number(value).toFixed(4)).join(' '), [gsdfLumaChromaMatrices]);
   const blackPoint = settings.blackPoint / TONE_LEVEL_COUNT;
   const whitePoint = settings.whitePoint / TONE_LEVEL_COUNT;
   const usableRange = Math.max(0.05, whitePoint - blackPoint);
@@ -37,6 +41,8 @@ export function VideoBackground({ settings }: VideoBackgroundProps) {
     settings.fineSharpness > 0 ? 'url(#eotf-sharpen-fine)' : '',
     settings.mediumSharpness > 0 ? 'url(#eotf-sharpen-medium)' : '',
   ].filter(Boolean).join(' ');
+  const gsdfFilter = settings.gsdfPipeline === 'rgb' ? 'url(#eotf-gsdf-rgb)' : 'url(#eotf-gsdf-ycbcr)';
+  const transferFilter = settings.transferFormula === 'csdf' ? 'url(#eotf-csdf)' : gsdfFilter;
 
   return (
     <div className="fixed inset-0 w-full h-full bg-black overflow-hidden select-none pointer-events-none">
@@ -48,11 +54,35 @@ export function VideoBackground({ settings }: VideoBackgroundProps) {
             <feFuncB type="linear" slope={slope} intercept={intercept} />
           </feComponentTransfer>
         </filter>
-        <filter id="eotf-filter" colorInterpolationFilters="sRGB">
+        <filter id="eotf-gsdf-rgb" colorInterpolationFilters="sRGB">
           <feComponentTransfer>
             <feFuncR type="table" tableValues={gsdfTableValues} />
             <feFuncG type="table" tableValues={gsdfTableValues} />
             <feFuncB type="table" tableValues={gsdfTableValues} />
+          </feComponentTransfer>
+        </filter>
+        <filter id="eotf-gsdf-ycbcr" colorInterpolationFilters="sRGB">
+          <feColorMatrix
+            type="matrix"
+            values={gsdfForwardMatrix}
+            result="gsdf-ycc"
+          />
+          <feComponentTransfer in="gsdf-ycc" result="gsdf-ycbcr-adjusted">
+            <feFuncR type="table" tableValues={gsdfTableValues} />
+            <feFuncG type="linear" slope={1} intercept={0} />
+            <feFuncB type="linear" slope={1} intercept={0} />
+          </feComponentTransfer>
+          <feColorMatrix
+            in="gsdf-ycbcr-adjusted"
+            type="matrix"
+            values={gsdfInverseMatrix}
+          />
+        </filter>
+        <filter id="eotf-csdf" colorInterpolationFilters="sRGB">
+          <feComponentTransfer>
+            <feFuncR type="linear" slope={1} intercept={0} />
+            <feFuncG type="linear" slope={1} intercept={0} />
+            <feFuncB type="linear" slope={1} intercept={0} />
           </feComponentTransfer>
         </filter>
         <filter id="eotf-temp" colorInterpolationFilters="sRGB">
@@ -82,7 +112,7 @@ export function VideoBackground({ settings }: VideoBackgroundProps) {
         className="w-full h-full object-cover"
         style={{
           filter: settings.enabled
-            ? `${sharpnessFilter} url(#eotf-filter) url(#eotf-levels) url(#eotf-temp) url(#eotf-color)`.trim()
+            ? `${sharpnessFilter} ${transferFilter} url(#eotf-levels) url(#eotf-temp) url(#eotf-color)`.trim()
             : 'none',
           transition: 'filter 0.3s ease-in-out'
         }}

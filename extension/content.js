@@ -13,6 +13,8 @@ const DEFAULT_SETTINGS = {
   gammaTarget: 2.2,
   displayGamma: 2.2,
   sourceIsLinear: false,
+  transferFormula: 'csdf',
+  gsdfPipeline: 'ycbcr',
   displayGamut: 'srgb',
   strength: 100,
   blackPoint: 0,
@@ -70,7 +72,8 @@ const GSDF_COEFFICIENTS = {
 };
 const FILTER_CONTAINER_ID = 'gsdf-eotf-svg-filter-container';
 const FILTER_IDS = {
-  gamma: 'gsdf-eotf-gamma',
+  gsdfRgb: 'gsdf-eotf-gsdf-rgb',
+  gsdfYcbcr: 'gsdf-eotf-gsdf-ycbcr',
   csdf: 'gsdf-eotf-csdf',
   levels: 'gsdf-eotf-levels',
   temperature: 'gsdf-eotf-temp',
@@ -79,7 +82,7 @@ const FILTER_IDS = {
   sharpenMedium: 'gsdf-eotf-sharpen-medium'
 };
 const MANAGED_FILTER_RE =
-  /\s*url\((["']?)#gsdf-eotf-(?:gamma|ycbcr|csdf|levels|temp|color|sharpen-(?:[123]|fine|medium))\1\)\s*/g;
+  /\s*url\((["']?)#gsdf-eotf-(?:gamma|ycbcr|gsdf-(?:rgb|ycbcr)|csdf|levels|temp|color|sharpen-(?:[123]|fine|medium))\1\)\s*/g;
 const MIN_VISIBLE_AREA = 8000;
 const PANEL_VIEWPORT_MARGIN = 16;
 const PANEL_DEFAULT_WIDTH = 400;
@@ -155,6 +158,14 @@ function normalizeDisplayGamut(value) {
   return Object.prototype.hasOwnProperty.call(DISPLAY_GAMUT_PROFILES, value) ? value : DEFAULT_SETTINGS.displayGamut;
 }
 
+function normalizeTransferFormula(value) {
+  return value === 'gsdf' || value === 'csdf' ? value : DEFAULT_SETTINGS.transferFormula;
+}
+
+function normalizeGsdfPipeline(value) {
+  return value === 'rgb' ? 'rgb' : DEFAULT_SETTINGS.gsdfPipeline;
+}
+
 function hasNewImageControlSchema(settings) {
   return (
     settings.displayGamma !== undefined ||
@@ -198,27 +209,31 @@ function normalizeDisplayGamma(value) {
   return DISPLAY_GAMMA_OPTIONS.includes(normalized) ? normalized : DEFAULT_SETTINGS.gammaTarget;
 }
 
-function gammaCorrectionToTarget(value) {
+function gammaCorrectionToTarget(value, neutralGamma = DEFAULT_GAMMA_TARGET) {
   const correction = clampNumber(value, GAMMA_CORRECTION_MIN, GAMMA_CORRECTION_MAX, 0);
+  const neutralTarget = normalizeGammaTarget(neutralGamma);
 
   if (correction < 0) {
     const ratio = Math.abs(correction) / Math.abs(GAMMA_CORRECTION_MIN);
-    return normalizeGammaTarget(DEFAULT_GAMMA_TARGET + (GAMMA_TARGET_MAX - DEFAULT_GAMMA_TARGET) * ratio);
+    return normalizeGammaTarget(neutralTarget + (GAMMA_TARGET_MAX - neutralTarget) * ratio);
   }
 
   const ratio = correction / GAMMA_CORRECTION_MAX;
-  return normalizeGammaTarget(DEFAULT_GAMMA_TARGET - (DEFAULT_GAMMA_TARGET - GAMMA_TARGET_MIN) * ratio);
+  return normalizeGammaTarget(neutralTarget - (neutralTarget - GAMMA_TARGET_MIN) * ratio);
 }
 
-function gammaTargetToCorrection(value) {
+function gammaTargetToCorrection(value, neutralGamma = DEFAULT_GAMMA_TARGET) {
   const target = normalizeGammaTarget(value);
+  const neutralTarget = normalizeGammaTarget(neutralGamma);
 
-  if (target > DEFAULT_GAMMA_TARGET) {
-    return Math.round(-((target - DEFAULT_GAMMA_TARGET) / (GAMMA_TARGET_MAX - DEFAULT_GAMMA_TARGET)) * Math.abs(GAMMA_CORRECTION_MIN));
+  if (target > neutralTarget) {
+    const upperRange = Math.max(0.001, GAMMA_TARGET_MAX - neutralTarget);
+    return Math.round(-((target - neutralTarget) / upperRange) * Math.abs(GAMMA_CORRECTION_MIN));
   }
 
-  if (target < DEFAULT_GAMMA_TARGET) {
-    return Math.round(((DEFAULT_GAMMA_TARGET - target) / (DEFAULT_GAMMA_TARGET - GAMMA_TARGET_MIN)) * GAMMA_CORRECTION_MAX);
+  if (target < neutralTarget) {
+    const lowerRange = Math.max(0.001, neutralTarget - GAMMA_TARGET_MIN);
+    return Math.round(((neutralTarget - target) / lowerRange) * GAMMA_CORRECTION_MAX);
   }
 
   return 0;
@@ -341,13 +356,19 @@ function normalizeSettings(settings = {}) {
   const temperature = usesLegacyImageSchema
     ? migrateLegacyTemperature(settings.temperature)
     : Math.round(clampNumber(settings.temperature, TEMPERATURE_MIN_K, TEMPERATURE_MAX_K, DEFAULT_SETTINGS.temperature));
+  const displayGamma = normalizeDisplayGamma(settings.displayGamma);
+  const gammaTarget = settings.gammaTarget === undefined || settings.gammaTarget === null
+    ? displayGamma
+    : normalizeGammaTarget(settings.gammaTarget);
   const normalized = {
     enabled: settings.enabled === true,
     lmax,
     curveMode: normalizeCurveMode(settings.curveMode),
-    gammaTarget: normalizeGammaTarget(settings.gammaTarget),
-    displayGamma: normalizeDisplayGamma(settings.displayGamma),
+    gammaTarget,
+    displayGamma,
     sourceIsLinear: false,
+    transferFormula: normalizeTransferFormula(settings.transferFormula),
+    gsdfPipeline: normalizeGsdfPipeline(settings.gsdfPipeline ?? settings.colorModel),
     displayGamut: normalizeDisplayGamut(settings.displayGamut),
     strength: clampNumber(settings.strength, 0, 100, DEFAULT_SETTINGS.strength),
     blackPoint,
@@ -423,9 +444,8 @@ function buildLumaChromaMatrices(displayGamut) {
 function isNeutralToneProfile(profile) {
   return (
     profile.strength === 0 &&
-    profile.gammaTarget === DEFAULT_GAMMA_TARGET &&
+    profile.gammaTarget === profile.displayGamma &&
     profile.sourceIsLinear === false &&
-    profile.displayGamma === DEFAULT_SETTINGS.gammaTarget &&
     profile.blackPoint === 0 &&
     profile.whitePoint === TONE_LEVEL_COUNT &&
     profile.fineSharpness === 0 &&
@@ -451,7 +471,7 @@ function deriveToneProfile(settings = currentSettings) {
   const gsdfTableValues = buildGsdfTableValues(normalized);
   const saturationValue = normalized.grayscale ? 0 : clampNumber(normalized.saturation / 100, 0.5, 1.5, 1);
   const hueValue = clampNumber(normalized.hue, -30, 30, 0);
-  const lumaChromaMatrices = buildLumaChromaMatrices(normalized.displayGamut);
+  const gsdfLumaChromaMatrices = buildLumaChromaMatrices(normalized.displayGamut);
 
   return {
     ...normalized,
@@ -470,8 +490,8 @@ function deriveToneProfile(settings = currentSettings) {
     fineSharpenFilterId: normalized.fineSharpness > 0 ? FILTER_IDS.sharpenFine : '',
     mediumSharpenFilterId: normalized.mediumSharpness > 0 ? FILTER_IDS.sharpenMedium : '',
     gsdfTableValues,
-    csdfForwardMatrix: lumaChromaMatrices.forward,
-    csdfInverseMatrix: lumaChromaMatrices.inverse
+    gsdfForwardMatrix: gsdfLumaChromaMatrices.forward,
+    gsdfInverseMatrix: gsdfLumaChromaMatrices.inverse
   };
 }
 
@@ -490,10 +510,15 @@ function stripManagedFilterTokens(filterText = '') {
 
 function buildManagedFilterChain(existingFilter, profile = deriveToneProfile()) {
   const hostFilter = stripManagedFilterTokens(existingFilter);
+  const transferFilterId = profile.transferFormula === 'csdf'
+    ? FILTER_IDS.csdf
+    : profile.gsdfPipeline === 'rgb'
+      ? FILTER_IDS.gsdfRgb
+      : FILTER_IDS.gsdfYcbcr;
   const managedFilters = [
     profile.fineSharpenFilterId ? formatFilterUrl(profile.fineSharpenFilterId) : '',
     profile.mediumSharpenFilterId ? formatFilterUrl(profile.mediumSharpenFilterId) : '',
-    formatFilterUrl(FILTER_IDS.csdf),
+    formatFilterUrl(transferFilterId),
     formatFilterUrl(FILTER_IDS.levels),
     formatFilterUrl(FILTER_IDS.temperature),
     formatFilterUrl(FILTER_IDS.color)
@@ -529,31 +554,38 @@ function injectSVGFilter() {
           <feFuncB id="${FILTER_IDS.levels}-b" type="linear" slope="1" intercept="0"></feFuncB>
         </feComponentTransfer>
       </filter>
-      <filter id="${FILTER_IDS.gamma}" color-interpolation-filters="sRGB">
+      <filter id="${FILTER_IDS.gsdfRgb}" color-interpolation-filters="sRGB">
         <feComponentTransfer>
-          <feFuncR id="${FILTER_IDS.gamma}-r" type="table" tableValues="0 1"></feFuncR>
-          <feFuncG id="${FILTER_IDS.gamma}-g" type="table" tableValues="0 1"></feFuncG>
-          <feFuncB id="${FILTER_IDS.gamma}-b" type="table" tableValues="0 1"></feFuncB>
+          <feFuncR id="${FILTER_IDS.gsdfRgb}-r" type="table" tableValues="0 1"></feFuncR>
+          <feFuncG id="${FILTER_IDS.gsdfRgb}-g" type="table" tableValues="0 1"></feFuncG>
+          <feFuncB id="${FILTER_IDS.gsdfRgb}-b" type="table" tableValues="0 1"></feFuncB>
         </feComponentTransfer>
       </filter>
-      <filter id="${FILTER_IDS.csdf}" color-interpolation-filters="sRGB">
+      <filter id="${FILTER_IDS.gsdfYcbcr}" color-interpolation-filters="sRGB">
         <feColorMatrix
-          id="${FILTER_IDS.csdf}-forward"
+          id="${FILTER_IDS.gsdfYcbcr}-forward"
           type="matrix"
           values="0.2126 0.7152 0.0722 0 0  -0.1146 -0.3854 0.5000 0 0.5  0.5000 -0.4542 -0.0458 0 0.5  0 0 0 1 0"
-          result="csdf-ycc"
+          result="gsdf-ycc"
         ></feColorMatrix>
-        <feComponentTransfer in="csdf-ycc" result="csdf-adjusted">
-          <feFuncR id="${FILTER_IDS.csdf}-r" type="table" tableValues="0 1"></feFuncR>
-          <feFuncG id="${FILTER_IDS.csdf}-g" type="linear" slope="1" intercept="0"></feFuncG>
-          <feFuncB id="${FILTER_IDS.csdf}-b" type="linear" slope="1" intercept="0"></feFuncB>
+        <feComponentTransfer in="gsdf-ycc" result="gsdf-ycbcr-adjusted">
+          <feFuncR id="${FILTER_IDS.gsdfYcbcr}-r" type="table" tableValues="0 1"></feFuncR>
+          <feFuncG id="${FILTER_IDS.gsdfYcbcr}-g" type="linear" slope="1" intercept="0"></feFuncG>
+          <feFuncB id="${FILTER_IDS.gsdfYcbcr}-b" type="linear" slope="1" intercept="0"></feFuncB>
         </feComponentTransfer>
         <feColorMatrix
-          id="${FILTER_IDS.csdf}-inverse"
-          in="csdf-adjusted"
+          id="${FILTER_IDS.gsdfYcbcr}-inverse"
+          in="gsdf-ycbcr-adjusted"
           type="matrix"
           values="1 0 1.5748 0 -0.7874  1 -0.1873 -0.4681 0 0.3277  1 1.8556 0 0 -0.9278  0 0 0 1 0"
         ></feColorMatrix>
+      </filter>
+      <filter id="${FILTER_IDS.csdf}" color-interpolation-filters="sRGB">
+        <feComponentTransfer>
+          <feFuncR id="${FILTER_IDS.csdf}-r" type="linear" slope="1" intercept="0"></feFuncR>
+          <feFuncG id="${FILTER_IDS.csdf}-g" type="linear" slope="1" intercept="0"></feFuncG>
+          <feFuncB id="${FILTER_IDS.csdf}-b" type="linear" slope="1" intercept="0"></feFuncB>
+        </feComponentTransfer>
       </filter>
       <filter id="${FILTER_IDS.temperature}" color-interpolation-filters="sRGB">
         <feColorMatrix id="${FILTER_IDS.temperature}-matrix" type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 1 0"></feColorMatrix>
@@ -601,10 +633,10 @@ function setElementAttributes(id, attributes) {
 
 function updateFilterDefinitions(profile) {
   injectSVGFilter();
-  setTransferAttributes(FILTER_IDS.gamma, {
+  setTransferAttributes(FILTER_IDS.gsdfRgb, {
     tableValues: profile.gsdfTableValues.join(' ')
   });
-  setElementAttributes(`${FILTER_IDS.csdf}-r`, {
+  setElementAttributes(`${FILTER_IDS.gsdfYcbcr}-r`, {
     tableValues: profile.gsdfTableValues.join(' ')
   });
   setTransferAttributes(FILTER_IDS.levels, {
@@ -620,14 +652,14 @@ function updateFilterDefinitions(profile) {
     );
   }
 
-  const csdfForwardMatrix = document.getElementById(`${FILTER_IDS.csdf}-forward`);
-  if (csdfForwardMatrix) {
-    csdfForwardMatrix.setAttribute('values', formatMatrixValues(profile.csdfForwardMatrix));
+  const gsdfForwardMatrix = document.getElementById(`${FILTER_IDS.gsdfYcbcr}-forward`);
+  if (gsdfForwardMatrix) {
+    gsdfForwardMatrix.setAttribute('values', formatMatrixValues(profile.gsdfForwardMatrix));
   }
 
-  const csdfInverseMatrix = document.getElementById(`${FILTER_IDS.csdf}-inverse`);
-  if (csdfInverseMatrix) {
-    csdfInverseMatrix.setAttribute('values', formatMatrixValues(profile.csdfInverseMatrix));
+  const gsdfInverseMatrix = document.getElementById(`${FILTER_IDS.gsdfYcbcr}-inverse`);
+  if (gsdfInverseMatrix) {
+    gsdfInverseMatrix.setAttribute('values', formatMatrixValues(profile.gsdfInverseMatrix));
   }
 
   const saturationMatrix = document.getElementById(`${FILTER_IDS.color}-saturation`);

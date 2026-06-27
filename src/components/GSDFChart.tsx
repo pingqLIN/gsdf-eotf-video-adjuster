@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 import type { Messages } from '../i18n';
-import { AppSettings, buildGsdfTableValues } from '../types';
+import { AppSettings, buildGsdfTableValues, TONE_LEVEL_COUNT } from '../types';
 
 interface GSDFChartProps {
   settings: AppSettings;
@@ -13,6 +13,8 @@ interface GSDFChartProps {
 export function GSDFChart({ settings, panelTheme = 'dark', messages, className = 'h-48' }: GSDFChartProps) {
   const [layoutReady, setLayoutReady] = useState(false);
   const containerRef = React.useRef<HTMLDivElement | null>(null);
+  const chartRef = React.useRef<HTMLDivElement | null>(null);
+  const [includeLevels, setIncludeLevels] = useState(false);
   const [chartSize, setChartSize] = useState({ width: 0, height: 192 });
   const isLightTheme = panelTheme === 'light';
   const palette = isLightTheme
@@ -45,23 +47,35 @@ export function GSDFChart({ settings, panelTheme = 'dark', messages, className =
   const data = useMemo(() => {
     const arr = [];
     const table = buildGsdfTableValues(settings);
+    const blackPoint = settings.blackPoint / TONE_LEVEL_COUNT;
+    const whitePoint = settings.whitePoint / TONE_LEVEL_COUNT;
+    const usableRange = Math.max(0.05, whitePoint - blackPoint);
+    const applyOutputLevels = (value: number) => {
+      if (!includeLevels) {
+        return value;
+      }
+
+      return Math.max(0, Math.min(1, (value - blackPoint) / usableRange));
+    };
 
     for (let i = 0; i <= 255; i += 15) {
       const v = i / 255;
+      const mappedValue = table[i] ?? v;
       arr.push({
         pixelValue: i,
         sRGB: v,
-        GSDF_Simulated: table[i] ?? v,
+        GSDF_Simulated: applyOutputLevels(mappedValue),
       });
     }
     // ensure the last point is strictly 255
+    const lastValue = table[255] ?? 1.0;
     arr.push({
       pixelValue: 255,
       sRGB: 1.0,
-      GSDF_Simulated: table[255] ?? 1.0,
+      GSDF_Simulated: applyOutputLevels(lastValue),
     });
     return arr;
-  }, [settings]);
+  }, [includeLevels, settings]);
 
   useEffect(() => {
     const frameId = window.requestAnimationFrame(() => setLayoutReady(true));
@@ -69,13 +83,13 @@ export function GSDFChart({ settings, panelTheme = 'dark', messages, className =
   }, []);
 
   useEffect(() => {
-    const container = containerRef.current;
-    if (!container) {
+    const chart = chartRef.current;
+    if (!chart) {
       return undefined;
     }
 
     const updateSize = () => {
-      const rect = container.getBoundingClientRect();
+      const rect = chart.getBoundingClientRect();
       setChartSize({
         width: Math.max(1, Math.round(rect.width)),
         height: Math.max(1, Math.round(rect.height)),
@@ -84,14 +98,30 @@ export function GSDFChart({ settings, panelTheme = 'dark', messages, className =
 
     updateSize();
     const observer = new ResizeObserver(updateSize);
-    observer.observe(container);
+    observer.observe(chart);
 
     return () => observer.disconnect();
   }, []);
 
   return (
-    <div ref={containerRef} className={`w-full text-xs select-none ${className}`}>
-      {layoutReady && chartSize.width > 1 && chartSize.height > 1 && (
+    <div ref={containerRef} className={`flex w-full flex-col text-xs select-none ${className}`}>
+      <div className="mb-1 flex h-6 shrink-0 items-center justify-end">
+        <label
+          title={messages.chart.includeLevelsTitle}
+          className="gsdf-inline-checkbox flex cursor-pointer items-center gap-1.5 text-[10px] font-semibold text-zinc-400"
+        >
+          <span>{messages.chart.includeLevels}</span>
+          <input
+            type="checkbox"
+            checked={includeLevels}
+            onChange={(event) => setIncludeLevels(event.target.checked)}
+            aria-label={messages.chart.includeLevels}
+            className="gsdf-checkbox h-4 w-4 shrink-0"
+          />
+        </label>
+      </div>
+      <div ref={chartRef} className="min-h-0 flex-1">
+        {layoutReady && chartSize.width > 1 && chartSize.height > 1 && (
         <LineChart width={chartSize.width} height={chartSize.height} data={data} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke={palette.grid} vertical={true} />
           <XAxis
@@ -146,7 +176,8 @@ export function GSDFChart({ settings, panelTheme = 'dark', messages, className =
             />
           )}
         </LineChart>
-      )}
+        )}
+      </div>
     </div>
   );
 }

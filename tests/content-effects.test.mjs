@@ -302,12 +302,21 @@ test('maps target luminance on a 10 to 500 nits logarithmic slider', () => {
   assert.equal(hooks.normalizeSettings({}).fineSharpness, 0);
   assert.equal(hooks.normalizeSettings({}).mediumSharpness, 0);
   assert.equal(hooks.normalizeSettings({}).gammaTarget, 2.2);
+  assert.equal(hooks.normalizeSettings({}).transferFormula, 'csdf');
+  assert.equal(hooks.normalizeSettings({}).gsdfPipeline, 'ycbcr');
   assert.equal(hooks.normalizeSettings({}).displayGamut, 'srgb');
   assert.equal(hooks.normalizeSettings({}).strength, 100);
   assert.equal(hooks.normalizeSettings({}).saturation, 100);
   assert.equal(hooks.normalizeSettings({}).grayscale, false);
   assert.equal(hooks.normalizeSettings({}).hue, 0);
   assert.equal(hooks.normalizeSettings({ displayGamut: 'display-p3' }).displayGamut, 'display-p3');
+  assert.equal(hooks.normalizeSettings({ transferFormula: 'gsdf' }).transferFormula, 'gsdf');
+  assert.equal(hooks.normalizeSettings({ transferFormula: 'csdf' }).transferFormula, 'csdf');
+  assert.equal(hooks.normalizeSettings({ transferFormula: 'rgb' }).transferFormula, 'csdf');
+  assert.equal(hooks.normalizeSettings({ gsdfPipeline: 'rgb' }).gsdfPipeline, 'rgb');
+  assert.equal(hooks.normalizeSettings({ gsdfPipeline: 'csdf' }).gsdfPipeline, 'ycbcr');
+  assert.equal(hooks.normalizeSettings({ colorModel: 'rgb' }).gsdfPipeline, 'rgb');
+  assert.equal(hooks.normalizeSettings({ displayGamma: 2.4 }).gammaTarget, 2.4);
   assert.equal(hooks.normalizeSettings({ gammaTarget: 0.5 }).gammaTarget, 1.0);
   assert.equal(hooks.normalizeSettings({ gammaTarget: 4 }).gammaTarget, 3.0);
   assert.equal(hooks.normalizeSettings({ gammaTarget: 1.2367 }).gammaTarget, 1.237);
@@ -327,11 +336,17 @@ test('maps target luminance on a 10 to 500 nits logarithmic slider', () => {
   assert.equal(hooks.gammaCorrectionToTarget(-100), 3.0);
   assert.equal(hooks.gammaCorrectionToTarget(0), 2.2);
   assert.equal(hooks.gammaCorrectionToTarget(100), 1.0);
+  assert.equal(hooks.gammaCorrectionToTarget(0, 2.4), 2.4);
+  assert.equal(hooks.gammaCorrectionToTarget(100, 2.4), 1.0);
+  assert.equal(hooks.gammaCorrectionToTarget(-100, 2.4), 3.0);
   assert.notEqual(hooks.gammaCorrectionToTarget(-49), hooks.gammaCorrectionToTarget(-50));
   assert.notEqual(hooks.gammaCorrectionToTarget(49), hooks.gammaCorrectionToTarget(50));
   assert.equal(hooks.gammaTargetToCorrection(3.0), -100);
   assert.equal(hooks.gammaTargetToCorrection(2.2), 0);
   assert.equal(hooks.gammaTargetToCorrection(1.0), 100);
+  assert.equal(hooks.gammaTargetToCorrection(2.4, 2.4), 0);
+  assert.equal(hooks.gammaTargetToCorrection(1.0, 2.4), 100);
+  assert.equal(hooks.gammaTargetToCorrection(3.0, 2.4), -100);
   const oetfMatch = hooks.getGammaAdjustedInputLevel(0.25, 2.2, 2.2);
   const oetfLower = hooks.getGammaAdjustedInputLevel(0.25, 2.4, 2.2);
   const oetfHigher = hooks.getGammaAdjustedInputLevel(0.25, 2.2, 2.4);
@@ -473,6 +488,7 @@ test('gamma target is applied before the GSDF filter amount blend', () => {
   const deepenedGamma = hooks.buildGsdfTableValues({ lmax: 350, strength: 0, gammaTarget: 3.0 });
   const displayMismatchGamma = hooks.buildGsdfTableValues({ lmax: 350, strength: 0, gammaTarget: 2.4, displayGamma: 2.2 });
   const legacyLinearMismatchGamma = hooks.buildGsdfTableValues({ lmax: 350, strength: 0, gammaTarget: 2.4, displayGamma: 2.2, sourceIsLinear: true });
+  const displayDefaultGamma = hooks.buildGsdfTableValues({ lmax: 350, strength: 0, displayGamma: 2.4 });
   const liftedGsdf = hooks.buildGsdfTableValues({ lmax: 350, strength: 100, gammaTarget: 1.0 });
   const defaultGsdf = hooks.buildGsdfTableValues({ lmax: 350, strength: 100, gammaTarget: 2.2 });
   const displayMatchedGsdf = hooks.buildGsdfTableValues({ lmax: 350, strength: 100, gammaTarget: 2.4, displayGamma: 2.4 });
@@ -484,34 +500,62 @@ test('gamma target is applied before the GSDF filter amount blend', () => {
   assert.ok(deepenedGamma[128] < identityMid, 'gamma 3.0 should deepen mid-level code values before GSDF');
   assert.ok(displayMismatchGamma[128] < identityMid, 'display gamma mismatch 2.2 to 2.4 should deepen mid-level code values');
   assert.equal(legacyLinearMismatchGamma[128], displayMismatchGamma[128], 'legacy linear flag should normalize out of the table path');
+  assert.equal(displayDefaultGamma[128], identityMid, 'display EOTF without explicit gamma target should remain no-compensation');
   assert.notEqual(liftedGsdf[128], defaultGsdf[128], 'GSDF should consume the gamma-adjusted input level');
   assert.ok(displayMatchedGsdf[128] > defaultGsdf[128], 'full GSDF output should encode through the selected display EOTF');
 });
 
-test('display gamut selects the CSDF luma/chroma managed filter', () => {
+test('transfer formula selects CSDF or the GSDF RGB and YCbCr managed filters', () => {
   const hooks = loadContentHooks();
-  const srgbProfile = hooks.deriveToneProfile({
+  const gsdfYcbcrProfile = hooks.deriveToneProfile({
     enabled: true,
     lmax: 100,
     strength: 100,
+    transferFormula: 'gsdf',
+    gsdfPipeline: 'ycbcr',
     displayGamut: 'srgb'
   });
-  const p3Profile = hooks.deriveToneProfile({
+  const gsdfRgbProfile = hooks.deriveToneProfile({
     enabled: true,
     lmax: 100,
     strength: 100,
+    transferFormula: 'gsdf',
+    gsdfPipeline: 'rgb',
+    displayGamut: 'srgb'
+  });
+  const csdfProfile = hooks.deriveToneProfile({
+    enabled: true,
+    lmax: 100,
+    strength: 100,
+    transferFormula: 'csdf',
+    displayGamut: 'srgb'
+  });
+  const p3GsdfYcbcrProfile = hooks.deriveToneProfile({
+    enabled: true,
+    lmax: 100,
+    strength: 100,
+    transferFormula: 'gsdf',
+    gsdfPipeline: 'ycbcr',
     displayGamut: 'display-p3'
   });
 
-  const filter = hooks.buildManagedFilterChain('', srgbProfile);
+  const gsdfYcbcrFilter = hooks.buildManagedFilterChain('', gsdfYcbcrProfile);
+  const gsdfRgbFilter = hooks.buildManagedFilterChain('', gsdfRgbProfile);
+  const csdfFilter = hooks.buildManagedFilterChain('', csdfProfile);
 
-  assert.match(filter, /url\("#gsdf-eotf-csdf"\)/);
+  assert.match(gsdfYcbcrFilter, /url\("#gsdf-eotf-gsdf-ycbcr"\)/);
+  assert.doesNotMatch(gsdfYcbcrFilter, /url\("#gsdf-eotf-gsdf-rgb"\)/);
+  assert.doesNotMatch(gsdfYcbcrFilter, /url\("#gsdf-eotf-csdf"\)/);
+  assert.match(gsdfRgbFilter, /url\("#gsdf-eotf-gsdf-rgb"\)/);
+  assert.doesNotMatch(gsdfRgbFilter, /url\("#gsdf-eotf-gsdf-ycbcr"\)/);
+  assert.doesNotMatch(gsdfRgbFilter, /url\("#gsdf-eotf-csdf"\)/);
+  assert.match(csdfFilter, /url\("#gsdf-eotf-csdf"\)/);
+  assert.doesNotMatch(csdfFilter, /url\("#gsdf-eotf-gsdf-(?:rgb|ycbcr)"\)/);
   assert.ok(
-    filter.indexOf('url("#gsdf-eotf-csdf")') < filter.indexOf('url("#gsdf-eotf-levels")'),
-    'levels should apply after the GSDF/CSDF table'
+    csdfFilter.indexOf('url("#gsdf-eotf-csdf")') < csdfFilter.indexOf('url("#gsdf-eotf-levels")'),
+    'levels should apply after the selected transfer pipeline'
   );
-  assert.doesNotMatch(filter, /url\("#gsdf-eotf-gamma"\)/);
-  assert.notEqual(srgbProfile.csdfForwardMatrix[0], p3Profile.csdfForwardMatrix[0]);
+  assert.notEqual(gsdfYcbcrProfile.gsdfForwardMatrix[0], p3GsdfYcbcrProfile.gsdfForwardMatrix[0]);
 });
 
 test('replaces stale GSDF filters while preserving host page filter tokens', () => {
@@ -520,6 +564,7 @@ test('replaces stale GSDF filters while preserving host page filter tokens', () 
     enabled: true,
     lmax: 800,
     strength: 70,
+    transferFormula: 'csdf',
     displayGamut: 'adobe-rgb',
     blackPoint: 2,
     whitePoint: 252,
@@ -529,7 +574,7 @@ test('replaces stale GSDF filters while preserving host page filter tokens', () 
   });
 
   const filter = hooks.buildManagedFilterChain(
-    'brightness(90%) url("#gsdf-eotf-gamma") contrast(105%)',
+    'brightness(90%) url("#gsdf-eotf-gamma") url("#gsdf-eotf-ycbcr") contrast(105%)',
     profile
   );
 
@@ -537,10 +582,12 @@ test('replaces stale GSDF filters while preserving host page filter tokens', () 
   assert.match(filter, /contrast\(105%\)/);
   assert.doesNotMatch(filter, /saturate\(/);
   assert.doesNotMatch(filter, /gsdf-eotf-gamma/);
+  assert.doesNotMatch(filter, /gsdf-eotf-ycbcr/);
+  assert.doesNotMatch(filter, /gsdf-eotf-gsdf-(?:rgb|ycbcr)/);
   assert.equal((filter.match(/gsdf-eotf-csdf/g) ?? []).length, 1);
   assert.ok(
     filter.indexOf('url("#gsdf-eotf-csdf")') < filter.indexOf('url("#gsdf-eotf-levels")'),
-    'levels should remain after GSDF/CSDF when preserving host filters'
+    'levels should remain after the selected transfer pipeline when preserving host filters'
   );
   assert.match(filter, /url\("#gsdf-eotf-temp"\)/);
   assert.match(filter, /url\("#gsdf-eotf-color"\)/);

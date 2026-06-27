@@ -51,7 +51,7 @@ test('reference pattern and curve open from the right side panel', () => {
     panelSource.indexOf('const handleHeaderPointerDown'),
   );
 
-  assert.match(panelSource, /type SidePanelMode = 'pattern' \| 'linearity' \| 'legacy-linearity' \| 'bidirectional' \| 'chart'/);
+  assert.match(panelSource, /type SidePanelMode = 'pattern' \| 'linearity' \| 'bidirectional' \| 'chart'/);
   assert.match(panelSource, /sidePanelOpen/);
   assert.match(panelSource, /sidePanelMode/);
   assert.match(panelSource, /ReferenceSidePanel/);
@@ -62,15 +62,14 @@ test('reference pattern and curve open from the right side panel', () => {
   assert.match(panelSource, /onModeChange=\{setSidePanelMode\}/);
   assert.match(panelSource, /FullDiagnosticPattern settings=\{settings\} messages=\{messages\}/);
   assert.match(panelSource, /ColorLinearityPattern settings=\{settings\} messages=\{messages\} figureControls=\{figureControls\}/);
-  assert.match(panelSource, /ColorLinearityPattern settings=\{settings\} messages=\{messages\} renderSize=\{referenceSize\} figureControls=\{figureControls\} toneMode="legacy-rgb"/);
   assert.match(panelSource, /CsdfFigureControlsPanel/);
   assert.match(panelSource, /messages\.panel\.fig9Controls/);
   assert.match(panelSource, /ColorBidirectionalPattern settings=\{settings\} messages=\{messages\}/);
   assert.match(panelSource, /messages\.panel\.colorLinearityPanel/);
-  assert.match(panelSource, /messages\.panel\.legacyColorLinearityPanel/);
   assert.match(panelSource, /messages\.panel\.bidirectionalColorPanel/);
   assert.match(panelSource, /GSDFChart settings=\{settings\} panelTheme=\{panelTheme\}/);
   assert.match(panelSource, /function ReferenceModeSwitch/);
+  assert.match(panelSource, /grid-cols-4/);
   assert.match(panelSource, /onOpenFull=\{openInspectionMode\}/);
   assert.match(panelSource, /GSDF_PATTERN_VIEW_CHANGED/);
   assert.match(panelSource, /useExpandedOverlayViewport\(inspectionMode !== null \|\| sidePanelOpen\)/);
@@ -84,19 +83,23 @@ test('reference pattern and curve open from the right side panel', () => {
   assert.match(diagnosticPanelBlock, /DiagnosticCameraProbe settings=\{settings\} setSettings=\{setSettings\} messages=\{messages\}/);
   assert.match(diagnosticPanelBlock, /messages\.panel\.referencePanel/);
   assert.match(diagnosticPanelBlock, /setSidePanelMode\('linearity'\)/);
-  assert.match(diagnosticPanelBlock, /setSidePanelMode\('legacy-linearity'\)/);
   assert.match(diagnosticPanelBlock, /messages\.panel\.curvePanel/);
+  assert.doesNotMatch(panelSource, /legacy-linearity|legacy-rgb|legacyColorLinearity|Legacy RGB/);
   assert.equal((panelSource.match(/openSidePanel\('pattern'\)|openSidePanel\('chart'\)/g) ?? []).length, 0);
 });
 
 test('panel keeps project-owned GSDF pattern and chart logic', () => {
-  const colorLinearityBlock = panelSource.slice(
+  const colorReferenceBlock = panelSource.slice(
     panelSource.indexOf('function getTriangleWave'),
     panelSource.indexOf('function InspectionModeHeader'),
   );
   const bidirectionalBlock = panelSource.slice(
     panelSource.indexOf('function drawBidirectionalColorBand'),
     panelSource.indexOf('function drawBidirectionalColorPattern'),
+  );
+  const colorLinearityPatternBlock = panelSource.slice(
+    panelSource.indexOf('function drawColorLinearityPattern'),
+    panelSource.indexOf('function getReferenceModeOptions'),
   );
 
   assert.match(panelSource, /drawDiagnosticPattern/);
@@ -112,10 +115,19 @@ test('panel keeps project-owned GSDF pattern and chart logic', () => {
   assert.match(panelSource, /CSDF_FIG9_DEFAULT_CYCLES = 78/);
   assert.match(panelSource, /CSDF_FIG9_DEFAULT_EXAGGERATION = 1/);
   assert.match(panelSource, /function detectDisplayEnvironment/);
+  assert.match(panelSource, /interface ReferenceDisplayScaleStatus/);
+  assert.match(panelSource, /function detectReferenceDisplayScaleStatus/);
+  assert.match(panelSource, /function useReferenceDisplayScaleStatus/);
+  assert.match(panelSource, /function ReferenceDisplayScaleWarning/);
+  assert.match(panelSource, /window\.visualViewport\?\.scale/);
+  assert.match(panelSource, /hasScaleWarning: hasDeviceScale \|\| hasViewportScale/);
+  assert.match(panelSource, /displayScaleStatus\.hasScaleWarning/);
   assert.match(panelSource, /matches\('\(dynamic-range: high\)'\)/);
   assert.match(panelSource, /matches\('\(color-gamut: p3\)'\)/);
   assert.match(panelSource, /window\.screen\?\.colorDepth/);
   assert.match(panelSource, /window\.devicePixelRatio/);
+  assert.match(i18nMessagesSource, /displayScaleWarningTitle: 'Display scaling warning'/);
+  assert.match(i18nLocalesSource, /displayScaleWarningTitle: '顯示縮放提醒'/);
   assert.match(panelSource, /function getAutoTunedCsdfFigureControls/);
   assert.match(panelSource, /targetPhysicalPixelsPerCycle/);
   assert.match(panelSource, /settings\.lmax < 120/);
@@ -129,30 +141,39 @@ test('panel keeps project-owned GSDF pattern and chart logic', () => {
   assert.match(panelSource, /function drawCsdfFig9RampSide/);
   assert.match(panelSource, /const topHeight = Math\.round\(height \* 0\.32\)/);
   assert.match(panelSource, /const middleHeight = Math\.round\(height \* 0\.36\)/);
-  assert.match(panelSource, /function applyReferenceCsdfToneTable/);
-  assert.match(panelSource, /function applyLegacyReferenceToneTable/);
-  assert.match(panelSource, /toneMode === 'legacy-rgb'/);
-  assert.match(panelSource, /REFERENCE_DISPLAY_GAMUT_PROFILES/);
+  assert.match(panelSource, /function applyReferenceGsdfYcbcrToneTable/);
+  assert.match(panelSource, /function applyReferenceGsdfRgbToneTable/);
+  assert.match(panelSource, /settings\.transferFormula/);
+  assert.match(panelSource, /settings\.gsdfPipeline/);
+  assert.match(panelSource, /function GsdfPipelinePills/);
+  assert.match(panelSource, /gsdfPipeline: value === 'gsdf' && prev\.transferFormula !== 'gsdf'[\s\S]*DEFAULT_APP_SETTINGS\.gsdfPipeline/);
+  assert.match(i18nMessagesSource, /gsdfPipelineTitle: 'GSDF pipeline'/);
+  assert.match(panelSource, /buildLumaChromaMatrices/);
+  assert.match(panelSource, /function applyReferenceColorMatrix/);
   assert.match(panelSource, /settings\.displayGamut/);
-  assert.match(panelSource, /const y = clampValue\(kr \* red \+ kg \* green \+ kb \* blue, 0, 1\)/);
+  assert.match(panelSource, /const ycbcr = applyReferenceColorMatrix\(rgbToUnitColor\(color\), matrices\.forward\)/);
   assert.match(panelSource, /function sampleReferenceToneTable/);
-  assert.match(panelSource, /const mappedY = sampleReferenceToneTable\(transferTable, y\)/);
-  assert.match(panelSource, /const greenFromCb = -\(kb \* cbScale\) \/ kg/);
-  assert.match(panelSource, /buildGsdfTableValues\(settings\)/);
-  assert.match(panelSource, /const modulationProgress = inverted \? 1 - progress : progress/);
-  assert.match(panelSource, /Math\.sin\(modulationProgress \* Math\.PI \* 2 \* LEGACY_COLOR_RAMP_SINE_CYCLES\)/);
+  assert.match(panelSource, /const mappedY = sampleReferenceToneTable\(transferTable, ycbcr\[0\]\)/);
+  assert.match(panelSource, /const adjustedRgb = applyReferenceColorMatrix\(\[mappedY, ycbcr\[1\], ycbcr\[2\]\], matrices\.inverse\)/);
+  assert.match(panelSource, /function formatColorReferenceRgb/);
+  assert.match(panelSource, /context\.fillStyle = formatRgb\(topBottomColor\)/);
+  assert.match(panelSource, /context\.fillStyle = formatRgb\(middleColor\)/);
+  assert.match(panelSource, /context\.fillStyle = formatRgb\(row\.base\)/);
+  assert.doesNotMatch(colorLinearityPatternBlock, /const transferTable = buildGsdfTableValues\(settings\)/);
+  assert.doesNotMatch(colorLinearityPatternBlock, /transferTable,[\s\S]*settings/);
+  assert.match(bidirectionalBlock, /applyColorReferenceToneTable\(/);
+  assert.match(bidirectionalBlock, /settings\.displayGamut/);
   assert.doesNotMatch(panelSource, /const rampRatio = inverted \? 1 - baseRatio : baseRatio/);
-  assert.match(panelSource, /drawLegacyColorRamp\(context, x, y, width, height, row, calibrated, transferTable/);
   assert.match(panelSource, /function drawSingleDirectionColorRamp/);
   assert.match(panelSource, /const rampProgress = reversed \? 1 - progress : progress/);
   assert.doesNotMatch(panelSource, /function selectDiscreteGradientLineColor/);
   assert.doesNotMatch(panelSource, /BIDIRECTIONAL_COLOR_SAMPLE_COUNT/);
   assert.doesNotMatch(panelSource, /COLOR_LINE_PERIOD/);
   assert.doesNotMatch(panelSource, /drawDiscreteGradientSample/);
-  assert.doesNotMatch(colorLinearityBlock, /context\.strokeRect/);
-  assert.doesNotMatch(colorLinearityBlock, /strokeStyle = 'rgba\(0,0,0/);
+  assert.doesNotMatch(colorReferenceBlock, /context\.strokeRect/);
+  assert.doesNotMatch(colorReferenceBlock, /strokeStyle = 'rgba\(0,0,0/);
   assert.doesNotMatch(panelSource, /context\.fillRect\(marginX, y \+ rowHeight \/ 2 - 1, patternWidth, 2\)/);
-  assert.doesNotMatch(colorLinearityBlock, /calibratedSimulation/);
+  assert.doesNotMatch(colorReferenceBlock, /calibratedSimulation/);
   assert.doesNotMatch(bidirectionalBlock, /sampleIndex/);
   assert.match(panelSource, /COLOR_LINEARITY_ROWS/);
   assert.match(panelSource, /amplitudePercent: 3\.0/);
@@ -164,7 +185,7 @@ test('panel keeps project-owned GSDF pattern and chart logic', () => {
   assert.match(panelSource, /renderSize \?\? getMeasuredReferenceCanvasSize\(canvas\)/);
   assert.match(panelSource, /drawPaperComparisonRamp/);
   assert.match(panelSource, /drawCsdfFig9LogoBlock/);
-  assert.match(panelSource, /drawLegacyColorLinearityLogoBlock/);
+  assert.doesNotMatch(panelSource, /drawLegacyColorLinearityLogoBlock/);
   assert.match(panelSource, /BIDIRECTIONAL_COLOR_PATTERN_WIDTH = 1800/);
   assert.match(panelSource, /viewportScaleInfo/);
   assert.match(panelSource, /viewportScaleBest/);
@@ -197,26 +218,27 @@ test('panel keeps project-owned GSDF pattern and chart logic', () => {
   assert.match(panelSource, /import\('\.\/GSDFChart'\)/);
 });
 
-test('optimize preset keeps the neutral gamma baseline', () => {
+test('optimize preset keeps the display EOTF neutral gamma baseline', () => {
   const optimizeBlock = panelSource.slice(
     panelSource.indexOf('const applyOptimizedPreset = () =>'),
     panelSource.indexOf('const handleLmaxChange ='),
   );
 
-  assert.match(panelSource, /DEFAULT_GAMMA_TARGET/);
   assert.match(panelSource, /DEFAULT_TARGET_LUMINANCE_NITS/);
   assert.match(panelSource, /GAMMA_NEUTRAL_SLIDER_VALUE = luminanceToSliderValue\(DEFAULT_TARGET_LUMINANCE_NITS\)/);
   assert.match(panelSource, /function gammaCorrectionToAlignedSliderValue/);
   assert.match(panelSource, /function alignedSliderValueToGammaCorrection/);
-  assert.match(optimizeBlock, /gammaTarget: DEFAULT_GAMMA_TARGET/);
-  assert.match(optimizeBlock, /strength: DEFAULT_APP_SETTINGS\.strength/);
   assert.match(optimizeBlock, /displayGamma: DEFAULT_APP_SETTINGS\.displayGamma/);
+  assert.match(optimizeBlock, /gammaTarget: DEFAULT_APP_SETTINGS\.displayGamma/);
+  assert.match(optimizeBlock, /transferFormula: DEFAULT_APP_SETTINGS\.transferFormula/);
+  assert.match(optimizeBlock, /gsdfPipeline: DEFAULT_APP_SETTINGS\.gsdfPipeline/);
+  assert.match(optimizeBlock, /strength: DEFAULT_APP_SETTINGS\.strength/);
   assert.match(optimizeBlock, /sourceIsLinear: false/);
   assert.match(optimizeBlock, /fineSharpness: DEFAULT_APP_SETTINGS\.fineSharpness/);
   assert.match(optimizeBlock, /mediumSharpness: DEFAULT_APP_SETTINGS\.mediumSharpness/);
   assert.doesNotMatch(optimizeBlock, /gammaTarget:\s*1\b/);
-  assert.match(i18nMessagesSource, /neutral Gamma 2\.2/);
-  assert.match(i18nLocalesSource, /中性 Gamma 2\.2/);
+  assert.match(i18nMessagesSource, /display EOTF neutral gamma/);
+  assert.match(i18nLocalesSource, /顯示 EOTF 中性 gamma/);
 });
 
 test('basic and advanced tools expose the revised correction controls', () => {
@@ -235,15 +257,17 @@ test('basic and advanced tools expose the revised correction controls', () => {
   assert.match(basicPanelBlock, /messages\.panel\.displayGammaTitle/);
   assert.match(basicPanelBlock, /headerAddon/);
   assert.match(basicPanelBlock, /DisplayGammaSelect/);
-  assert.match(basicPanelBlock, /gammaTargetToAlignedSliderValue\(2\.2\)/);
-  assert.match(basicPanelBlock, /gammaTargetToAlignedSliderValue\(1\)/);
-  assert.match(basicPanelBlock, /gammaTargetToAlignedSliderValue\(1\.8\)/);
-  assert.match(basicPanelBlock, /gammaTargetToAlignedSliderValue\(2\.4\)/);
-  assert.match(basicPanelBlock, /gammaTargetToAlignedSliderValue\(2\.6\)/);
+  assert.match(basicPanelBlock, /gammaTargetToAlignedSliderValue\(2\.2, settings\.displayGamma\)/);
+  assert.match(basicPanelBlock, /gammaTargetToAlignedSliderValue\(1, settings\.displayGamma\)/);
+  assert.match(basicPanelBlock, /gammaTargetToAlignedSliderValue\(1\.8, settings\.displayGamma\)/);
+  assert.match(basicPanelBlock, /gammaTargetToAlignedSliderValue\(2\.4, settings\.displayGamma\)/);
+  assert.match(basicPanelBlock, /gammaTargetToAlignedSliderValue\(2\.6, settings\.displayGamma\)/);
   assert.match(basicPanelBlock, /messages\.panel\.curvePanel/);
   assert.match(basicPanelBlock, /GSDFChart settings=\{settings\} panelTheme=\{panelTheme\} messages=\{messages\}/);
   assert.match(basicPanelBlock, /gammaCorrectionToAlignedSliderValue\(gammaCorrection\)/);
   assert.match(basicPanelBlock, /alignedSliderValueToGammaCorrection\(value\)/);
+  assert.match(basicPanelBlock, /setDisplayGamma\(value\)/);
+  assert.match(basicPanelBlock, /setNumericSetting\('gammaTarget', settings\.displayGamma\)/);
   assert.match(basicPanelBlock, /rangeRowClassName="pr-11"/);
   assert.match(basicPanelBlock, /calibratedRange/);
   assert.match(basicPanelBlock, /onReset=\{\(\) => setNumericSetting\('strength', DEFAULT_APP_SETTINGS\.strength\)\}/);
@@ -406,7 +430,14 @@ test('i18n supports system language detection and persisted language preference'
 test('standalone video preview uses the shared GSDF table model', () => {
   assert.match(videoBackgroundSource, /buildGsdfTableValues\(settings\)/);
   assert.match(videoBackgroundSource, /tableValues=\{gsdfTableValues\}/);
-  assert.doesNotMatch(videoBackgroundSource, /eotf-ycbcr/);
+  assert.match(videoBackgroundSource, /settings\.transferFormula === 'csdf'/);
+  assert.match(videoBackgroundSource, /settings\.gsdfPipeline === 'rgb'/);
+  assert.match(videoBackgroundSource, /id="eotf-gsdf-rgb"/);
+  assert.match(videoBackgroundSource, /id="eotf-gsdf-ycbcr"/);
+  assert.match(videoBackgroundSource, /id="eotf-csdf"/);
+  assert.match(videoBackgroundSource, /buildLumaChromaMatrices\(settings\.displayGamut\)/);
+  assert.doesNotMatch(videoBackgroundSource, /result="csdf-ycc"/);
+  assert.doesNotMatch(videoBackgroundSource, /in="csdf-adjusted"/);
   assert.match(videoBackgroundSource, /eotf-color/);
   assert.match(videoBackgroundSource, /hueRotate/);
   assert.match(videoBackgroundSource, /settings\.saturation/);
@@ -414,8 +445,8 @@ test('standalone video preview uses the shared GSDF table model', () => {
   assert.match(videoBackgroundSource, /settings\.fineSharpness/);
   assert.match(videoBackgroundSource, /settings\.mediumSharpness/);
   assert.match(videoBackgroundSource, /TONE_LEVEL_COUNT/);
-  assert.match(videoBackgroundSource, /url\(#eotf-filter\) url\(#eotf-levels\)/);
-  assert.doesNotMatch(videoBackgroundSource, /url\(#eotf-levels\) url\(#eotf-filter\)/);
+  assert.match(videoBackgroundSource, /\$\{transferFilter\} url\(#eotf-levels\)/);
+  assert.doesNotMatch(videoBackgroundSource, /url\(#eotf-levels\) \$\{transferFilter\}/);
   assert.doesNotMatch(videoBackgroundSource, /settings\.colorModel/);
   assert.doesNotMatch(videoBackgroundSource, /type="gamma"/);
 });

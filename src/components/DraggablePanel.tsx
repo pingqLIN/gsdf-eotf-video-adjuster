@@ -10,7 +10,6 @@ import {
   Languages,
   Maximize2,
   Minus,
-  MonitorUp,
   Moon,
   PanelRightClose,
   PanelRightOpen,
@@ -31,8 +30,8 @@ import {
   DISPLAY_GAMMA_OPTIONS,
   buildGsdfTableValues,
   buildGsdfStripeRows,
+  buildLumaChromaMatrices,
   DEFAULT_APP_SETTINGS,
-  DEFAULT_GAMMA_TARGET,
   DEFAULT_TARGET_LUMINANCE_NITS,
   formatLuminance,
   gammaCorrectionToTarget,
@@ -60,11 +59,10 @@ const GSDFChart = React.lazy(() => import('./GSDFChart').then((module) => ({ def
 
 type PanelTab = 'basic' | 'advanced' | 'diagnostic';
 type PanelTheme = 'dark' | 'light';
-type SidePanelMode = 'pattern' | 'linearity' | 'legacy-linearity' | 'bidirectional' | 'chart';
+type SidePanelMode = 'pattern' | 'linearity' | 'bidirectional' | 'chart';
 type InspectionMode = SidePanelMode | null;
 type ResizeHandle = 'e' | 's' | 'se';
 type InspectionScaleMode = 'actual' | 'cover' | 'fit';
-type ColorReferenceToneMode = 'runtime' | 'legacy-rgb';
 type CsdfFigureMode = 'split' | 'plain';
 
 const PANEL_THEME_STORAGE_KEY = 'gsdf_panel_theme';
@@ -91,8 +89,6 @@ const CSDF_FIG9_MAX_CYCLES = 120;
 const CSDF_FIG9_DEFAULT_EXAGGERATION = 1;
 const CSDF_FIG9_MIN_EXAGGERATION = 0;
 const CSDF_FIG9_MAX_EXAGGERATION = 3;
-const LEGACY_COLOR_RAMP_SINE_CYCLES = 9;
-const LEGACY_COLOR_RAMP_SECONDARY_MIX_WIDTH = 0.34;
 const CHART_VIEW_WIDTH = 1040;
 const CHART_VIEW_HEIGHT = 640;
 const INSPECTION_ZOOM_MIN = 0.5;
@@ -201,6 +197,16 @@ interface DetectedDisplayEnvironment {
   viewportWidth: number;
 }
 
+interface ReferenceDisplayScaleStatus {
+  hasScaleWarning: boolean;
+  devicePixelRatio: number;
+  visualViewportScale: number;
+  screenCssWidth: number;
+  screenCssHeight: number;
+  estimatedDeviceWidth: number;
+  estimatedDeviceHeight: number;
+}
+
 function ControlResetButton({
   title,
   onReset,
@@ -276,6 +282,83 @@ function ModePill({
     <span title={title} data-tone={tone} className={`gsdf-mode-pill inline-flex h-7 min-w-0 items-center justify-center gap-1 rounded-[3px] border px-2.5 text-[10px] font-semibold ${toneClass}`}>
       {children}
     </span>
+  );
+}
+
+function FormulaModePills({
+  value,
+  onChange,
+  messages,
+}: {
+  value: AppSettings['transferFormula'];
+  onChange: (value: AppSettings['transferFormula']) => void;
+  messages: Messages;
+}) {
+  const options: Array<{ value: AppSettings['transferFormula']; label: string; title: string }> = [
+    { value: 'gsdf', label: 'GSDF', title: messages.panel.gsdfFormulaTitle },
+    { value: 'csdf', label: 'CSDF', title: messages.panel.csdfFormulaTitle },
+  ];
+
+  return (
+    <div className="inline-flex h-7 shrink-0 overflow-hidden rounded-[3px] border border-white/10 bg-white/[0.03]">
+      {options.map((option) => (
+        <button
+          key={option.value}
+          type="button"
+          title={option.title}
+          aria-pressed={value === option.value}
+          onClick={() => onChange(option.value)}
+          className={`px-2.5 text-[10px] font-semibold transition-colors ${
+            value === option.value
+              ? 'bg-zinc-100 text-[#111418]'
+              : 'text-zinc-400 hover:bg-white/[0.06] hover:text-zinc-100'
+          }`}
+          data-no-drag
+        >
+          {option.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function GsdfPipelinePills({
+  value,
+  onChange,
+  messages,
+}: {
+  value: AppSettings['gsdfPipeline'];
+  onChange: (value: AppSettings['gsdfPipeline']) => void;
+  messages: Messages;
+}) {
+  const options: Array<{ value: AppSettings['gsdfPipeline']; label: string; title: string }> = [
+    { value: 'ycbcr', label: 'YCbCr', title: messages.panel.gsdfPipelineYcbcrTitle },
+    { value: 'rgb', label: 'RGB', title: messages.panel.gsdfPipelineRgbTitle },
+  ];
+
+  return (
+    <div
+      title={messages.panel.gsdfPipelineTitle}
+      className="inline-flex h-7 shrink-0 overflow-hidden rounded-[3px] border border-white/10 bg-white/[0.03]"
+    >
+      {options.map((option) => (
+        <button
+          key={option.value}
+          type="button"
+          title={option.title}
+          aria-pressed={value === option.value}
+          onClick={() => onChange(option.value)}
+          className={`px-2.5 text-[10px] font-semibold transition-colors ${
+            value === option.value
+              ? 'bg-zinc-100 text-[#111418]'
+              : 'text-zinc-400 hover:bg-white/[0.06] hover:text-zinc-100'
+          }`}
+          data-no-drag
+        >
+          {option.label}
+        </button>
+      ))}
+    </div>
   );
 }
 
@@ -433,8 +516,8 @@ function alignedSliderValueToGammaCorrection(value: number): number {
   return Math.round(((value - GAMMA_NEUTRAL_SLIDER_VALUE) / (LUMINANCE_SLIDER_MAX - GAMMA_NEUTRAL_SLIDER_VALUE)) * GAMMA_CORRECTION_MAX);
 }
 
-function gammaTargetToAlignedSliderValue(value: number): number {
-  return gammaCorrectionToAlignedSliderValue(gammaTargetToCorrection(value));
+function gammaTargetToAlignedSliderValue(value: number, neutralGamma: number): number {
+  return gammaCorrectionToAlignedSliderValue(gammaTargetToCorrection(value, neutralGamma));
 }
 
 function CheckboxControl({
@@ -568,7 +651,7 @@ function getReferenceBaseSize(mode: SidePanelMode): ReferenceRenderSize {
   if (mode === 'pattern') {
     return { width: DIAGNOSTIC_PATTERN_WIDTH, height: DIAGNOSTIC_PATTERN_HEIGHT };
   }
-  if (mode === 'linearity' || mode === 'legacy-linearity') {
+  if (mode === 'linearity') {
     return { width: COLOR_LINEARITY_PATTERN_WIDTH, height: COLOR_LINEARITY_PATTERN_HEIGHT };
   }
   if (mode === 'bidirectional') {
@@ -628,6 +711,113 @@ function useScreenAwareReferenceSize(mode: SidePanelMode): ReferenceRenderSize {
   }, [mode]);
 
   return size;
+}
+
+function roundScaleValue(value: number): number {
+  return Number(value.toFixed(2));
+}
+
+function detectReferenceDisplayScaleStatus(): ReferenceDisplayScaleStatus {
+  if (typeof window === 'undefined') {
+    return {
+      hasScaleWarning: false,
+      devicePixelRatio: 1,
+      visualViewportScale: 1,
+      screenCssWidth: 0,
+      screenCssHeight: 0,
+      estimatedDeviceWidth: 0,
+      estimatedDeviceHeight: 0,
+    };
+  }
+
+  const devicePixelRatio = roundScaleValue(window.devicePixelRatio || 1);
+  const visualViewportScale = roundScaleValue(window.visualViewport?.scale ?? 1);
+  const screenCssWidth = Math.max(0, Math.round(window.screen?.width ?? 0));
+  const screenCssHeight = Math.max(0, Math.round(window.screen?.height ?? 0));
+  const estimatedDeviceWidth = Math.round(screenCssWidth * devicePixelRatio);
+  const estimatedDeviceHeight = Math.round(screenCssHeight * devicePixelRatio);
+  const hasDeviceScale = Math.abs(devicePixelRatio - 1) > 0.01;
+  const hasViewportScale = Math.abs(visualViewportScale - 1) > 0.01;
+
+  return {
+    hasScaleWarning: hasDeviceScale || hasViewportScale,
+    devicePixelRatio,
+    visualViewportScale,
+    screenCssWidth,
+    screenCssHeight,
+    estimatedDeviceWidth,
+    estimatedDeviceHeight,
+  };
+}
+
+function useReferenceDisplayScaleStatus(): ReferenceDisplayScaleStatus {
+  const [status, setStatus] = React.useState(detectReferenceDisplayScaleStatus);
+
+  React.useEffect(() => {
+    const updateStatus = () => setStatus(detectReferenceDisplayScaleStatus());
+    const visualViewport = window.visualViewport;
+    const orientation = window.screen?.orientation;
+    const intervalId = window.setInterval(updateStatus, 2000);
+
+    updateStatus();
+    window.addEventListener('resize', updateStatus);
+    window.addEventListener('fullscreenchange', updateStatus);
+    visualViewport?.addEventListener('resize', updateStatus);
+    visualViewport?.addEventListener('scroll', updateStatus);
+    orientation?.addEventListener('change', updateStatus);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener('resize', updateStatus);
+      window.removeEventListener('fullscreenchange', updateStatus);
+      visualViewport?.removeEventListener('resize', updateStatus);
+      visualViewport?.removeEventListener('scroll', updateStatus);
+      orientation?.removeEventListener('change', updateStatus);
+    };
+  }, []);
+
+  return status;
+}
+
+function ReferenceDisplayScaleWarning({
+  status,
+  messages,
+  compact = false,
+}: {
+  status: ReferenceDisplayScaleStatus;
+  messages: Messages;
+  compact?: boolean;
+}) {
+  if (!status.hasScaleWarning) {
+    return null;
+  }
+
+  const screenMetric = status.screenCssWidth > 0 && status.screenCssHeight > 0
+    ? `${status.screenCssWidth}x${status.screenCssHeight} CSS px ≈ ${status.estimatedDeviceWidth}x${status.estimatedDeviceHeight} px`
+    : '';
+  const metrics = [
+    `DPR ${status.devicePixelRatio.toFixed(2)}`,
+    `Viewport ${status.visualViewportScale.toFixed(2)}x`,
+    screenMetric,
+  ].filter(Boolean).join(' · ');
+
+  return (
+    <div
+      className={`shrink-0 rounded-md border border-amber-300/20 bg-amber-300/10 text-amber-100 ${compact ? 'px-3 py-2' : 'mt-3 px-3 py-2.5'}`}
+      data-no-drag
+    >
+      <div className="flex items-start gap-2">
+        <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border border-amber-200/25 bg-amber-200/15 text-[12px] font-black leading-none">!</span>
+        <div className="min-w-0 space-y-1">
+          <div className="text-[11px] font-semibold text-amber-50">{messages.panel.displayScaleWarningTitle}</div>
+          <div className="text-[10px] leading-4 text-amber-100/85">{messages.panel.displayScaleWarningBody}</div>
+          <div className="font-mono text-[9px] leading-4 text-amber-100/70">
+            {messages.panel.displayScaleWarningMetrics}: {metrics}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function getMeasuredReferenceCanvasSize(canvas: HTMLCanvasElement): ReferenceRenderSize {
@@ -908,12 +1098,16 @@ function StatusDeck({
   onLmaxChange,
   onResetLmax,
   onResetDefault,
+  onTransferFormulaChange,
+  onGsdfPipelineChange,
   messages,
 }: {
   settings: AppSettings;
   onLmaxChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
   onResetLmax: () => void;
   onResetDefault: () => void;
+  onTransferFormulaChange: (value: AppSettings['transferFormula']) => void;
+  onGsdfPipelineChange: (value: AppSettings['gsdfPipeline']) => void;
   messages: Messages;
 }) {
   const statusLabel = settings.enabled ? messages.panel.active : messages.panel.standby;
@@ -927,13 +1121,18 @@ function StatusDeck({
             <span>{statusLabel}</span>
           </div>
           <div className="gsdf-status-inline-metrics flex min-w-0 flex-wrap items-center justify-start gap-1.5">
-            <ModePill
-              tone={settings.enabled ? 'active' : 'neutral'}
-              title={messages.panel.gsdfMixTitle}
-            >
-              <MonitorUp size={13} />
-              GSDF
-            </ModePill>
+            <FormulaModePills
+              value={settings.transferFormula}
+              onChange={onTransferFormulaChange}
+              messages={messages}
+            />
+            {settings.transferFormula === 'gsdf' && (
+              <GsdfPipelinePills
+                value={settings.gsdfPipeline}
+                onChange={onGsdfPipelineChange}
+                messages={messages}
+              />
+            )}
             <ModePill title={messages.panel.gammaPillTitle}>
               <Activity size={13} />
               <span className="gsdf-pill-label">γ</span>
@@ -1401,6 +1600,7 @@ function drawStripeRect(
 }
 
 type RgbTuple = [number, number, number];
+type UnitColorTuple = [number, number, number];
 type ColorRampChannel = 0 | 1 | 2;
 
 interface ColorLinearityRow {
@@ -1429,14 +1629,32 @@ function formatRgb(color: RgbTuple): string {
   return `rgb(${clampTone(color[0])},${clampTone(color[1])},${clampTone(color[2])})`;
 }
 
-const REFERENCE_DISPLAY_GAMUT_PROFILES: Record<AppSettings['displayGamut'], { kr: number; kg: number; kb: number }> = {
-  srgb: { kr: 0.2126, kg: 0.7152, kb: 0.0722 },
-  'display-p3': { kr: 0.2290, kg: 0.6917, kb: 0.0793 },
-  'adobe-rgb': { kr: 0.2974, kg: 0.6274, kb: 0.0752 },
-};
+function rgbToUnitColor(color: RgbTuple): UnitColorTuple {
+  return [
+    clampTone(color[0]) / 255,
+    clampTone(color[1]) / 255,
+    clampTone(color[2]) / 255,
+  ];
+}
 
-function getReferenceDisplayGamutProfile(displayGamut: AppSettings['displayGamut']) {
-  return REFERENCE_DISPLAY_GAMUT_PROFILES[displayGamut] ?? REFERENCE_DISPLAY_GAMUT_PROFILES.srgb;
+function unitColorToRgb(color: UnitColorTuple): RgbTuple {
+  return [
+    clampTone(color[0] * 255),
+    clampTone(color[1] * 255),
+    clampTone(color[2] * 255),
+  ];
+}
+
+function applyReferenceColorMatrix(color: UnitColorTuple, matrix: number[]): UnitColorTuple {
+  const [red, green, blue] = color;
+  const applyRow = (offset: number) => (
+    matrix[offset] * red
+    + matrix[offset + 1] * green
+    + matrix[offset + 2] * blue
+    + matrix[offset + 4]
+  );
+
+  return [applyRow(0), applyRow(5), applyRow(10)];
 }
 
 function sampleReferenceToneTable(transferTable: number[], normalizedLevel: number): number {
@@ -1455,34 +1673,20 @@ function sampleReferenceToneTable(transferTable: number[], normalizedLevel: numb
   return lowValue + (highValue - lowValue) * mix;
 }
 
-function applyReferenceCsdfToneTable(
+function applyReferenceGsdfYcbcrToneTable(
   color: RgbTuple,
   transferTable: number[],
   displayGamut: AppSettings['displayGamut'],
 ): RgbTuple {
-  const { kr, kg, kb } = getReferenceDisplayGamutProfile(displayGamut);
-  const red = clampTone(color[0]) / 255;
-  const green = clampTone(color[1]) / 255;
-  const blue = clampTone(color[2]) / 255;
-  const cbScale = 2 * (1 - kb);
-  const crScale = 2 * (1 - kr);
-  const y = clampValue(kr * red + kg * green + kb * blue, 0, 1);
-  const cb = (blue - y) / cbScale;
-  const cr = (red - y) / crScale;
-  const mappedY = sampleReferenceToneTable(transferTable, y);
-  const redFromCr = crScale;
-  const blueFromCb = cbScale;
-  const greenFromCb = -(kb * cbScale) / kg;
-  const greenFromCr = -(kr * crScale) / kg;
+  const matrices = buildLumaChromaMatrices(displayGamut);
+  const ycbcr = applyReferenceColorMatrix(rgbToUnitColor(color), matrices.forward);
+  const mappedY = sampleReferenceToneTable(transferTable, ycbcr[0]);
+  const adjustedRgb = applyReferenceColorMatrix([mappedY, ycbcr[1], ycbcr[2]], matrices.inverse);
 
-  return [
-    clampTone((mappedY + redFromCr * cr) * 255),
-    clampTone((mappedY + greenFromCb * cb + greenFromCr * cr) * 255),
-    clampTone((mappedY + blueFromCb * cb) * 255),
-  ];
+  return unitColorToRgb(adjustedRgb);
 }
 
-function applyLegacyReferenceToneTable(color: RgbTuple, transferTable: number[]): RgbTuple {
+function applyReferenceGsdfRgbToneTable(color: RgbTuple, transferTable: number[]): RgbTuple {
   return color.map((channel) => {
     const toneIndex = clampTone(channel);
     return clampTone((transferTable[toneIndex] ?? toneIndex / 255) * 255);
@@ -1493,13 +1697,28 @@ function applyColorReferenceToneTable(
   color: RgbTuple,
   transferTable: number[],
   displayGamut: AppSettings['displayGamut'],
-  toneMode: ColorReferenceToneMode,
+  transferFormula: AppSettings['transferFormula'],
+  gsdfPipeline: AppSettings['gsdfPipeline'],
 ): RgbTuple {
-  if (toneMode === 'legacy-rgb') {
-    return applyLegacyReferenceToneTable(color, transferTable);
+  if (transferFormula !== 'gsdf') {
+    return color;
   }
 
-  return applyReferenceCsdfToneTable(color, transferTable, displayGamut);
+  if (gsdfPipeline === 'rgb') {
+    return applyReferenceGsdfRgbToneTable(color, transferTable);
+  }
+
+  return applyReferenceGsdfYcbcrToneTable(color, transferTable, displayGamut);
+}
+
+function formatColorReferenceRgb(color: RgbTuple, transferTable: number[], settings: AppSettings): string {
+  return formatRgb(applyColorReferenceToneTable(
+    color,
+    transferTable,
+    settings.displayGamut,
+    settings.transferFormula,
+    settings.gsdfPipeline,
+  ));
 }
 
 function interpolateColor(from: RgbTuple, to: RgbTuple, amount: number): RgbTuple {
@@ -1550,6 +1769,10 @@ function makeCsdfFig9Color(row: ColorLinearityRow, channelValue: number): RgbTup
   return color;
 }
 
+function applyCsdfFig9DisplayTone(value: number, transferTable: number[]): number {
+  return clampTone(sampleReferenceToneTable(transferTable, clampTone(value) / 255) * 255);
+}
+
 function drawCsdfFig9VariableBlock(
   context: CanvasRenderingContext2D,
   x: number,
@@ -1560,12 +1783,14 @@ function drawCsdfFig9VariableBlock(
   channelValue: number,
   renderWidth: number,
   controls: CsdfFigureControls,
+  transferTable: number[],
 ) {
   for (let column = 0; column < width; column += 1) {
     const globalX = x + column;
+    const splitValue = applyCsdfFig9SplitChannel(channelValue, globalX, renderWidth, controls);
     const color = makeCsdfFig9Color(
       row,
-      applyCsdfFig9SplitChannel(channelValue, globalX, renderWidth, controls),
+      applyCsdfFig9DisplayTone(splitValue, transferTable),
     );
     context.fillStyle = formatRgb(color);
     context.fillRect(x + column, y, 1, height);
@@ -1581,6 +1806,7 @@ function drawCsdfFig9RampSide(
   row: ColorLinearityRow,
   renderWidth: number,
   controls: CsdfFigureControls,
+  transferTable: number[],
 ) {
   const topHeight = Math.round(height * 0.32);
   const middleHeight = Math.round(height * 0.36);
@@ -1595,13 +1821,21 @@ function drawCsdfFig9RampSide(
     const topBottomValue = 255 * triangle + sinusoid;
     const middleValue = 255 * (1 - triangle) + sinusoid;
     const globalX = x + column;
+    const topBottomTone = applyCsdfFig9DisplayTone(
+      applyCsdfFig9SplitChannel(topBottomValue, globalX, renderWidth, controls),
+      transferTable,
+    );
+    const middleTone = applyCsdfFig9DisplayTone(
+      applyCsdfFig9SplitChannel(middleValue, globalX, renderWidth, controls),
+      transferTable,
+    );
     const topBottomColor = makeCsdfFig9Color(
       row,
-      applyCsdfFig9SplitChannel(topBottomValue, globalX, renderWidth, controls),
+      topBottomTone,
     );
     const middleColor = makeCsdfFig9Color(
       row,
-      applyCsdfFig9SplitChannel(middleValue, globalX, renderWidth, controls),
+      middleTone,
     );
 
     context.fillStyle = formatRgb(topBottomColor);
@@ -1621,9 +1855,21 @@ function drawCsdfFig9LogoBlock(
   row: ColorLinearityRow,
   renderWidth: number,
   controls: CsdfFigureControls,
+  transferTable: number[],
 ) {
   const backgroundValue = 255 * row.differencePercent / 100;
-  drawCsdfFig9VariableBlock(context, x, y, width, height, row, backgroundValue, renderWidth, controls);
+  drawCsdfFig9VariableBlock(
+    context,
+    x,
+    y,
+    width,
+    height,
+    row,
+    backgroundValue,
+    renderWidth,
+    controls,
+    transferTable,
+  );
 
   context.fillStyle = formatRgb(row.base);
   context.font = '62px Cascadia Mono, monospace';
@@ -1643,120 +1889,9 @@ function drawPaperComparisonRamp(
   row: ColorLinearityRow,
   renderWidth: number,
   controls: CsdfFigureControls,
-) {
-  drawCsdfFig9RampSide(context, x, y, width, height, row, renderWidth, controls);
-}
-
-function getLegacyPrimarySecondaryPrimaryRatio(progress: number): number {
-  const normalizedProgress = clampValue(progress, 0, 1);
-  const distanceFromCenter = Math.abs(normalizedProgress - 0.5);
-  const halfMixWidth = LEGACY_COLOR_RAMP_SECONDARY_MIX_WIDTH / 2;
-  if (distanceFromCenter >= halfMixWidth) {
-    return 0;
-  }
-
-  const mixProgress = 1 - distanceFromCenter / halfMixWidth;
-  return 0.5 - Math.cos(mixProgress * Math.PI) / 2;
-}
-
-function getLegacyColorRampColor(
-  row: ColorLinearityRow,
-  progress: number,
-  calibrated: boolean,
-  bandBoost: number,
-  inverted = false,
-): RgbTuple {
-  const rampRatio = getLegacyPrimarySecondaryPrimaryRatio(progress);
-  const modulationProgress = inverted ? 1 - progress : progress;
-  const color = interpolateColor(row.base, row.secondary, rampRatio);
-  const amplitude = (row.amplitudePercent / 100) * (calibrated ? 1.08 : 0.62) * bandBoost;
-  const uncalibratedVisibility = 0.18 + 0.72 * Math.exp(-((progress - 0.52) ** 2) / 0.028);
-  const visibility = calibrated ? 1 : uncalibratedVisibility;
-  const sine = Math.sin(modulationProgress * Math.PI * 2 * LEGACY_COLOR_RAMP_SINE_CYCLES) * amplitude * visibility * 255;
-  color[row.modulationChannel] = clampTone(color[row.modulationChannel] + sine);
-  return color;
-}
-
-function drawLegacyColorRamp(
-  context: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-  row: ColorLinearityRow,
-  calibrated: boolean,
   transferTable: number[],
-  displayGamut: AppSettings['displayGamut'],
-  toneMode: ColorReferenceToneMode,
-  bandBoost = 1,
-  inverted = false,
 ) {
-  for (let column = 0; column < width; column += 1) {
-    const progress = width <= 1 ? 0 : column / (width - 1);
-    const color = applyColorReferenceToneTable(
-      getLegacyColorRampColor(row, progress, calibrated, bandBoost, inverted),
-      transferTable,
-      displayGamut,
-      toneMode,
-    );
-    context.fillStyle = formatRgb(color);
-    context.fillRect(x + column, y, 1, height);
-  }
-}
-
-function drawLegacyColorLinearityLogoBlock(
-  context: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-  row: ColorLinearityRow,
-  transferTable: number[],
-  displayGamut: AppSettings['displayGamut'],
-  toneMode: ColorReferenceToneMode,
-) {
-  const faintBackground = [...row.base] as RgbTuple;
-  const background = [...row.base] as RgbTuple;
-  faintBackground[row.modulationChannel] = clampTone(faintBackground[row.modulationChannel] + (row.differencePercent / 100) * 255 * 0.28);
-  background[row.modulationChannel] = clampTone(background[row.modulationChannel] + (row.differencePercent / 100) * 255);
-  const splitX = x + width / 2;
-
-  context.fillStyle = formatRgb(applyColorReferenceToneTable(faintBackground, transferTable, displayGamut, toneMode));
-  context.fillRect(x, y, width / 2, height);
-  context.fillStyle = formatRgb(applyColorReferenceToneTable(background, transferTable, displayGamut, toneMode));
-  context.fillRect(splitX, y, width / 2, height);
-
-  context.fillStyle = formatRgb(applyColorReferenceToneTable(row.base, transferTable, displayGamut, toneMode));
-  context.font = '62px Cascadia Mono, monospace';
-  context.textAlign = 'center';
-  context.textBaseline = 'middle';
-  context.globalAlpha = 0.76;
-  context.fillText('CSDF', x + width / 2, y + height / 2);
-  context.globalAlpha = 1;
-}
-
-function drawLegacyPaperComparisonRamp(
-  context: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-  row: ColorLinearityRow,
-  calibrated: boolean,
-  transferTable: number[],
-  displayGamut: AppSettings['displayGamut'],
-  toneMode: ColorReferenceToneMode,
-) {
-  drawLegacyColorRamp(context, x, y, width, height, row, calibrated, transferTable, displayGamut, toneMode);
-
-  const bandHeight = Math.max(18, height * 0.3);
-  const bandY = y + height * 0.36;
-  context.save();
-  context.beginPath();
-  context.rect(x, bandY, width, bandHeight);
-  context.clip();
-  drawLegacyColorRamp(context, x, y, width, height, row, calibrated, transferTable, displayGamut, toneMode, calibrated ? 1.18 : 1.05, true);
-  context.restore();
+  drawCsdfFig9RampSide(context, x, y, width, height, row, renderWidth, controls, transferTable);
 }
 
 function ColorBidirectionalPattern({
@@ -1785,14 +1920,13 @@ function drawBidirectionalColorBand(
   height: number,
   row: ColorLinearityRow,
   transferTable: number[],
-  displayGamut: AppSettings['displayGamut'],
-  toneMode: ColorReferenceToneMode,
+  settings: AppSettings,
 ) {
   const halfHeight = Math.floor(height / 2);
   const lowerHeight = height - halfHeight;
 
-  drawSingleDirectionColorRamp(context, x, y, width, halfHeight, row, false, transferTable, displayGamut, toneMode);
-  drawSingleDirectionColorRamp(context, x, y + halfHeight, width, lowerHeight, row, true, transferTable, displayGamut, toneMode);
+  drawSingleDirectionColorRamp(context, x, y, width, halfHeight, row, false, transferTable, settings);
+  drawSingleDirectionColorRamp(context, x, y + halfHeight, width, lowerHeight, row, true, transferTable, settings);
 }
 
 function drawSingleDirectionColorRamp(
@@ -1804,8 +1938,7 @@ function drawSingleDirectionColorRamp(
   row: ColorLinearityRow,
   reversed: boolean,
   transferTable: number[],
-  displayGamut: AppSettings['displayGamut'],
-  toneMode: ColorReferenceToneMode,
+  settings: AppSettings,
 ) {
   for (let column = 0; column < width; column += 1) {
     const progress = width <= 1 ? 0 : column / (width - 1);
@@ -1813,8 +1946,9 @@ function drawSingleDirectionColorRamp(
     const color = applyColorReferenceToneTable(
       interpolateColor(row.base, row.secondary, rampProgress),
       transferTable,
-      displayGamut,
-      toneMode,
+      settings.displayGamut,
+      settings.transferFormula,
+      settings.gsdfPipeline,
     );
     context.fillStyle = formatRgb(color);
     context.fillRect(x + column, y, 1, height);
@@ -1827,11 +1961,11 @@ function drawBidirectionalColorPattern(
   renderWidth = BIDIRECTIONAL_COLOR_PATTERN_WIDTH,
   renderHeight = BIDIRECTIONAL_COLOR_PATTERN_HEIGHT,
 ) {
-  const transferTable = buildGsdfTableValues(settings);
+  const transferTable = settings.transferFormula === 'gsdf' ? buildGsdfTableValues(settings) : [];
   COLOR_LINEARITY_ROWS.forEach((row, index) => {
     const y = Math.round((index * renderHeight) / COLOR_LINEARITY_ROWS.length);
     const nextY = Math.round(((index + 1) * renderHeight) / COLOR_LINEARITY_ROWS.length);
-    drawBidirectionalColorBand(context, 0, y, renderWidth, nextY - y, row, transferTable, settings.displayGamut, 'runtime');
+    drawBidirectionalColorBand(context, 0, y, renderWidth, nextY - y, row, transferTable, settings);
   });
 }
 
@@ -1840,24 +1974,19 @@ function ColorLinearityPattern({
   messages,
   renderSize,
   figureControls,
-  toneMode = 'runtime',
 }: {
   settings: AppSettings;
   messages: Messages;
   renderSize?: ReferenceRenderSize;
   figureControls: CsdfFigureControls;
-  toneMode?: ColorReferenceToneMode;
 }) {
   const canvasRef = React.useRef<HTMLCanvasElement | null>(null);
-  const ariaLabel = toneMode === 'legacy-rgb'
-    ? messages.panel.legacyColorLinearityPatternAria
-    : messages.panel.colorLinearityPatternAria;
 
   useReferenceCanvas(canvasRef, renderSize, (context, size) => {
-    drawColorLinearityPattern(context, settings, size.width, size.height, toneMode, figureControls);
-  }, [settings, toneMode, figureControls]);
+    drawColorLinearityPattern(context, settings, size.width, size.height, figureControls);
+  }, [settings, figureControls]);
 
-  return <canvas ref={canvasRef} className="h-full w-full bg-black" aria-label={ariaLabel} />;
+  return <canvas ref={canvasRef} className="h-full w-full bg-black" aria-label={messages.panel.colorLinearityPatternAria} />;
 }
 
 function drawColorLinearityPattern(
@@ -1865,10 +1994,9 @@ function drawColorLinearityPattern(
   settings: AppSettings,
   renderWidth = COLOR_LINEARITY_PATTERN_WIDTH,
   renderHeight = COLOR_LINEARITY_PATTERN_HEIGHT,
-  toneMode: ColorReferenceToneMode = 'runtime',
   figureControls: CsdfFigureControls = DEFAULT_CSDF_FIGURE_CONTROLS,
 ) {
-  const transferTable = buildGsdfTableValues(settings);
+  const transferTable = settings.transferFormula === 'gsdf' ? buildGsdfTableValues(settings) : [];
   const sideWidth = Math.floor(renderWidth / 3);
   const centerX = sideWidth;
   const centerWidth = renderWidth - sideWidth * 2;
@@ -1878,16 +2006,52 @@ function drawColorLinearityPattern(
     const y = Math.round((index * renderHeight) / COLOR_LINEARITY_ROWS.length);
     const nextY = Math.round(((index + 1) * renderHeight) / COLOR_LINEARITY_ROWS.length);
     const rowHeight = nextY - y;
-    if (toneMode === 'legacy-rgb') {
-      drawLegacyPaperComparisonRamp(context, 0, y, renderWidth - centerWidth, rowHeight, row, false, transferTable, settings.displayGamut, toneMode);
-      drawLegacyColorLinearityLogoBlock(context, centerX, y, centerWidth, rowHeight, row, transferTable, settings.displayGamut, toneMode);
-      return;
-    }
 
-    drawCsdfFig9VariableBlock(context, 0, y, renderWidth, rowHeight, row, 0, renderWidth, figureControls);
-    drawPaperComparisonRamp(context, 0, y, sideWidth, rowHeight, row, renderWidth, figureControls);
-    drawCsdfFig9LogoBlock(context, centerX, y, centerWidth, rowHeight, row, renderWidth, figureControls);
-    drawCsdfFig9RampSide(context, rightX, y, sideWidth, rowHeight, row, renderWidth, figureControls);
+    drawCsdfFig9VariableBlock(
+      context,
+      0,
+      y,
+      renderWidth,
+      rowHeight,
+      row,
+      0,
+      renderWidth,
+      figureControls,
+      transferTable,
+    );
+    drawPaperComparisonRamp(
+      context,
+      0,
+      y,
+      sideWidth,
+      rowHeight,
+      row,
+      renderWidth,
+      figureControls,
+      transferTable,
+    );
+    drawCsdfFig9LogoBlock(
+      context,
+      centerX,
+      y,
+      centerWidth,
+      rowHeight,
+      row,
+      renderWidth,
+      figureControls,
+      transferTable,
+    );
+    drawCsdfFig9RampSide(
+      context,
+      rightX,
+      y,
+      sideWidth,
+      rowHeight,
+      row,
+      renderWidth,
+      figureControls,
+      transferTable,
+    );
   });
 }
 
@@ -1895,7 +2059,6 @@ function getReferenceModeOptions(messages: Messages): Array<{ value: SidePanelMo
   return [
     { value: 'pattern', label: messages.panel.referencePanel, icon: <Grid3X3 size={13} /> },
     { value: 'linearity', label: messages.panel.colorLinearityPanel, icon: <Palette size={13} /> },
-    { value: 'legacy-linearity', label: messages.panel.legacyColorLinearityPanel, icon: <Palette size={13} /> },
     { value: 'bidirectional', label: messages.panel.bidirectionalColorPanel, icon: <Palette size={13} /> },
     { value: 'chart', label: messages.panel.curvePanel, icon: <BarChart3 size={13} /> },
   ];
@@ -1913,7 +2076,7 @@ function ReferenceModeSwitch({
   className?: string;
 }) {
   return (
-    <div className={`grid shrink-0 grid-cols-5 gap-1 ${className}`} data-no-drag>
+    <div className={`grid shrink-0 grid-cols-4 gap-1 ${className}`} data-no-drag>
       {getReferenceModeOptions(messages).map((option) => (
         <button
           key={option.value}
@@ -2143,6 +2306,8 @@ function InspectionModeHeader({
   dragHandlers: PointerHandlers;
   messages: Messages;
 }) {
+  const displayScaleStatus = useReferenceDisplayScaleStatus();
+
   return (
     <div
       className="gsdf-inspection-header shrink-0 cursor-grab select-none border-b border-white/10 bg-[#0c1014] px-4 py-3 active:cursor-grabbing"
@@ -2171,6 +2336,12 @@ function InspectionModeHeader({
         messages={messages}
         className="mt-3 border-t border-white/10 pt-3"
       />
+      {mode !== 'chart' && (
+        <ReferenceDisplayScaleWarning
+          status={displayScaleStatus}
+          messages={messages}
+        />
+      )}
       <div className="mt-3 flex items-center gap-3">
         <span className="shrink-0 text-[10px] font-semibold text-zinc-400">
           {messages.panel.currentLuminanceValue}
@@ -2215,9 +2386,6 @@ function getInspectionTitle(mode: SidePanelMode, messages: Messages): string {
   if (mode === 'linearity') {
     return messages.panel.colorLinearityTitle;
   }
-  if (mode === 'legacy-linearity') {
-    return messages.panel.legacyColorLinearityTitle;
-  }
   if (mode === 'bidirectional') {
     return messages.panel.bidirectionalColorTitle;
   }
@@ -2231,9 +2399,6 @@ function getInspectionSubtitle(mode: SidePanelMode, messages: Messages): string 
   if (mode === 'linearity') {
     return messages.panel.colorLinearitySubtitle;
   }
-  if (mode === 'legacy-linearity') {
-    return messages.panel.legacyColorLinearitySubtitle;
-  }
   if (mode === 'bidirectional') {
     return messages.panel.bidirectionalColorSubtitle;
   }
@@ -2246,9 +2411,6 @@ function getOpenFullInspectionLabel(mode: SidePanelMode, messages: Messages): st
   }
   if (mode === 'linearity') {
     return messages.panel.openFullColorLinearity;
-  }
-  if (mode === 'legacy-linearity') {
-    return messages.panel.openFullLegacyColorLinearity;
   }
   if (mode === 'bidirectional') {
     return messages.panel.openFullBidirectionalColor;
@@ -2318,16 +2480,6 @@ function InspectionModeView({
           messages={messages}
         >
           <ColorLinearityPattern settings={settings} messages={messages} renderSize={referenceSize} figureControls={figureControls} />
-        </InteractiveInspectionViewport>
-      ) : mode === 'legacy-linearity' ? (
-        <InteractiveInspectionViewport
-          designWidth={referenceSize.width}
-          designHeight={referenceSize.height}
-          className="bg-black p-2"
-          ariaLabel={messages.panel.legacyColorLinearityPatternAria}
-          messages={messages}
-        >
-          <ColorLinearityPattern settings={settings} messages={messages} renderSize={referenceSize} figureControls={figureControls} toneMode="legacy-rgb" />
         </InteractiveInspectionViewport>
       ) : mode === 'bidirectional' ? (
         <InteractiveInspectionViewport
@@ -2427,6 +2579,8 @@ function ReferenceSidePanel({
   onOpenFull: (mode: SidePanelMode) => void;
   onClose: () => void;
 }) {
+  const displayScaleStatus = useReferenceDisplayScaleStatus();
+
   return (
     <aside className="gsdf-reference-panel flex min-h-0 flex-col overflow-hidden border-l border-white/10 bg-[#0a0d12]">
       <div className="flex h-12 shrink-0 items-center justify-between gap-3 border-b border-white/10 px-3" data-no-drag>
@@ -2455,6 +2609,15 @@ function ReferenceSidePanel({
       <p className="shrink-0 border-b border-white/10 px-3 py-3 text-[12px] leading-5 text-zinc-400">
         {messages.panel.referenceSummaryBody}
       </p>
+      {mode !== 'chart' && displayScaleStatus.hasScaleWarning && (
+        <div className="shrink-0 border-b border-white/10 p-3">
+          <ReferenceDisplayScaleWarning
+            status={displayScaleStatus}
+            messages={messages}
+            compact
+          />
+        </div>
+      )}
       {isCsdfFigureControlMode(mode) && (
         <div className="shrink-0 border-b border-white/10 p-3">
           <CsdfFigureControlsPanel
@@ -2474,10 +2637,6 @@ function ReferenceSidePanel({
         ) : mode === 'linearity' ? (
           <div className="h-full min-h-0 overflow-hidden rounded-md border border-white/10 bg-black p-2">
             <ColorLinearityPattern settings={settings} messages={messages} figureControls={figureControls} />
-          </div>
-        ) : mode === 'legacy-linearity' ? (
-          <div className="h-full min-h-0 overflow-hidden rounded-md border border-white/10 bg-black p-2">
-            <ColorLinearityPattern settings={settings} messages={messages} figureControls={figureControls} toneMode="legacy-rgb" />
           </div>
         ) : mode === 'bidirectional' ? (
           <div className="h-full min-h-0 overflow-hidden rounded-md border border-white/10 bg-black p-2">
@@ -2655,9 +2814,11 @@ export function DraggablePanel({
       ...getRecommendedImageDefaults(100),
       enabled: true,
       lmax: 100,
-      gammaTarget: DEFAULT_GAMMA_TARGET,
       displayGamma: DEFAULT_APP_SETTINGS.displayGamma,
+      gammaTarget: DEFAULT_APP_SETTINGS.displayGamma,
       sourceIsLinear: false,
+      transferFormula: DEFAULT_APP_SETTINGS.transferFormula,
+      gsdfPipeline: DEFAULT_APP_SETTINGS.gsdfPipeline,
       strength: DEFAULT_APP_SETTINGS.strength,
       fineSharpness: DEFAULT_APP_SETTINGS.fineSharpness,
       mediumSharpness: DEFAULT_APP_SETTINGS.mediumSharpness,
@@ -2698,6 +2859,24 @@ export function DraggablePanel({
     setSettings((prev) => ({ ...prev, displayGamut: value }));
   };
 
+  const setTransferFormula = (value: AppSettings['transferFormula']) => {
+    setSettings((prev) => ({
+      ...prev,
+      transferFormula: value,
+      gsdfPipeline: value === 'gsdf' && prev.transferFormula !== 'gsdf'
+        ? DEFAULT_APP_SETTINGS.gsdfPipeline
+        : prev.gsdfPipeline,
+    }));
+  };
+
+  const setGsdfPipeline = (value: AppSettings['gsdfPipeline']) => {
+    setSettings((prev) => ({ ...prev, gsdfPipeline: value }));
+  };
+
+  const setDisplayGamma = (value: AppSettings['displayGamma']) => {
+    setSettings((prev) => ({ ...prev, displayGamma: value, gammaTarget: value }));
+  };
+
   const setNumericSetting = (
     key: keyof Pick<
       AppSettings,
@@ -2726,11 +2905,18 @@ export function DraggablePanel({
     });
   };
 
-  const setBooleanSetting = (
-    key: keyof Pick<AppSettings, 'grayscale'>,
-    value: boolean,
-  ) => {
-    setSettings((prev) => ({ ...prev, [key]: value }));
+  const setGrayscale = (value: boolean) => {
+    const shouldOfferGsdfSwitch = value && !settings.grayscale && settings.transferFormula === 'csdf';
+    const shouldSwitchToGsdf = shouldOfferGsdfSwitch
+      && typeof window !== 'undefined'
+      && window.confirm(messages.panel.grayscaleSwitchToGsdfConfirm);
+
+    setSettings((prev) => ({
+      ...prev,
+      grayscale: value,
+      transferFormula: shouldSwitchToGsdf ? 'gsdf' : prev.transferFormula,
+      gsdfPipeline: shouldSwitchToGsdf ? DEFAULT_APP_SETTINGS.gsdfPipeline : prev.gsdfPipeline,
+    }));
   };
 
   const resetToDefault = () => {
@@ -2744,9 +2930,9 @@ export function DraggablePanel({
 
     setPanelClosed(true);
   };
-  const gammaCorrection = gammaTargetToCorrection(settings.gammaTarget);
+  const gammaCorrection = gammaTargetToCorrection(settings.gammaTarget, settings.displayGamma);
   const setGammaCorrection = (value: number) => {
-    setNumericSetting('gammaTarget', gammaCorrectionToTarget(value));
+    setNumericSetting('gammaTarget', gammaCorrectionToTarget(value, settings.displayGamma));
   };
 
   React.useEffect(() => {
@@ -2779,6 +2965,8 @@ export function DraggablePanel({
           onLmaxChange={handleLmaxChange}
           onResetLmax={() => setLmaxWithLinkedDefaults(DEFAULT_TARGET_LUMINANCE_NITS)}
           onResetDefault={resetToDefault}
+          onTransferFormulaChange={setTransferFormula}
+          onGsdfPipelineChange={setGsdfPipeline}
           messages={messages}
         />
       </div>
@@ -2798,21 +2986,20 @@ export function DraggablePanel({
         rangeRowClassName="pr-11"
         calibratedRange
         marks={[
-          { value: gammaTargetToAlignedSliderValue(1), label: '1', tone: 'default' },
-          { value: gammaTargetToAlignedSliderValue(1.8), label: '1.8', tone: 'default' },
-          { value: gammaTargetToAlignedSliderValue(2.2), label: '2.2', tone: 'major' },
-          { value: gammaTargetToAlignedSliderValue(2.4), label: '2.4', tone: 'major' },
-          { value: gammaTargetToAlignedSliderValue(2.6), label: '2.6', tone: 'major' },
+          { value: gammaTargetToAlignedSliderValue(1, settings.displayGamma), label: '1', tone: 'default' },
+          { value: gammaTargetToAlignedSliderValue(1.8, settings.displayGamma), label: '1.8', tone: 'default' },
+          { value: gammaTargetToAlignedSliderValue(2.2, settings.displayGamma), label: '2.2', tone: 'major' },
+          { value: gammaTargetToAlignedSliderValue(2.4, settings.displayGamma), label: '2.4', tone: 'major' },
+          { value: gammaTargetToAlignedSliderValue(2.6, settings.displayGamma), label: '2.6', tone: 'major' },
         ]}
         resetTitle={messages.panel.resetTitle}
         onReset={() => {
-          setNumericSetting('gammaTarget', DEFAULT_GAMMA_TARGET);
-          setNumericSetting('displayGamma', DEFAULT_APP_SETTINGS.displayGamma);
+          setNumericSetting('gammaTarget', settings.displayGamma);
         }}
         headerAddon={(
           <DisplayGammaSelect
             value={settings.displayGamma}
-            onChange={(value) => setNumericSetting('displayGamma', value)}
+            onChange={(value) => setDisplayGamma(value)}
             label={messages.panel.displayGamma}
             note={messages.panel.displayGammaInverseHint}
             title={messages.panel.displayGammaTitle}
@@ -2983,7 +3170,7 @@ export function DraggablePanel({
         resetTitle={messages.panel.resetTitle}
         onReset={() => {
           setNumericSetting('saturation', getRecommendedImageDefaults(settings.lmax).saturation);
-          setBooleanSetting('grayscale', DEFAULT_APP_SETTINGS.grayscale);
+          setGrayscale(DEFAULT_APP_SETTINGS.grayscale);
         }}
         headerAddon={(
           <label
@@ -2995,7 +3182,7 @@ export function DraggablePanel({
               type="checkbox"
               checked={settings.grayscale}
               disabled={!settings.enabled}
-              onChange={(event) => setBooleanSetting('grayscale', event.target.checked)}
+              onChange={(event) => setGrayscale(event.target.checked)}
               aria-label={messages.panel.grayscale}
               className="gsdf-checkbox h-4 w-4 shrink-0"
             />
@@ -3048,17 +3235,6 @@ export function DraggablePanel({
         >
           <Palette size={13} />
           {messages.panel.colorLinearityPanel}
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            setSidePanelMode('legacy-linearity');
-            setSidePanelOpen(true);
-          }}
-          className="gsdf-text-button flex h-9 items-center gap-2 rounded-md border border-white/10 px-3 text-[11px] font-semibold text-zinc-200 transition-colors hover:text-zinc-50"
-        >
-          <Palette size={13} />
-          {messages.panel.legacyColorLinearityPanel}
         </button>
         <button
           type="button"
@@ -3315,10 +3491,18 @@ export function DraggablePanel({
                 {messages.panel.optimizePreset}
               </button>
               <div className="gsdf-header-metrics flex min-w-0 flex-1 flex-wrap items-center justify-end gap-[5px]">
-                <ModePill tone={settings.enabled ? 'active' : 'neutral'} title={messages.panel.gsdfMixTitle}>
-                  <MonitorUp size={13} />
-                  GSDF
-                </ModePill>
+                <FormulaModePills
+                  value={settings.transferFormula}
+                  onChange={setTransferFormula}
+                  messages={messages}
+                />
+                {settings.transferFormula === 'gsdf' && (
+                  <GsdfPipelinePills
+                    value={settings.gsdfPipeline}
+                    onChange={setGsdfPipeline}
+                    messages={messages}
+                  />
+                )}
                 <ModePill title={messages.panel.gammaPillTitle}>
                   <Activity size={13} />
                   <span className="gsdf-pill-label">gamma</span>

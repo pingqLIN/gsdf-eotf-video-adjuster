@@ -5,6 +5,8 @@ export interface AppSettings {
   gammaTarget: number;
   displayGamma: number;
   sourceIsLinear: boolean;
+  transferFormula: TransferFormulaMode;
+  gsdfPipeline: GsdfPipelineMode;
   displayGamut: DisplayGamut;
   strength: number;
   blackPoint: number;
@@ -18,6 +20,8 @@ export interface AppSettings {
 }
 
 export type GsdfCurveMode = 'relative';
+export type TransferFormulaMode = 'gsdf' | 'csdf';
+export type GsdfPipelineMode = 'ycbcr' | 'rgb';
 export type DisplayGamut = 'srgb' | 'display-p3' | 'adobe-rgb';
 
 export const LUMINANCE_MIN_NITS = 10;
@@ -28,6 +32,8 @@ export const GAMMA_TARGET_MIN = 1.0;
 export const GAMMA_TARGET_MAX = 3.0;
 export const DEFAULT_GAMMA_TARGET = 2.2;
 export const DISPLAY_GAMMA_OPTIONS = [1, 1.8, 2.2, 2.4, 2.6] as const;
+export const DEFAULT_TRANSFER_FORMULA: TransferFormulaMode = 'csdf';
+export const DEFAULT_GSDF_PIPELINE: GsdfPipelineMode = 'ycbcr';
 export const DEFAULT_DISPLAY_GAMUT: DisplayGamut = 'srgb';
 export const GAMMA_CORRECTION_MIN = -100;
 export const GAMMA_CORRECTION_MAX = 100;
@@ -59,6 +65,11 @@ const GSDF_COEFFICIENTS = {
 const DEFAULT_BLACK_POINT = 0;
 const DEFAULT_WHITE_POINT = TONE_LEVEL_COUNT;
 const DEFAULT_SATURATION = 100;
+const DISPLAY_GAMUT_PROFILES: Record<DisplayGamut, { kr: number; kg: number; kb: number }> = {
+  srgb: { kr: 0.2126, kg: 0.7152, kb: 0.0722 },
+  'display-p3': { kr: 0.2290, kg: 0.6917, kb: 0.0793 },
+  'adobe-rgb': { kr: 0.2974, kg: 0.6274, kb: 0.0752 },
+};
 
 function clampRecommendedLuminance(value: unknown): number {
   const numeric = Number(value);
@@ -91,6 +102,8 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   gammaTarget: DEFAULT_GAMMA_TARGET,
   displayGamma: DEFAULT_GAMMA_TARGET,
   sourceIsLinear: false,
+  transferFormula: DEFAULT_TRANSFER_FORMULA,
+  gsdfPipeline: DEFAULT_GSDF_PIPELINE,
   displayGamut: DEFAULT_IMAGE_SETTINGS.displayGamut,
   strength: 100,
   blackPoint: DEFAULT_IMAGE_SETTINGS.blackPoint,
@@ -124,6 +137,39 @@ function normalizeDisplayGamut(value: unknown): DisplayGamut {
   return value === 'srgb' || value === 'display-p3' || value === 'adobe-rgb'
     ? value
     : DEFAULT_APP_SETTINGS.displayGamut;
+}
+
+export function buildLumaChromaMatrices(displayGamut: unknown) {
+  const { kr, kg, kb } = DISPLAY_GAMUT_PROFILES[normalizeDisplayGamut(displayGamut)];
+  const cbScale = 2 * (1 - kb);
+  const crScale = 2 * (1 - kr);
+  const redFromCr = crScale;
+  const blueFromCb = cbScale;
+  const greenFromCb = -(kb * blueFromCb) / kg;
+  const greenFromCr = -(kr * redFromCr) / kg;
+
+  return {
+    forward: [
+      kr, kg, kb, 0, 0,
+      -kr / cbScale, -kg / cbScale, (1 - kb) / cbScale, 0, 0.5,
+      (1 - kr) / crScale, -kg / crScale, -kb / crScale, 0, 0.5,
+      0, 0, 0, 1, 0,
+    ],
+    inverse: [
+      1, 0, redFromCr, 0, -0.5 * redFromCr,
+      1, greenFromCb, greenFromCr, 0, -0.5 * (greenFromCb + greenFromCr),
+      1, blueFromCb, 0, 0, -0.5 * blueFromCb,
+      0, 0, 0, 1, 0,
+    ],
+  };
+}
+
+function normalizeTransferFormula(value: unknown): TransferFormulaMode {
+  return value === 'gsdf' || value === 'csdf' ? value : DEFAULT_APP_SETTINGS.transferFormula;
+}
+
+function normalizeGsdfPipeline(value: unknown): GsdfPipelineMode {
+  return value === 'rgb' ? 'rgb' : DEFAULT_APP_SETTINGS.gsdfPipeline;
 }
 
 function hasNewImageControlSchema(settings: Partial<AppSettings> & { sharpness?: unknown }): boolean {
@@ -173,27 +219,31 @@ function normalizeDisplayGamma(value: unknown): number {
   return DEFAULT_GAMMA_TARGET;
 }
 
-export function gammaCorrectionToTarget(value: unknown): number {
+export function gammaCorrectionToTarget(value: unknown, neutralGamma: unknown = DEFAULT_GAMMA_TARGET): number {
   const correction = clampNumber(value, GAMMA_CORRECTION_MIN, GAMMA_CORRECTION_MAX, 0);
+  const neutralTarget = normalizeGammaTarget(neutralGamma);
 
   if (correction < 0) {
     const ratio = Math.abs(correction) / Math.abs(GAMMA_CORRECTION_MIN);
-    return normalizeGammaTarget(DEFAULT_GAMMA_TARGET + (GAMMA_TARGET_MAX - DEFAULT_GAMMA_TARGET) * ratio);
+    return normalizeGammaTarget(neutralTarget + (GAMMA_TARGET_MAX - neutralTarget) * ratio);
   }
 
   const ratio = correction / GAMMA_CORRECTION_MAX;
-  return normalizeGammaTarget(DEFAULT_GAMMA_TARGET - (DEFAULT_GAMMA_TARGET - GAMMA_TARGET_MIN) * ratio);
+  return normalizeGammaTarget(neutralTarget - (neutralTarget - GAMMA_TARGET_MIN) * ratio);
 }
 
-export function gammaTargetToCorrection(value: unknown): number {
+export function gammaTargetToCorrection(value: unknown, neutralGamma: unknown = DEFAULT_GAMMA_TARGET): number {
   const target = normalizeGammaTarget(value);
+  const neutralTarget = normalizeGammaTarget(neutralGamma);
 
-  if (target > DEFAULT_GAMMA_TARGET) {
-    return Math.round(-((target - DEFAULT_GAMMA_TARGET) / (GAMMA_TARGET_MAX - DEFAULT_GAMMA_TARGET)) * Math.abs(GAMMA_CORRECTION_MIN));
+  if (target > neutralTarget) {
+    const upperRange = Math.max(0.001, GAMMA_TARGET_MAX - neutralTarget);
+    return Math.round(-((target - neutralTarget) / upperRange) * Math.abs(GAMMA_CORRECTION_MIN));
   }
 
-  if (target < DEFAULT_GAMMA_TARGET) {
-    return Math.round(((DEFAULT_GAMMA_TARGET - target) / (DEFAULT_GAMMA_TARGET - GAMMA_TARGET_MIN)) * GAMMA_CORRECTION_MAX);
+  if (target < neutralTarget) {
+    const lowerRange = Math.max(0.001, neutralTarget - GAMMA_TARGET_MIN);
+    return Math.round(((neutralTarget - target) / lowerRange) * GAMMA_CORRECTION_MAX);
   }
 
   return 0;
@@ -383,7 +433,7 @@ export function formatLuminance(value: number): string {
 
 export function normalizeAppSettings(value: Partial<AppSettings> | null | undefined): AppSettings {
   const settings = value ?? {};
-  const legacySettings = settings as Partial<AppSettings> & { sharpness?: unknown };
+  const legacySettings = settings as Partial<AppSettings> & { colorModel?: unknown; sharpness?: unknown };
   const lmax = clampLuminance(settings.lmax);
   const recommendedImageSettings = getRecommendedImageDefaults(lmax);
   const fallbackFineSharpness = clampNumber(legacySettings.sharpness, 0, 50, DEFAULT_APP_SETTINGS.fineSharpness);
@@ -397,13 +447,19 @@ export function normalizeAppSettings(value: Partial<AppSettings> | null | undefi
   const temperature = usesLegacyImageSchema
     ? migrateLegacyTemperature(settings.temperature)
     : Math.round(clampNumber(settings.temperature, TEMPERATURE_MIN_K, TEMPERATURE_MAX_K, DEFAULT_APP_SETTINGS.temperature));
+  const displayGamma = normalizeDisplayGamma(settings.displayGamma);
+  const gammaTarget = settings.gammaTarget === undefined || settings.gammaTarget === null
+    ? displayGamma
+    : normalizeGammaTarget(settings.gammaTarget);
   const normalized: AppSettings = {
     enabled: settings.enabled === true,
     lmax,
     curveMode: normalizeCurveMode(settings.curveMode),
-    gammaTarget: normalizeGammaTarget(settings.gammaTarget),
-    displayGamma: normalizeDisplayGamma(settings.displayGamma),
+    gammaTarget,
+    displayGamma,
     sourceIsLinear: false,
+    transferFormula: normalizeTransferFormula(settings.transferFormula),
+    gsdfPipeline: normalizeGsdfPipeline(settings.gsdfPipeline ?? legacySettings.colorModel),
     displayGamut: normalizeDisplayGamut(settings.displayGamut),
     strength: clampNumber(settings.strength, 0, 100, DEFAULT_APP_SETTINGS.strength),
     blackPoint,

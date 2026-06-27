@@ -277,19 +277,22 @@
     inset 0 0 0 1px rgba(75, 226, 119, 0.018);
 }
 
-.gsdf-nav-row,
-.gsdf-header-controls,
-.gsdf-status-inline-metrics {
+.gsdf-nav-row {
   flex-wrap: nowrap !important;
 }
 
 .gsdf-header-controls {
-  overflow: hidden;
+  flex-wrap: wrap !important;
+  overflow: visible;
 }
 
 .gsdf-header-metrics {
-  flex-wrap: nowrap !important;
-  overflow: hidden;
+  flex-wrap: wrap !important;
+  overflow: visible;
+}
+
+.gsdf-status-inline-metrics {
+  flex-wrap: wrap !important;
 }
 
 .gsdf-header-metrics .gsdf-mode-pill,
