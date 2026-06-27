@@ -93,11 +93,11 @@ const CHART_VIEW_WIDTH = 1040;
 const CHART_VIEW_HEIGHT = 640;
 const INSPECTION_ZOOM_MIN = 0.5;
 const INSPECTION_ZOOM_MAX = 4;
-const PANEL_DEFAULT_WIDTH = 400;
-const PANEL_DEFAULT_HEIGHT = 760;
-const PANEL_SIDE_PANEL_WIDTH = 800;
-const PANEL_MIN_HEIGHT = 520;
-const PANEL_MIN_WIDTH = 400;
+const PANEL_DEFAULT_WIDTH = 420;
+const PANEL_DEFAULT_HEIGHT = 780;
+const PANEL_SIDE_PANEL_WIDTH = 820;
+const PANEL_MIN_HEIGHT = 560;
+const PANEL_MIN_WIDTH = 420;
 const PANEL_VIEWPORT_MARGIN = 16;
 const GAMMA_NEUTRAL_SLIDER_VALUE = luminanceToSliderValue(DEFAULT_TARGET_LUMINANCE_NITS);
 let expandedOverlayCount = 0;
@@ -300,7 +300,7 @@ function FormulaModePills({
   ];
 
   return (
-    <div className="inline-flex h-7 shrink-0 overflow-hidden rounded-[3px] border border-white/10 bg-white/[0.03]">
+    <div className="gsdf-formula-pill-set inline-flex h-7 shrink-0 overflow-hidden rounded-[3px] border border-white/10 bg-white/[0.03]">
       {options.map((option) => (
         <button
           key={option.value}
@@ -339,7 +339,7 @@ function GsdfPipelinePills({
   return (
     <div
       title={messages.panel.gsdfPipelineTitle}
-      className="inline-flex h-7 shrink-0 overflow-hidden rounded-[3px] border border-white/10 bg-white/[0.03]"
+      className="gsdf-pipeline-pill-set inline-flex h-7 shrink-0 overflow-hidden rounded-[3px] border border-white/10 bg-white/[0.03]"
     >
       {options.map((option) => (
         <button
@@ -373,7 +373,7 @@ function SegmentedControl<T extends string>({
   onChange,
 }: SegmentedControlProps<T>) {
   return (
-    <div className={`gsdf-control-block space-y-2.5 transition-opacity ${disabled ? 'opacity-45 pointer-events-none' : 'opacity-100'}`}>
+    <div className={`gsdf-control-block min-w-0 space-y-2.5 transition-opacity ${disabled ? 'opacity-45 pointer-events-none' : 'opacity-100'}`}>
       <div className="gsdf-control-headline">
         <label className="gsdf-control-label flex min-w-0 items-center gap-2 text-[11px] font-semibold text-zinc-300">
           <span className="gsdf-control-icon flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-white/[0.05] text-zinc-200">
@@ -437,7 +437,7 @@ function SliderControl({
       : 'font-mono text-[16px] font-semibold tabular-nums text-zinc-100';
 
   return (
-    <div className={`gsdf-control-block space-y-2.5 transition-opacity ${disabled ? 'opacity-45 pointer-events-none' : 'opacity-100'} ${className ?? ''}`}>
+    <div className={`gsdf-control-block min-w-0 space-y-2.5 transition-opacity ${disabled ? 'opacity-45 pointer-events-none' : 'opacity-100'} ${className ?? ''}`}>
       <div className="gsdf-control-headline">
         <div className="flex min-w-0 items-center gap-2 overflow-hidden">
           <label title={title} className="gsdf-control-label flex min-w-0 items-center gap-2 text-[11px] font-semibold text-zinc-300">
@@ -531,7 +531,7 @@ function CheckboxControl({
   return (
     <label
       title={title}
-      className={`gsdf-control-block flex min-h-[74px] cursor-pointer items-center justify-between gap-3 transition-opacity ${disabled ? 'pointer-events-none opacity-45' : 'opacity-100'}`}
+      className={`gsdf-control-block flex min-h-[74px] min-w-0 cursor-pointer items-center justify-between gap-3 transition-opacity ${disabled ? 'pointer-events-none opacity-45' : 'opacity-100'}`}
     >
       <span className="gsdf-control-label flex min-w-0 items-center gap-2 text-[11px] font-semibold text-zinc-300">
         <span className="gsdf-control-icon flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-white/[0.05] text-zinc-200">
@@ -1114,7 +1114,7 @@ function StatusDeck({
 
   return (
     <section className="gsdf-status-deck space-y-3 rounded-md border border-white/10 bg-[#0a0e13] p-4 shadow-inner">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="gsdf-status-topline flex flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 flex-wrap items-center gap-2.5">
           <div className="flex shrink-0 items-center gap-2 text-[11px] font-semibold text-zinc-400">
             {settings.enabled ? <CheckCircle2 size={14} className="text-zinc-200" /> : <CircleOff size={14} className="text-zinc-500" />}
@@ -2958,8 +2958,8 @@ export function DraggablePanel({
   }, [extensionMode, inspectionMode, sidePanelOpen]);
 
   const renderBasicPanel = () => (
-    <div className="space-y-3">
-      <div className={`transition-opacity ${settings.enabled ? 'opacity-100' : 'opacity-75'}`}>
+    <div className="gsdf-panel-section-stack">
+      <div className={`gsdf-control-group gsdf-control-group--status transition-opacity ${settings.enabled ? 'opacity-100' : 'opacity-75'}`}>
         <StatusDeck
           settings={settings}
           onLmaxChange={handleLmaxChange}
@@ -2971,64 +2971,66 @@ export function DraggablePanel({
         />
       </div>
 
-      <SliderControl
-        icon={<Activity size={14} />}
-        label={messages.panel.gammaLabel}
-        title={messages.panel.gammaTitle}
-        valueText={`${gammaCorrection > 0 ? '+' : ''}${gammaCorrection} · γ ${settings.gammaTarget.toFixed(1)}`}
-        valueVariant="label"
-        minLabel="-100"
-        maxLabel="+100"
-        min={0}
-        max={LUMINANCE_SLIDER_MAX}
-        value={gammaCorrectionToAlignedSliderValue(gammaCorrection)}
-        className="gsdf-gamma-control"
-        rangeRowClassName="pr-11"
-        calibratedRange
-        marks={[
-          { value: gammaTargetToAlignedSliderValue(1, settings.displayGamma), label: '1', tone: 'default' },
-          { value: gammaTargetToAlignedSliderValue(1.8, settings.displayGamma), label: '1.8', tone: 'default' },
-          { value: gammaTargetToAlignedSliderValue(2.2, settings.displayGamma), label: '2.2', tone: 'major' },
-          { value: gammaTargetToAlignedSliderValue(2.4, settings.displayGamma), label: '2.4', tone: 'major' },
-          { value: gammaTargetToAlignedSliderValue(2.6, settings.displayGamma), label: '2.6', tone: 'major' },
-        ]}
-        resetTitle={messages.panel.resetTitle}
-        onReset={() => {
-          setNumericSetting('gammaTarget', settings.displayGamma);
-        }}
-        headerAddon={(
-          <DisplayGammaSelect
-            value={settings.displayGamma}
-            onChange={(value) => setDisplayGamma(value)}
-            label={messages.panel.displayGamma}
-            note={messages.panel.displayGammaInverseHint}
-            title={messages.panel.displayGammaTitle}
-          />
-        )}
-        onChange={(value) => setGammaCorrection(alignedSliderValueToGammaCorrection(value))}
-      />
+      <div className="gsdf-control-group gsdf-control-group--primary gsdf-basic-primary-grid">
+        <SliderControl
+          icon={<Activity size={14} />}
+          label={messages.panel.gammaLabel}
+          title={messages.panel.gammaTitle}
+          valueText={`${gammaCorrection > 0 ? '+' : ''}${gammaCorrection} · γ ${settings.gammaTarget.toFixed(1)}`}
+          valueVariant="label"
+          minLabel="-100"
+          maxLabel="+100"
+          min={0}
+          max={LUMINANCE_SLIDER_MAX}
+          value={gammaCorrectionToAlignedSliderValue(gammaCorrection)}
+          className="gsdf-gamma-control"
+          rangeRowClassName="pr-11"
+          calibratedRange
+          marks={[
+            { value: gammaTargetToAlignedSliderValue(1, settings.displayGamma), label: '1', tone: 'default' },
+            { value: gammaTargetToAlignedSliderValue(1.8, settings.displayGamma), label: '1.8', tone: 'default' },
+            { value: gammaTargetToAlignedSliderValue(2.2, settings.displayGamma), label: '2.2', tone: 'major' },
+            { value: gammaTargetToAlignedSliderValue(2.4, settings.displayGamma), label: '2.4', tone: 'major' },
+            { value: gammaTargetToAlignedSliderValue(2.6, settings.displayGamma), label: '2.6', tone: 'major' },
+          ]}
+          resetTitle={messages.panel.resetTitle}
+          onReset={() => {
+            setNumericSetting('gammaTarget', settings.displayGamma);
+          }}
+          headerAddon={(
+            <DisplayGammaSelect
+              value={settings.displayGamma}
+              onChange={(value) => setDisplayGamma(value)}
+              label={messages.panel.displayGamma}
+              note={messages.panel.displayGammaInverseHint}
+              title={messages.panel.displayGammaTitle}
+            />
+          )}
+          onChange={(value) => setGammaCorrection(alignedSliderValueToGammaCorrection(value))}
+        />
 
-      <SliderControl
-        icon={<Gauge size={14} />}
-        label={messages.panel.filterLabel}
-        title={messages.panel.filterTitle}
-        valueText={`${settings.strength}%`}
-        valueVariant="label"
-        minLabel="0"
-        maxLabel="100"
-        min={0}
-        max={100}
-        step={5}
-        value={settings.strength}
-        className="gsdf-filter-control"
-        rangeRowClassName="pr-11"
-        calibratedRange
-        resetTitle={messages.panel.resetTitle}
-        onReset={() => setNumericSetting('strength', DEFAULT_APP_SETTINGS.strength)}
-        onChange={(value) => setNumericSetting('strength', value)}
-      />
+        <SliderControl
+          icon={<Gauge size={14} />}
+          label={messages.panel.filterLabel}
+          title={messages.panel.filterTitle}
+          valueText={`${settings.strength}%`}
+          valueVariant="label"
+          minLabel="0"
+          maxLabel="100"
+          min={0}
+          max={100}
+          step={5}
+          value={settings.strength}
+          className="gsdf-filter-control"
+          rangeRowClassName="pr-11"
+          calibratedRange
+          resetTitle={messages.panel.resetTitle}
+          onReset={() => setNumericSetting('strength', DEFAULT_APP_SETTINGS.strength)}
+          onChange={(value) => setNumericSetting('strength', value)}
+        />
+      </div>
 
-      <section className="gsdf-control-block gsdf-basic-curve-block space-y-2.5">
+      <section className="gsdf-control-block gsdf-control-group gsdf-control-group--curve gsdf-basic-curve-block space-y-2.5">
         <div className="gsdf-control-headline">
           <div className="gsdf-control-label flex min-w-0 items-center gap-2 text-[11px] font-semibold text-zinc-300">
             <span className="gsdf-control-icon flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-white/[0.05] text-zinc-200">
@@ -3059,153 +3061,161 @@ export function DraggablePanel({
     const remainingToneCount = Math.max(0, settings.whitePoint - settings.blackPoint);
 
     return (
-    <div className="grid min-h-0 grid-cols-2 gap-3 max-[760px]:grid-cols-1">
-      <SegmentedControl
-        disabled={!settings.enabled}
-        icon={<BarChart3 size={14} />}
-        label={messages.panel.displayGamut}
-        value={settings.displayGamut}
-        options={[
-          { value: 'srgb', label: 'sRGB', title: messages.panel.srgbGamutTitle },
-          { value: 'display-p3', label: 'Display P3', title: messages.panel.displayP3GamutTitle },
-          { value: 'adobe-rgb', label: 'Adobe RGB', title: messages.panel.adobeRgbGamutTitle },
-        ]}
-        resetTitle={messages.panel.resetTitle}
-        onReset={() => setDisplayGamut(DEFAULT_APP_SETTINGS.displayGamut)}
-        onChange={(value) => setDisplayGamut(value)}
-      />
-
-      <div className={`gsdf-tone-pair grid grid-cols-2 gap-3 transition-opacity ${settings.enabled ? 'opacity-100' : 'opacity-45 pointer-events-none'}`}>
-        <SliderControl
-          icon={<SlidersHorizontal size={14} />}
-          label={messages.panel.blackPoint}
-          title={messages.panel.clipTonesTitle}
-          valueText={`${settings.blackPoint} · ${remainingToneCount}/${TONE_LEVEL_COUNT}`}
-          minLabel={String(BLACK_CLIP_TONE_MIN)}
-          maxLabel={String(BLACK_CLIP_TONE_MAX)}
-          min={BLACK_CLIP_TONE_MIN}
-          max={BLACK_CLIP_TONE_MAX}
-          step={1}
-          value={settings.blackPoint}
+    <div className="gsdf-advanced-grid">
+      <div className="gsdf-control-group gsdf-advanced-group gsdf-advanced-group--display">
+        <SegmentedControl
+          disabled={!settings.enabled}
+          icon={<BarChart3 size={14} />}
+          label={messages.panel.displayGamut}
+          value={settings.displayGamut}
+          options={[
+            { value: 'srgb', label: 'sRGB', title: messages.panel.srgbGamutTitle },
+            { value: 'display-p3', label: 'Display P3', title: messages.panel.displayP3GamutTitle },
+            { value: 'adobe-rgb', label: 'Adobe RGB', title: messages.panel.adobeRgbGamutTitle },
+          ]}
           resetTitle={messages.panel.resetTitle}
-          onReset={() => setNumericSetting('blackPoint', getRecommendedImageDefaults(settings.lmax).blackPoint)}
-          onChange={(value) => setNumericSetting('blackPoint', value)}
-        />
-        <SliderControl
-          icon={<Sun size={14} />}
-          label={messages.panel.whitePoint}
-          title={messages.panel.clipTonesTitle}
-          valueText={`${settings.whitePoint} · ${remainingToneCount}/${TONE_LEVEL_COUNT}`}
-          minLabel={String(WHITE_CLIP_TONE_MIN)}
-          maxLabel={String(WHITE_CLIP_TONE_MAX)}
-          min={WHITE_CLIP_TONE_MIN}
-          max={WHITE_CLIP_TONE_MAX}
-          step={1}
-          value={settings.whitePoint}
-          resetTitle={messages.panel.resetTitle}
-          onReset={() => setNumericSetting('whitePoint', getRecommendedImageDefaults(settings.lmax).whitePoint)}
-          onChange={(value) => setNumericSetting('whitePoint', value)}
+          onReset={() => setDisplayGamut(DEFAULT_APP_SETTINGS.displayGamut)}
+          onChange={(value) => setDisplayGamut(value)}
         />
       </div>
 
-      <SliderControl
-        disabled={!settings.enabled}
-        icon={<SlidersHorizontal size={14} />}
-        label={messages.panel.fineDetailSharpening}
-        valueText={`${settings.fineSharpness}%`}
-        minLabel="0"
-        maxLabel="50"
-        min={0}
-        max={50}
-        step={1}
-        value={settings.fineSharpness}
-        resetTitle={messages.panel.resetTitle}
-        onReset={() => setNumericSetting('fineSharpness', DEFAULT_APP_SETTINGS.fineSharpness)}
-        onChange={(value) => setNumericSetting('fineSharpness', value)}
-      />
+      <div className="gsdf-control-group gsdf-advanced-group gsdf-advanced-group--tone">
+        <div className={`gsdf-tone-pair grid grid-cols-2 gap-3 transition-opacity ${settings.enabled ? 'opacity-100' : 'opacity-45 pointer-events-none'}`}>
+          <SliderControl
+            icon={<SlidersHorizontal size={14} />}
+            label={messages.panel.blackPoint}
+            title={messages.panel.clipTonesTitle}
+            valueText={`${settings.blackPoint} · ${remainingToneCount}/${TONE_LEVEL_COUNT}`}
+            minLabel={String(BLACK_CLIP_TONE_MIN)}
+            maxLabel={String(BLACK_CLIP_TONE_MAX)}
+            min={BLACK_CLIP_TONE_MIN}
+            max={BLACK_CLIP_TONE_MAX}
+            step={1}
+            value={settings.blackPoint}
+            resetTitle={messages.panel.resetTitle}
+            onReset={() => setNumericSetting('blackPoint', getRecommendedImageDefaults(settings.lmax).blackPoint)}
+            onChange={(value) => setNumericSetting('blackPoint', value)}
+          />
+          <SliderControl
+            icon={<Sun size={14} />}
+            label={messages.panel.whitePoint}
+            title={messages.panel.clipTonesTitle}
+            valueText={`${settings.whitePoint} · ${remainingToneCount}/${TONE_LEVEL_COUNT}`}
+            minLabel={String(WHITE_CLIP_TONE_MIN)}
+            maxLabel={String(WHITE_CLIP_TONE_MAX)}
+            min={WHITE_CLIP_TONE_MIN}
+            max={WHITE_CLIP_TONE_MAX}
+            step={1}
+            value={settings.whitePoint}
+            resetTitle={messages.panel.resetTitle}
+            onReset={() => setNumericSetting('whitePoint', getRecommendedImageDefaults(settings.lmax).whitePoint)}
+            onChange={(value) => setNumericSetting('whitePoint', value)}
+          />
+        </div>
+      </div>
 
-      <SliderControl
-        disabled={!settings.enabled}
-        icon={<SlidersHorizontal size={14} />}
-        label={messages.panel.mediumDetailSharpening}
-        valueText={`${settings.mediumSharpness}%`}
-        minLabel="0"
-        maxLabel="40"
-        min={0}
-        max={40}
-        step={1}
-        value={settings.mediumSharpness}
-        resetTitle={messages.panel.resetTitle}
-        onReset={() => setNumericSetting('mediumSharpness', DEFAULT_APP_SETTINGS.mediumSharpness)}
-        onChange={(value) => setNumericSetting('mediumSharpness', value)}
-      />
+      <div className="gsdf-control-group gsdf-advanced-group gsdf-advanced-group--detail">
+        <SliderControl
+          disabled={!settings.enabled}
+          icon={<SlidersHorizontal size={14} />}
+          label={messages.panel.fineDetailSharpening}
+          valueText={`${settings.fineSharpness}%`}
+          minLabel="0"
+          maxLabel="50"
+          min={0}
+          max={50}
+          step={1}
+          value={settings.fineSharpness}
+          resetTitle={messages.panel.resetTitle}
+          onReset={() => setNumericSetting('fineSharpness', DEFAULT_APP_SETTINGS.fineSharpness)}
+          onChange={(value) => setNumericSetting('fineSharpness', value)}
+        />
 
-      <SliderControl
-        disabled={!settings.enabled}
-        icon={<Thermometer size={14} />}
-        label={messages.panel.temperatureShift}
-        valueText={settings.temperature === 0 ? '0K' : settings.temperature > 0 ? `+${settings.temperature}K` : `${settings.temperature}K`}
-        minLabel="-1000"
-        maxLabel="+1000"
-        min={TEMPERATURE_MIN_K}
-        max={TEMPERATURE_MAX_K}
-        step={50}
-        value={settings.temperature}
-        resetTitle={messages.panel.resetTitle}
-        onReset={() => setNumericSetting('temperature', DEFAULT_APP_SETTINGS.temperature)}
-        onChange={(value) => setNumericSetting('temperature', value)}
-      />
+        <SliderControl
+          disabled={!settings.enabled}
+          icon={<SlidersHorizontal size={14} />}
+          label={messages.panel.mediumDetailSharpening}
+          valueText={`${settings.mediumSharpness}%`}
+          minLabel="0"
+          maxLabel="40"
+          min={0}
+          max={40}
+          step={1}
+          value={settings.mediumSharpness}
+          resetTitle={messages.panel.resetTitle}
+          onReset={() => setNumericSetting('mediumSharpness', DEFAULT_APP_SETTINGS.mediumSharpness)}
+          onChange={(value) => setNumericSetting('mediumSharpness', value)}
+        />
+      </div>
 
-      <SliderControl
-        disabled={!settings.enabled}
-        icon={<Palette size={14} />}
-        label={messages.panel.saturation}
-        valueText={`${settings.saturation}%`}
-        minLabel={String(SATURATION_MIN)}
-        maxLabel={String(SATURATION_MAX)}
-        min={SATURATION_MIN}
-        max={SATURATION_MAX}
-        step={5}
-        value={settings.saturation}
-        resetTitle={messages.panel.resetTitle}
-        onReset={() => {
-          setNumericSetting('saturation', getRecommendedImageDefaults(settings.lmax).saturation);
-          setGrayscale(DEFAULT_APP_SETTINGS.grayscale);
-        }}
-        headerAddon={(
-          <label
-            title={messages.panel.grayscaleTitle}
-            className="gsdf-inline-checkbox flex shrink-0 cursor-pointer items-center gap-1.5 text-[10px] font-semibold text-zinc-400"
-          >
-            <span>{messages.panel.grayscale}</span>
-            <input
-              type="checkbox"
-              checked={settings.grayscale}
-              disabled={!settings.enabled}
-              onChange={(event) => setGrayscale(event.target.checked)}
-              aria-label={messages.panel.grayscale}
-              className="gsdf-checkbox h-4 w-4 shrink-0"
-            />
-          </label>
-        )}
-        onChange={(value) => setNumericSetting('saturation', value)}
-      />
+      <div className="gsdf-control-group gsdf-advanced-group gsdf-advanced-group--color">
+        <SliderControl
+          disabled={!settings.enabled}
+          icon={<Thermometer size={14} />}
+          label={messages.panel.temperatureShift}
+          valueText={settings.temperature === 0 ? '0K' : settings.temperature > 0 ? `+${settings.temperature}K` : `${settings.temperature}K`}
+          minLabel="-1000"
+          maxLabel="+1000"
+          min={TEMPERATURE_MIN_K}
+          max={TEMPERATURE_MAX_K}
+          step={50}
+          value={settings.temperature}
+          resetTitle={messages.panel.resetTitle}
+          onReset={() => setNumericSetting('temperature', DEFAULT_APP_SETTINGS.temperature)}
+          onChange={(value) => setNumericSetting('temperature', value)}
+        />
 
-      <SliderControl
-        disabled={!settings.enabled}
-        icon={<Activity size={14} />}
-        label={messages.panel.hue}
-        valueText={settings.hue === 0 ? '0' : settings.hue > 0 ? `+${settings.hue}` : String(settings.hue)}
-        minLabel="-30"
-        maxLabel="+30"
-        min={-30}
-        max={30}
-        step={5}
-        value={settings.hue}
-        resetTitle={messages.panel.resetTitle}
-        onReset={() => setNumericSetting('hue', DEFAULT_APP_SETTINGS.hue)}
-        onChange={(value) => setNumericSetting('hue', value)}
-      />
+        <SliderControl
+          disabled={!settings.enabled}
+          icon={<Palette size={14} />}
+          label={messages.panel.saturation}
+          valueText={`${settings.saturation}%`}
+          minLabel={String(SATURATION_MIN)}
+          maxLabel={String(SATURATION_MAX)}
+          min={SATURATION_MIN}
+          max={SATURATION_MAX}
+          step={5}
+          value={settings.saturation}
+          resetTitle={messages.panel.resetTitle}
+          onReset={() => {
+            setNumericSetting('saturation', getRecommendedImageDefaults(settings.lmax).saturation);
+            setGrayscale(DEFAULT_APP_SETTINGS.grayscale);
+          }}
+          headerAddon={(
+            <label
+              title={messages.panel.grayscaleTitle}
+              className="gsdf-inline-checkbox flex shrink-0 cursor-pointer items-center gap-1.5 text-[10px] font-semibold text-zinc-400"
+            >
+              <span>{messages.panel.grayscale}</span>
+              <input
+                type="checkbox"
+                checked={settings.grayscale}
+                disabled={!settings.enabled}
+                onChange={(event) => setGrayscale(event.target.checked)}
+                aria-label={messages.panel.grayscale}
+                className="gsdf-checkbox h-4 w-4 shrink-0"
+              />
+            </label>
+          )}
+          onChange={(value) => setNumericSetting('saturation', value)}
+        />
+
+        <SliderControl
+          disabled={!settings.enabled}
+          icon={<Activity size={14} />}
+          label={messages.panel.hue}
+          valueText={settings.hue === 0 ? '0' : settings.hue > 0 ? `+${settings.hue}` : String(settings.hue)}
+          minLabel="-30"
+          maxLabel="+30"
+          min={-30}
+          max={30}
+          step={5}
+          value={settings.hue}
+          resetTitle={messages.panel.resetTitle}
+          onReset={() => setNumericSetting('hue', DEFAULT_APP_SETTINGS.hue)}
+          onChange={(value) => setNumericSetting('hue', value)}
+        />
+      </div>
     </div>
     );
   };
@@ -3392,10 +3402,10 @@ export function DraggablePanel({
       ) : (
         <>
           <div className="gsdf-panel-header select-none space-y-3 border-b border-white/10 bg-[#181c21] px-4 py-2.5">
-            <div className="flex items-center gap-3">
+            <div className="gsdf-panel-title-row flex items-center gap-3">
               <div className="flex min-w-0 flex-1 items-center gap-3">
                 <div
-                  className="flex min-w-0 cursor-grab items-center gap-3 rounded-md pr-3 active:cursor-grabbing"
+                  className="gsdf-panel-brand flex min-w-0 cursor-grab items-center gap-3 rounded-md pr-3 active:cursor-grabbing"
                   data-panel-drag-handle
                   onPointerDown={handleHeaderPointerDown}
                   onPointerMove={handleHeaderPointerMove}
@@ -3411,7 +3421,7 @@ export function DraggablePanel({
                   </div>
                 </div>
               </div>
-              <div className="ml-auto flex shrink-0 items-center justify-end gap-2" data-no-drag>
+              <div className="gsdf-window-actions ml-auto flex shrink-0 items-center justify-end gap-2" data-no-drag>
                 <button
                   type="button"
                   title={messages.panel.toggleSidePanel}
@@ -3444,7 +3454,7 @@ export function DraggablePanel({
             </div>
             <div className="gsdf-nav-row flex min-w-0 flex-wrap items-center justify-between gap-2" data-no-drag>
               <PanelTabSwitch value={activeTab} onChange={setActiveTab} panelTheme={panelTheme} messages={messages} />
-              <div className="flex shrink-0 items-center gap-1.5">
+              <div className="gsdf-header-toolbar flex shrink-0 items-center gap-1.5">
                 <TextScaleControls
                   value={panelTextScale}
                   messages={messages}
@@ -3454,7 +3464,7 @@ export function DraggablePanel({
                 <LanguageSelector locale={locale} messages={messages} onLocaleChange={onLocaleChange} />
               </div>
             </div>
-            <div className="gsdf-header-controls flex shrink-0 flex-wrap items-center justify-start gap-[5px]" data-no-drag>
+            <div className="gsdf-header-controls shrink-0" data-no-drag>
               <button
                 type="button"
                 onClick={toggleEnabled}
@@ -3486,9 +3496,10 @@ export function DraggablePanel({
                 type="button"
                 onClick={applyOptimizedPreset}
                 title={messages.panel.optimizePresetTitle}
-                className="gsdf-quick-action rounded-lg border border-white/10 px-3 py-2 text-[11px] font-semibold text-zinc-200 transition-colors hover:text-zinc-50"
+                className="gsdf-quick-action flex h-10 min-w-[96px] items-center justify-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-[11px] font-semibold text-zinc-200 transition-colors hover:text-zinc-50"
               >
-                {messages.panel.optimizePreset}
+                <CheckCircle2 size={13} />
+                <span>{messages.panel.optimizePreset}</span>
               </button>
               <div className="gsdf-header-metrics flex min-w-0 flex-1 flex-wrap items-center justify-end gap-[5px]">
                 <FormulaModePills

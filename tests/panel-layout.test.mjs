@@ -73,9 +73,11 @@ test('reference pattern and curve open from the right side panel', () => {
   assert.match(panelSource, /onOpenFull=\{openInspectionMode\}/);
   assert.match(panelSource, /GSDF_PATTERN_VIEW_CHANGED/);
   assert.match(panelSource, /useExpandedOverlayViewport\(inspectionMode !== null \|\| sidePanelOpen\)/);
-  assert.match(panelSource, /PANEL_DEFAULT_WIDTH = 400/);
-  assert.match(panelSource, /PANEL_DEFAULT_HEIGHT = 760/);
-  assert.match(panelSource, /PANEL_SIDE_PANEL_WIDTH = 800/);
+  assert.match(panelSource, /PANEL_DEFAULT_WIDTH = 420/);
+  assert.match(panelSource, /PANEL_DEFAULT_HEIGHT = 780/);
+  assert.match(panelSource, /PANEL_SIDE_PANEL_WIDTH = 820/);
+  assert.match(panelSource, /PANEL_MIN_HEIGHT = 560/);
+  assert.match(panelSource, /PANEL_MIN_WIDTH = 420/);
   assert.match(panelSource, /className="border-b border-white\/10 p-3"/);
   assert.doesNotMatch(basicPanelBlock, /referenceSummaryTitle|referenceSummaryBody/);
   assert.doesNotMatch(basicPanelBlock, /openSidePanel\('pattern'\)|openSidePanel\('chart'\)/);
@@ -264,6 +266,10 @@ test('basic and advanced tools expose the revised correction controls', () => {
   assert.match(basicPanelBlock, /gammaTargetToAlignedSliderValue\(2\.6, settings\.displayGamma\)/);
   assert.match(basicPanelBlock, /messages\.panel\.curvePanel/);
   assert.match(basicPanelBlock, /GSDFChart settings=\{settings\} panelTheme=\{panelTheme\} messages=\{messages\}/);
+  assert.match(basicPanelBlock, /gsdf-panel-section-stack/);
+  assert.match(basicPanelBlock, /gsdf-control-group--primary/);
+  assert.match(basicPanelBlock, /gsdf-basic-primary-grid/);
+  assert.match(basicPanelBlock, /gsdf-control-group--curve/);
   assert.match(basicPanelBlock, /gammaCorrectionToAlignedSliderValue\(gammaCorrection\)/);
   assert.match(basicPanelBlock, /alignedSliderValueToGammaCorrection\(value\)/);
   assert.match(basicPanelBlock, /setDisplayGamma\(value\)/);
@@ -275,6 +281,11 @@ test('basic and advanced tools expose the revised correction controls', () => {
   assert.match(basicPanelBlock, /gsdf-filter-control/);
   assert.match(basicPanelBlock, /displayGamma/);
   assert.match(advancedPanelBlock, /remainingToneCount/);
+  assert.match(advancedPanelBlock, /gsdf-advanced-grid/);
+  assert.match(advancedPanelBlock, /gsdf-advanced-group--display/);
+  assert.match(advancedPanelBlock, /gsdf-advanced-group--tone/);
+  assert.match(advancedPanelBlock, /gsdf-advanced-group--detail/);
+  assert.match(advancedPanelBlock, /gsdf-advanced-group--color/);
   assert.match(advancedPanelBlock, /TONE_LEVEL_COUNT/);
   assert.match(advancedPanelBlock, /BLACK_CLIP_TONE_MAX/);
   assert.match(advancedPanelBlock, /WHITE_CLIP_TONE_MIN/);
@@ -331,9 +342,18 @@ test('visual language keeps the precision-panel styling hooks', () => {
 
   assert.match(cssSource, /\.gsdf-panel-shell/);
   assert.match(cssSource, /--gsdf-ui-text-scale/);
+  assert.match(cssSource, /--gsdf-panel-min-width: 420px/);
+  assert.match(cssSource, /--gsdf-panel-min-height: 560px/);
+  assert.match(cssSource, /\.gsdf-panel-title-row/);
+  assert.match(cssSource, /\.gsdf-window-actions/);
+  assert.match(cssSource, /\.gsdf-header-toolbar/);
   assert.match(cssSource, /\.gsdf-panel-header/);
   assert.match(cssSource, /\[data-panel-drag-handle\]/);
   assert.match(cssSource, /\.gsdf-text-scale-controls/);
+  assert.match(cssSource, /\.gsdf-panel-section-stack/);
+  assert.match(cssSource, /\.gsdf-basic-primary-grid/);
+  assert.match(cssSource, /\.gsdf-advanced-grid/);
+  assert.match(cssSource, /\.gsdf-advanced-group--tone \.gsdf-tone-pair/);
   assert.match(cssSource, /\.gsdf-control-block/);
   assert.match(cssSource, /\.gsdf-control-headline/);
   assert.match(cssSource, /\.gsdf-control-reset/);
@@ -346,6 +366,9 @@ test('visual language keeps the precision-panel styling hooks', () => {
   assert.match(cssSource, /flex: 0 0 calc\(100% \+ 44px\)/);
   assert.match(cssSource, /width: calc\(100% \+ 44px\)/);
   assert.match(cssSource, /padding-block: 20px/);
+  assert.match(cssSource, /min-height: 116px/);
+  assert.match(cssSource, /\.gsdf-formula-pill-set/);
+  assert.match(cssSource, /\.gsdf-pipeline-pill-set/);
   assert.match(cssSource, /border-radius: 3px !important/);
   assert.match(cssSource, /border-radius: 8px !important/);
   assert.match(cssSource, /\.gsdf-panel-header \.gsdf-icon-button/);
