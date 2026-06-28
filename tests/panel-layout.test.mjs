@@ -87,6 +87,8 @@ test('reference pattern and curve open from the right side panel', () => {
   assert.match(diagnosticPanelBlock, /messages\.panel\.referencePanel/);
   assert.match(diagnosticPanelBlock, /setSidePanelMode\('linearity'\)/);
   assert.match(diagnosticPanelBlock, /messages\.panel\.curvePanel/);
+  assert.equal((diagnosticPanelBlock.match(/setSidePanelMode\('pattern'\)/g) ?? []).length, 1);
+  assert.doesNotMatch(diagnosticPanelBlock, /Chevron|chevron|collapseCalibration|expandCalibration/);
   assert.doesNotMatch(panelSource, /legacy-linearity|legacy-rgb|legacyColorLinearity|Legacy RGB/);
   assert.equal((panelSource.match(/openSidePanel\('pattern'\)|openSidePanel\('chart'\)/g) ?? []).length, 0);
 });
@@ -267,6 +269,10 @@ test('basic and advanced tools expose the revised correction controls', () => {
     panelSource.indexOf('const renderAdvancedPanel = () =>'),
     panelSource.indexOf('const renderDiagnosticPlaceholder = () =>'),
   );
+  const statusModeStripBlock = panelSource.slice(
+    panelSource.indexOf('function StatusModeStrip'),
+    panelSource.indexOf('function LuminanceDeck'),
+  );
 
   assert.match(panelSource, /function CheckboxControl/);
   assert.match(panelSource, /function CompactAdjustControl/);
@@ -287,6 +293,7 @@ test('basic and advanced tools expose the revised correction controls', () => {
   assert.match(panelSource, /luminanceSnapValues/);
   assert.match(panelSource, /snapSliderValueToMarks\(parseInt\(event\.target\.value, 10\), luminanceSnapValues\)/);
   assert.match(curvePanelBlock, /messages\.panel\.curvePanel/);
+  assert.match(curvePanelBlock, /title = messages\.panel\.curvePanel/);
   assert.match(curvePanelBlock, /GSDFChart/);
   assert.match(curvePanelBlock, /toolbarLeading/);
   assert.match(curvePanelBlock, /toolbarAction/);
@@ -295,7 +302,12 @@ test('basic and advanced tools expose the revised correction controls', () => {
   assert.match(basicPanelBlock, /gsdf-control-group--primary/);
   assert.match(basicPanelBlock, /gsdf-basic-tuning-stack/);
   assert.match(basicPanelBlock, /LuminanceDeck/);
-  assert.match(basicPanelBlock, /renderCurvePanel\(\)/);
+  assert.match(basicPanelBlock, /renderCurvePanel\('', messages\.panel\.outputPreview\)/);
+  assert.ok(
+    basicPanelBlock.indexOf("renderCurvePanel('', messages.panel.outputPreview)") <
+      basicPanelBlock.indexOf('gsdf-filter-stepper-control'),
+    'Basic output preview should appear before the lower-priority filter stepper block',
+  );
   assert.match(basicPanelBlock, /gammaCorrectionToAlignedSliderValue\(gammaCorrection\)/);
   assert.match(basicPanelBlock, /setGammaCorrection\(alignedSliderValueToGammaCorrection\(value\)\)/);
   assert.match(basicPanelBlock, /setDisplayGamma\(value\)/);
@@ -315,14 +327,29 @@ test('basic and advanced tools expose the revised correction controls', () => {
   assert.match(basicPanelBlock, /displayGamma/);
   assert.match(panelSource, /function StatusModeStrip/);
   assert.match(panelSource, /gsdf-header-status-strip/);
+  assert.match(panelSource, /gsdf-status-caption/);
+  assert.match(statusModeStripBlock, /messages\.panel\.correctionRoute/);
+  assert.match(statusModeStripBlock, /messages\.panel\.gsdfRoute/);
+  assert.match(statusModeStripBlock, /messages\.panel\.csdfRoute/);
   assert.match(panelSource, /data-state=\{settings\.enabled \? 'on' : 'off'\}/);
   assert.doesNotMatch(panelSource, /onResetDefault/);
   assert.match(panelSource, /gsdf-header-active-row/);
   assert.match(panelSource, /gsdf-header-navigation-row/);
-  assert.match(panelSource, /gsdf-status-formula-row/);
-  assert.match(panelSource, /gsdf-status-metric-row/);
   assert.match(panelSource, /gsdf-header-action-stack/);
-  assert.match(panelSource, /onTransferFormulaChange=\{setTransferFormula\}/);
+  assert.match(advancedPanelBlock, /gsdf-advanced-group--route/);
+  assert.match(advancedPanelBlock, /FormulaModePills/);
+  assert.match(advancedPanelBlock, /GsdfPipelinePills/);
+  assert.match(advancedPanelBlock, /onChange=\{setTransferFormula\}/);
+  assert.match(advancedPanelBlock, /onChange=\{setGsdfPipeline\}/);
+  assert.doesNotMatch(basicPanelBlock, /FormulaModePills|GsdfPipelinePills|gsdfPipeline/);
+  assert.doesNotMatch(panelSource, /gsdf-status-formula-row/);
+  assert.doesNotMatch(panelSource, /gsdf-status-metric-row/);
+  assert.doesNotMatch(panelSource, /gsdf-status-inline-metrics/);
+  assert.doesNotMatch(statusModeStripBlock, /messages\.panel\.active|messages\.panel\.standby/);
+  assert.doesNotMatch(statusModeStripBlock, /settings\.gammaTarget|settings\.strength|settings\.displayGamut|settings\.gsdfPipeline/);
+  assert.doesNotMatch(statusModeStripBlock, /FormulaModePills|GsdfPipelinePills|ModePill/);
+  assert.doesNotMatch(panelSource, /<ModePill title=\{messages\.panel\.gammaPillTitle\}/);
+  assert.doesNotMatch(panelSource, /<ModePill title=\{messages\.panel\.filterPillTitle\}/);
   assert.match(panelSource, /gsdf-control-leading/);
   assert.match(panelSource, /gsdf-control-value-label/);
   assert.match(advancedPanelBlock, /remainingToneCount/);
@@ -392,6 +419,14 @@ test('visual language keeps the precision-panel styling hooks', () => {
 
   assert.match(cssSource, /\.gsdf-panel-shell/);
   assert.match(cssSource, /--gsdf-ui-text-scale/);
+  assert.match(cssSource, /--gsdf-space-1: 4px/);
+  assert.match(cssSource, /--gsdf-space-1-5: 6px/);
+  assert.match(cssSource, /--gsdf-space-2: 8px/);
+  assert.match(cssSource, /--gsdf-space-3: 12px/);
+  for (const token of ['--gsdf-space-0-5', '--gsdf-space-1', '--gsdf-space-1-5', '--gsdf-space-2', '--gsdf-space-3']) {
+    assert.match(cssSource, new RegExp(`var\\(${token}\\)`));
+  }
+  assert.doesNotMatch(cssSource, /--gsdf-space-2-5|--gsdf-space-4|--gsdf-space-5|--gsdf-space-6/);
   assert.match(cssSource, /--gsdf-panel-min-width: 420px/);
   assert.match(cssSource, /--gsdf-panel-min-height: 560px/);
   assert.match(cssSource, /\.gsdf-panel-title-row/);
@@ -409,19 +444,24 @@ test('visual language keeps the precision-panel styling hooks', () => {
   assert.match(cssSource, /\[data-panel-drag-handle\]/);
   assert.match(cssSource, /\.gsdf-text-scale-controls/);
   assert.match(cssSource, /\.gsdf-status-mode-strip/);
+  assert.match(cssSource, /\.gsdf-status-caption/);
+  assert.match(cssSource, /\.gsdf-status-caption-kicker/);
+  assert.match(cssSource, /\.gsdf-status-caption-route/);
+  assert.match(cssSource, /\.gsdf-route-control-block/);
+  assert.match(cssSource, /\.gsdf-route-control-row/);
   assert.match(cssSource, /background: transparent !important/);
-  assert.match(cssSource, /\.gsdf-status-formula-row,\s*\.gsdf-status-metric-row/);
   assert.match(cssSource, /@container \(min-width: 700px\)/);
   assert.match(cssSource, /\.gsdf-panel-shell \.gsdf-header-active-row \{\s*align-items: stretch;\s*grid-template-columns: minmax\(224px, 240px\) minmax\(0, 1fr\);/);
   assert.match(cssSource, /\.gsdf-panel-shell \.gsdf-power-cluster \{\s*gap: 8px;\s*overflow: visible;/);
   assert.match(cssSource, /\.gsdf-panel-shell \.gsdf-power-status \{\s*min-width: 108px;/);
-  assert.match(cssSource, /\.gsdf-panel-shell \.gsdf-status-formula-row,\s*\.gsdf-panel-shell \.gsdf-status-formula-controls,\s*\.gsdf-panel-shell \.gsdf-status-metric-row,\s*\.gsdf-panel-shell \.gsdf-status-inline-metrics \{\s*flex-wrap: nowrap !important;/);
-  assert.match(cssSource, /\.gsdf-panel-shell \.gsdf-status-metric-row \{\s*min-width: max-content;/);
-  assert.match(cssSource, /\.gsdf-header-status-strip\[data-state="on"\] \.gsdf-status-current/);
-  assert.match(cssSource, /\.gsdf-header-status-strip\[data-state="on"\] \.gsdf-formula-pill-set button\[aria-pressed="true"\]/);
-  assert.match(cssSource, /\.gsdf-header-status-strip\[data-state="on"\] \.gsdf-formula-pill-set button\[aria-pressed="true"\],\s*\.gsdf-header-status-strip\[data-state="on"\] \.gsdf-pipeline-pill-set button\[aria-pressed="true"\] \{\s*color: #102018 !important;/);
-  assert.match(cssSource, /\.gsdf-panel\.theme-light \.gsdf-header-status-strip\[data-state="on"\] \.gsdf-formula-pill-set button\[aria-pressed="true"\],\s*\.gsdf-panel\.theme-light \.gsdf-header-status-strip\[data-state="on"\] \.gsdf-pipeline-pill-set button\[aria-pressed="true"\] \{\s*color: #172033 !important;/);
+  assert.match(cssSource, /\.gsdf-panel-shell \.gsdf-status-caption \{\s*min-height: 42px;/);
+  assert.match(cssSource, /\.gsdf-header-status-strip\[data-state="on"\] \.gsdf-status-caption/);
+  assert.match(cssSource, /\.gsdf-route-control-row \.gsdf-formula-pill-set button\[aria-pressed="true"\],\s*\.gsdf-route-control-row \.gsdf-pipeline-pill-set button\[aria-pressed="true"\]/);
+  assert.match(cssSource, /\.gsdf-panel\.theme-light \.gsdf-route-control-row \.gsdf-formula-pill-set button\[aria-pressed="true"\],\s*\.gsdf-panel\.theme-light \.gsdf-route-control-row \.gsdf-pipeline-pill-set button\[aria-pressed="true"\]/);
   assert.doesNotMatch(cssSource, /\.gsdf-header-status-strip\[data-state="on"\] \.gsdf-status-mode-group \{/);
+  assert.doesNotMatch(cssSource, /gsdf-status-formula-row/);
+  assert.doesNotMatch(cssSource, /gsdf-status-metric-row/);
+  assert.doesNotMatch(cssSource, /gsdf-status-inline-metrics/);
   assert.match(cssSource, /\.gsdf-panel\.theme-light \.gsdf-header-status-strip/);
   assert.match(cssSource, /\.gsdf-header-status-strip/);
   assert.match(cssSource, /\.gsdf-panel-section-stack/);

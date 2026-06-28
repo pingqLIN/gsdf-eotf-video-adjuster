@@ -1264,61 +1264,26 @@ function PanelTabSwitch({
 
 function StatusModeStrip({
   settings,
-  onTransferFormulaChange,
-  onGsdfPipelineChange,
   messages,
   className,
 }: {
   settings: AppSettings;
-  onTransferFormulaChange: (value: AppSettings['transferFormula']) => void;
-  onGsdfPipelineChange: (value: AppSettings['gsdfPipeline']) => void;
   messages: Messages;
   className?: string;
 }) {
-  const statusLabel = settings.enabled ? messages.panel.active : messages.panel.standby;
+  const routeLabel = settings.transferFormula === 'csdf'
+    ? messages.panel.csdfRoute
+    : messages.panel.gsdfRoute;
 
   return (
     <div
       data-state={settings.enabled ? 'on' : 'off'}
-      className={`gsdf-status-mode-strip flex min-w-0 flex-wrap items-center justify-between gap-2 ${className ?? ''}`}
+      aria-label={messages.panel.correctionRoute}
+      className={`gsdf-status-mode-strip flex min-w-0 items-center ${className ?? ''}`}
     >
-      <div className="gsdf-status-mode-group flex min-w-0 flex-wrap items-center gap-2">
-        <div className="gsdf-status-formula-row">
-          <div className="gsdf-status-current flex shrink-0 items-center gap-2 text-[11px] font-semibold text-zinc-400">
-            {settings.enabled ? <CheckCircle2 size={14} className="text-zinc-200" /> : <CircleOff size={14} className="text-zinc-500" />}
-            <span>{statusLabel}</span>
-          </div>
-          <div className="gsdf-status-formula-controls flex min-w-0 flex-wrap items-center justify-start gap-1.5">
-            <FormulaModePills
-              value={settings.transferFormula}
-              onChange={onTransferFormulaChange}
-              messages={messages}
-            />
-            {settings.transferFormula === 'gsdf' && (
-              <GsdfPipelinePills
-                value={settings.gsdfPipeline}
-                onChange={onGsdfPipelineChange}
-                messages={messages}
-              />
-            )}
-          </div>
-        </div>
-        <div className="gsdf-status-inline-metrics gsdf-status-metric-row flex min-w-0 flex-wrap items-center justify-start gap-1.5">
-          <ModePill title={messages.panel.gammaPillTitle}>
-            <Activity size={13} />
-            <span className="gsdf-pill-label">γ</span>
-            <span className="gsdf-pill-metric">{settings.gammaTarget.toFixed(1)}</span>
-          </ModePill>
-          <ModePill title={messages.panel.filterPillTitle}>
-            <Gauge size={13} />
-            <span className="gsdf-pill-label">mix</span>
-            <span className="gsdf-pill-metric">{settings.strength}%</span>
-          </ModePill>
-          <ModePill>
-            <BarChart3 size={13} />
-            {settings.displayGamut === 'display-p3' ? 'P3' : settings.displayGamut === 'adobe-rgb' ? 'Adobe RGB' : 'sRGB'}
-          </ModePill>
-        </div>
+      <div className="gsdf-status-caption min-w-0">
+        <span className="gsdf-status-caption-kicker">{messages.panel.correctionRoute}</span>
+        <span className="gsdf-status-caption-route">{routeLabel}</span>
       </div>
     </div>
   );
@@ -3138,7 +3103,7 @@ export function DraggablePanel({
     );
   }, [extensionMode, inspectionMode, sidePanelOpen]);
 
-  const renderCurvePanel = (className = '') => (
+  const renderCurvePanel = (className = '', title = messages.panel.curvePanel) => (
     <section className={`gsdf-control-block gsdf-control-group gsdf-control-group--curve gsdf-basic-curve-block ${className}`}>
       <div className="gsdf-chart-frame min-h-0 rounded-md border border-white/10 bg-[#080b0f] p-2">
         <React.Suspense fallback={<div className="h-[177px]" />}>
@@ -3152,7 +3117,7 @@ export function DraggablePanel({
                 <span className="gsdf-control-icon flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-white/[0.05] text-zinc-200">
                   <BarChart3 size={14} />
                 </span>
-                <span className="truncate">{messages.panel.curvePanel}</span>
+                <span className="truncate">{title}</span>
               </div>
             )}
             toolbarAction={(
@@ -3224,6 +3189,8 @@ export function DraggablePanel({
           />
         </div>
 
+        {renderCurvePanel('', messages.panel.outputPreview)}
+
         <CompactAdjustControl
           icon={<Gauge size={14} />}
           label={messages.panel.filterLabel}
@@ -3239,8 +3206,6 @@ export function DraggablePanel({
           onReset={() => setNumericSetting('strength', DEFAULT_APP_SETTINGS.strength)}
           onChange={(value) => setNumericSetting('strength', value)}
         />
-
-        {renderCurvePanel()}
       </div>
     );
   };
@@ -3250,6 +3215,37 @@ export function DraggablePanel({
 
     return (
     <div className="gsdf-advanced-grid">
+      <div className="gsdf-control-group gsdf-advanced-group gsdf-advanced-group--route">
+        <div className="gsdf-route-control-block">
+          <div className="gsdf-route-control-headline">
+            <span className="gsdf-control-icon flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-white/[0.05] text-zinc-200">
+              <Activity size={14} />
+            </span>
+            <span className="truncate">{messages.panel.correctionRoute}</span>
+          </div>
+          <div className="gsdf-route-control-stack">
+            <div className="gsdf-route-control-row">
+              <span>{messages.panel.routeFormula}</span>
+              <FormulaModePills
+                value={settings.transferFormula}
+                onChange={setTransferFormula}
+                messages={messages}
+              />
+            </div>
+            {settings.transferFormula === 'gsdf' && (
+              <div className="gsdf-route-control-row">
+                <span>{messages.panel.gsdfPipelineTitle}</span>
+                <GsdfPipelinePills
+                  value={settings.gsdfPipeline}
+                  onChange={setGsdfPipeline}
+                  messages={messages}
+                />
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
       <div className="gsdf-control-group gsdf-advanced-group gsdf-advanced-group--display">
         <SegmentedControl
           disabled={!settings.enabled}
@@ -3667,8 +3663,6 @@ export function DraggablePanel({
                 </button>
                 <StatusModeStrip
                   settings={settings}
-                  onTransferFormulaChange={setTransferFormula}
-                  onGsdfPipelineChange={setGsdfPipeline}
                   messages={messages}
                   className="gsdf-header-metrics gsdf-header-status-strip"
                 />
