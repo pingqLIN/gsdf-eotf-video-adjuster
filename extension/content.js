@@ -24,6 +24,10 @@ const DEFAULT_SETTINGS = {
   temperature: 0,
   saturation: 100,
   grayscale: false,
+  dither: false,
+  ditherStrength: 2,
+  ditherColor: false,
+  ditherNoise: true,
   hue: 0
 };
 
@@ -44,6 +48,8 @@ const SATURATION_MIN = 50;
 const SATURATION_MAX = 150;
 const TEMPERATURE_MIN_K = -1000;
 const TEMPERATURE_MAX_K = 1000;
+const DITHER_STRENGTH_MIN = 1;
+const DITHER_STRENGTH_MAX = 5;
 const LUMINANCE_LOG_RANGE = Math.log(LUMINANCE_MAX_NITS / LUMINANCE_MIN_NITS);
 const GSDF_DISPLAY_LMIN_NITS = 0.05;
 const GSDF_JND_MIN = 1;
@@ -78,11 +84,12 @@ const FILTER_IDS = {
   levels: 'gsdf-eotf-levels',
   temperature: 'gsdf-eotf-temp',
   color: 'gsdf-eotf-color',
+  dither: 'gsdf-eotf-dither',
   sharpenFine: 'gsdf-eotf-sharpen-fine',
   sharpenMedium: 'gsdf-eotf-sharpen-medium'
 };
 const MANAGED_FILTER_RE =
-  /\s*url\((["']?)#gsdf-eotf-(?:gamma|ycbcr|gsdf-(?:rgb|ycbcr)|csdf|levels|temp|color|sharpen-(?:[123]|fine|medium))\1\)\s*/g;
+  /\s*url\((["']?)#gsdf-eotf-(?:gamma|ycbcr|gsdf-(?:rgb|ycbcr)|csdf|levels|temp|color|dither|sharpen-(?:[123]|fine|medium))\1\)\s*/g;
 const MIN_VISIBLE_AREA = 8000;
 const PANEL_VIEWPORT_MARGIN = 16;
 const PANEL_DEFAULT_WIDTH = 400;
@@ -344,6 +351,10 @@ function buildGsdfTableValues(settings = currentSettings, tableSize = GSDF_TABLE
   });
 }
 
+function buildActiveTransferTableValues(settings = currentSettings, tableSize = GSDF_TABLE_SIZE) {
+  return buildGsdfTableValues(settings, tableSize);
+}
+
 function normalizeSettings(settings = {}) {
   const lmax = clampLuminance(settings.lmax);
   const recommendedImageSettings = getRecommendedImageDefaults(lmax);
@@ -378,6 +389,10 @@ function normalizeSettings(settings = {}) {
     temperature,
     saturation: Math.round(clampNumber(settings.saturation, SATURATION_MIN, SATURATION_MAX, recommendedImageSettings.saturation)),
     grayscale: settings.grayscale === true,
+    dither: settings.dither === true,
+    ditherStrength: Math.round(clampNumber(settings.ditherStrength, DITHER_STRENGTH_MIN, DITHER_STRENGTH_MAX, DEFAULT_SETTINGS.ditherStrength)),
+    ditherColor: settings.ditherColor === true,
+    ditherNoise: settings.ditherNoise !== false,
     hue: clampNumber(settings.hue, -30, 30, DEFAULT_SETTINGS.hue)
   };
 
@@ -414,6 +429,18 @@ function getDisplayGamutProfile(displayGamut) {
 
 function formatMatrixValues(values) {
   return values.map((value) => Number(value).toFixed(4)).join(' ');
+}
+
+function getDitherCompositeAttributes(enabled, strength) {
+  if (!enabled) {
+    return { k3: '0', k4: '0' };
+  }
+
+  const codeAmplitude = clampNumber(strength, DITHER_STRENGTH_MIN, DITHER_STRENGTH_MAX, DEFAULT_SETTINGS.ditherStrength);
+  return {
+    k3: (codeAmplitude / 255).toFixed(5),
+    k4: (-codeAmplitude / 510).toFixed(5)
+  };
 }
 
 function buildLumaChromaMatrices(displayGamut) {
@@ -453,6 +480,7 @@ function isNeutralToneProfile(profile) {
     profile.temperature === 0 &&
     profile.saturation === 100 &&
     profile.grayscale === false &&
+    !profile.ditherFilterId &&
     profile.hue === 0
   );
 }
@@ -468,10 +496,11 @@ function deriveToneProfile(settings = currentSettings) {
   const redGain = clampNumber(1 + temperatureRatio * 0.14, 0.82, 1.18, 1);
   const greenGain = clampNumber(1 + temperatureRatio * 0.025, 0.94, 1.06, 1);
   const blueGain = clampNumber(1 - temperatureRatio * 0.14, 0.82, 1.18, 1);
-  const gsdfTableValues = buildGsdfTableValues(normalized);
+  const transferTableValues = buildActiveTransferTableValues(normalized);
   const saturationValue = normalized.grayscale ? 0 : clampNumber(normalized.saturation / 100, 0.5, 1.5, 1);
   const hueValue = clampNumber(normalized.hue, -30, 30, 0);
   const gsdfLumaChromaMatrices = buildLumaChromaMatrices(normalized.displayGamut);
+  const hasActiveDither = normalized.dither && (normalized.ditherColor || normalized.ditherNoise);
 
   return {
     ...normalized,
@@ -489,7 +518,9 @@ function deriveToneProfile(settings = currentSettings) {
     mediumSharpenKernel: buildMediumSharpenKernel(normalized.mediumSharpness),
     fineSharpenFilterId: normalized.fineSharpness > 0 ? FILTER_IDS.sharpenFine : '',
     mediumSharpenFilterId: normalized.mediumSharpness > 0 ? FILTER_IDS.sharpenMedium : '',
-    gsdfTableValues,
+    ditherFilterId: hasActiveDither ? FILTER_IDS.dither : '',
+    gsdfTableValues: transferTableValues,
+    transferTableValues,
     gsdfForwardMatrix: gsdfLumaChromaMatrices.forward,
     gsdfInverseMatrix: gsdfLumaChromaMatrices.inverse
   };
@@ -521,7 +552,8 @@ function buildManagedFilterChain(existingFilter, profile = deriveToneProfile()) 
     formatFilterUrl(transferFilterId),
     formatFilterUrl(FILTER_IDS.levels),
     formatFilterUrl(FILTER_IDS.temperature),
-    formatFilterUrl(FILTER_IDS.color)
+    formatFilterUrl(FILTER_IDS.color),
+    profile.ditherFilterId ? formatFilterUrl(profile.ditherFilterId) : ''
   ].filter(Boolean);
 
   return [hostFilter, ...managedFilters].filter(Boolean).join(' ');
@@ -582,9 +614,9 @@ function injectSVGFilter() {
       </filter>
       <filter id="${FILTER_IDS.csdf}" color-interpolation-filters="sRGB">
         <feComponentTransfer>
-          <feFuncR id="${FILTER_IDS.csdf}-r" type="linear" slope="1" intercept="0"></feFuncR>
-          <feFuncG id="${FILTER_IDS.csdf}-g" type="linear" slope="1" intercept="0"></feFuncG>
-          <feFuncB id="${FILTER_IDS.csdf}-b" type="linear" slope="1" intercept="0"></feFuncB>
+          <feFuncR id="${FILTER_IDS.csdf}-r" type="table" tableValues="0 1"></feFuncR>
+          <feFuncG id="${FILTER_IDS.csdf}-g" type="table" tableValues="0 1"></feFuncG>
+          <feFuncB id="${FILTER_IDS.csdf}-b" type="table" tableValues="0 1"></feFuncB>
         </feComponentTransfer>
       </filter>
       <filter id="${FILTER_IDS.temperature}" color-interpolation-filters="sRGB">
@@ -593,6 +625,18 @@ function injectSVGFilter() {
       <filter id="${FILTER_IDS.color}" color-interpolation-filters="sRGB">
         <feColorMatrix id="${FILTER_IDS.color}-saturation" type="saturate" values="1"></feColorMatrix>
         <feColorMatrix id="${FILTER_IDS.color}-hue" type="hueRotate" values="0"></feColorMatrix>
+      </filter>
+      <filter id="${FILTER_IDS.dither}" color-interpolation-filters="sRGB">
+        <feTurbulence id="${FILTER_IDS.dither}-source" type="fractalNoise" baseFrequency="0.75 0.75" numOctaves="1" seed="17" stitchTiles="stitch" result="dither-noise"></feTurbulence>
+        <feColorMatrix
+          id="${FILTER_IDS.dither}-luma"
+          in="dither-noise"
+          type="matrix"
+          values="0.2126 0.7152 0.0722 0 0  0.2126 0.7152 0.0722 0 0  0.2126 0.7152 0.0722 0 0  0 0 0 0 1"
+          result="dither-luma"
+        ></feColorMatrix>
+        <feComposite id="${FILTER_IDS.dither}-noise-mix" in="SourceGraphic" in2="dither-luma" operator="arithmetic" k1="0" k2="1" k3="0" k4="0" result="dither-noise-applied"></feComposite>
+        <feComposite id="${FILTER_IDS.dither}-color-mix" in="dither-noise-applied" in2="dither-noise" operator="arithmetic" k1="0" k2="1" k3="0" k4="0"></feComposite>
       </filter>
       <filter id="${FILTER_IDS.sharpenFine}">
         <feConvolveMatrix id="${FILTER_IDS.sharpenFine}-kernel" order="3" preserveAlpha="true" kernelMatrix="0 0 0 0 1 0 0 0 0"></feConvolveMatrix>
@@ -634,10 +678,13 @@ function setElementAttributes(id, attributes) {
 function updateFilterDefinitions(profile) {
   injectSVGFilter();
   setTransferAttributes(FILTER_IDS.gsdfRgb, {
-    tableValues: profile.gsdfTableValues.join(' ')
+    tableValues: profile.transferTableValues.join(' ')
   });
   setElementAttributes(`${FILTER_IDS.gsdfYcbcr}-r`, {
-    tableValues: profile.gsdfTableValues.join(' ')
+    tableValues: profile.transferTableValues.join(' ')
+  });
+  setTransferAttributes(FILTER_IDS.csdf, {
+    tableValues: profile.transferTableValues.join(' ')
   });
   setTransferAttributes(FILTER_IDS.levels, {
     slope: profile.levelSlope.toFixed(4),
@@ -681,6 +728,15 @@ function updateFilterDefinitions(profile) {
   if (hueMatrix) {
     hueMatrix.setAttribute('values', profile.hueValue.toFixed(1));
   }
+
+  setElementAttributes(`${FILTER_IDS.dither}-noise-mix`, getDitherCompositeAttributes(
+    profile.ditherFilterId && profile.ditherNoise,
+    profile.ditherStrength
+  ));
+  setElementAttributes(`${FILTER_IDS.dither}-color-mix`, getDitherCompositeAttributes(
+    profile.ditherFilterId && profile.ditherColor,
+    profile.ditherStrength
+  ));
 }
 
 function rememberOriginalVideoStyle(video) {
@@ -1273,6 +1329,7 @@ globalThis.__GSDF_EOTF_CONTENT__ = {
 if (window.__GSDF_EOTF_TEST__) {
   window.__gsdfEotfTestHooks = {
     buildManagedFilterChain,
+    buildActiveTransferTableValues,
     buildGsdfTableValues,
     deriveToneProfile,
     gammaCorrectionToTarget,

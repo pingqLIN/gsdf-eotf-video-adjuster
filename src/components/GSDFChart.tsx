@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 import type { Messages } from '../i18n';
-import { AppSettings, buildGsdfTableValues, TONE_LEVEL_COUNT } from '../types';
+import { AppSettings, buildActiveTransferTableValues, TONE_LEVEL_COUNT } from '../types';
 
 interface GSDFChartProps {
   settings: AppSettings;
@@ -55,7 +55,7 @@ export function GSDFChart({
       };
   const data = useMemo(() => {
     const arr = [];
-    const table = buildGsdfTableValues(settings);
+    const table = buildActiveTransferTableValues(settings);
     const blackPoint = settings.blackPoint / TONE_LEVEL_COUNT;
     const whitePoint = settings.whitePoint / TONE_LEVEL_COUNT;
     const usableRange = Math.max(0.05, whitePoint - blackPoint);

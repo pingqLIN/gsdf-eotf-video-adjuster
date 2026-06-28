@@ -79,14 +79,14 @@ Important functions:
 
 ```mermaid
 flowchart TD
-  A["User controls<br/>enabled, lmax, gammaTarget, strength, displayGamut,<br/>blackPoint, whitePoint, sharpness, temperature"] --> B["normalizeAppSettings / normalizeSettings"]
+  A["User controls<br/>enabled, lmax, gammaTarget, strength, displayGamut,<br/>blackPoint, whitePoint, sharpness, temperature,<br/>dither, ditherStrength, ditherColor, ditherNoise"] --> B["normalizeAppSettings / normalizeSettings"]
   B --> C["Gamma pre-compensation<br/>0 = 2.2, left 3.0, right 1.0"]
-  C --> D["GSDF transfer model<br/>src/types.ts and extension/content.js"]
-  D --> E["buildGsdfTableValues(settings, 256)"]
+  C --> D["Active transfer model<br/>src/types.ts and extension/content.js"]
+  D --> E["buildActiveTransferTableValues(settings, 256)"]
   D --> F["buildGsdfStripeRows(settings)"]
   D --> G["buildGsdfCalibrationStripeRows()"]
-  E --> H["Preview SVG table<br/>VideoBackground.tsx"]
-  E --> I["Extension SVG table<br/>deriveToneProfile()"]
+  E --> H["Preview SVG transfer tables<br/>CSDF RGB or GSDF RGB/YCbCr"]
+  E --> I["Extension SVG transfer tables<br/>deriveToneProfile()"]
   E --> J["GSDFChart sampled curve"]
   F --> K["Output-preview stripe rows<br/>active transfer table"]
   G --> L["Calibration stripe rows<br/>fixed low-contrast code pairs"]
@@ -167,11 +167,21 @@ At `0%`, the table keeps the gamma-adjusted signal. At `100%`, the table is the 
 
 Legacy saved settings that contain `curveMode: "pure"` are normalized back to the single GSDF path. Users should choose the filter amount instead of switching between multiple GSDF interpretations.
 
-### CSDF-Inspired Display Gamut Assumption
+### CSDF RGB Route and GSDF Pipeline Choices
 
-The UI exposes a display gamut assumption instead of an RGB/YCbCr processing choice. Users can choose `sRGB`, `Display P3`, or `Adobe RGB`, all treated as D65 white-point displays. The extension uses the selected standard primaries to derive luminance coefficients for its browser-executable luma/chroma filter path, then applies the GSDF-shaped table on the luminance component.
+The `CSDF` route is the native color path. It applies the active transfer table directly to the browser SVG `feComponentTransfer` R, G, and B channels. This makes the route act on the RGB cube rather than converting the image to a YCbCr luma-only path. The same active table is also used by the chart, output-preview stripes, CSDF visual linearity pattern, and CMY/RGB continuous-gradient reference, so changes to `gammaTarget`, `lmax`, and `strength` are visible on both video and reference surfaces.
 
-This is CSDF-inspired, not a full CSDF calibration. A complete Color Standard Display Function workflow requires display characterization, color-line redistribution with a perceptual color-difference metric, and usually a richer 3D transform than the SVG filter pipeline can provide. The project therefore treats the gamut selector as an explicit assumption for practical browser video adjustment, not as proof of display compliance.
+The `GSDF` route remains the grayscale-oriented route. It can apply the same transfer table either directly to RGB channels or to the Y component of a YCbCr-style luma/chroma transform. The `displayGamut` selector affects the luma coefficients used by that GSDF YCbCr path.
+
+This is still a browser-executable CSDF approximation, not a certified CSDF calibration. Published CSDF proposals describe GSDF as the neutral gray behavior and use color-difference metrics such as CIEDE2000 to redistribute color lines through the RGB cube. A full workflow needs display characterization and typically a 3D transform or device LUT. This project keeps the implementation local and reversible by using SVG transfer tables, so it should be treated as practical color-video remapping, not proof of display compliance.
+
+### Dither Beta
+
+The Dither Beta settings are Beta output options. In the managed video path, they append a small SVG `feTurbulence`/`feComposite` filter after transfer, levels, temperature, color, and sharpening have been applied. The standalone preview uses the same final filter slot.
+
+The Dither Beta controls are exposed from the CMY/RGB gradient reference view rather than the main output-preview curve. They include the main Dither switch, a 1-to-5 strength control, `Use color`, and `Use noise`. `Use color` and `Use noise` are independent checkboxes, so either one or both can be enabled.
+
+When enabled, the same setting affects the managed video filter path and the gradient reference canvas. Strength maps to roughly 1 to 5 8-bit code-value offsets. `Use noise` adds a luminance-noise component; `Use color` adds a chromatic channel-offset component. The gradient base remains one smooth full-field CMY/RGB ramp without a reversed strip, divider, or other structural overlay. The video implementation is intentionally labeled Beta because the current runtime is SVG/CSS filters rather than a per-pixel WebGL or canvas shader; browser and GPU paths can change the exact visual texture.
 
 ### Black/White Point, Sharpness, and Temperature
 

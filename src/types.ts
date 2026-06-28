@@ -16,6 +16,10 @@ export interface AppSettings {
   temperature: number;
   saturation: number;
   grayscale: boolean;
+  dither: boolean;
+  ditherStrength: number;
+  ditherColor: boolean;
+  ditherNoise: boolean;
   hue: number;
 }
 
@@ -46,6 +50,9 @@ export const SATURATION_MIN = 50;
 export const SATURATION_MAX = 150;
 export const TEMPERATURE_MIN_K = -1000;
 export const TEMPERATURE_MAX_K = 1000;
+export const DITHER_STRENGTH_MIN = 1;
+export const DITHER_STRENGTH_MAX = 5;
+export const DEFAULT_DITHER_STRENGTH = 2;
 const LUMINANCE_LOG_RANGE = Math.log(LUMINANCE_MAX_NITS / LUMINANCE_MIN_NITS);
 const GSDF_DISPLAY_LMIN_NITS = 0.05;
 const GSDF_JND_MIN = 1;
@@ -113,6 +120,10 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   temperature: 0,
   saturation: DEFAULT_IMAGE_SETTINGS.saturation,
   grayscale: false,
+  dither: false,
+  ditherStrength: DEFAULT_DITHER_STRENGTH,
+  ditherColor: false,
+  ditherNoise: true,
   hue: 0,
 };
 
@@ -362,6 +373,10 @@ export function buildGsdfTableValues(settings: Partial<AppSettings>, tableSize =
   });
 }
 
+export function buildActiveTransferTableValues(settings: Partial<AppSettings>, tableSize = 256): number[] {
+  return buildGsdfTableValues(settings, tableSize);
+}
+
 export interface GSDFStripeRow {
   id: string;
   label: string;
@@ -398,7 +413,7 @@ export function buildGsdfStripeRows(settings: Partial<AppSettings>): GSDFStripeR
   const jndMin = luminanceToGsdfJnd(minLuminance);
   const jndMax = luminanceToGsdfJnd(maxLuminance);
   const jndRange = jndMax - jndMin;
-  const transferTable = buildGsdfTableValues(normalized);
+  const transferTable = buildActiveTransferTableValues(normalized);
 
   return GSDF_STRIPE_BASE_ROWS.map((row) => {
     const baseRatio = clampNumber(row.ratio, 0, 1, 0);
@@ -469,6 +484,10 @@ export function normalizeAppSettings(value: Partial<AppSettings> | null | undefi
     temperature,
     saturation: Math.round(clampNumber(settings.saturation, SATURATION_MIN, SATURATION_MAX, recommendedImageSettings.saturation)),
     grayscale: settings.grayscale === true,
+    dither: settings.dither === true,
+    ditherStrength: Math.round(clampNumber(settings.ditherStrength, DITHER_STRENGTH_MIN, DITHER_STRENGTH_MAX, DEFAULT_APP_SETTINGS.ditherStrength)),
+    ditherColor: settings.ditherColor === true,
+    ditherNoise: settings.ditherNoise !== false,
     hue: clampNumber(settings.hue, -30, 30, DEFAULT_APP_SETTINGS.hue),
   };
 

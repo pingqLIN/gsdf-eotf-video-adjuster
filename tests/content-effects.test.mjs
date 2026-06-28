@@ -163,6 +163,7 @@ test('derives a richer GSDF tone profile from luminance and image controls', () 
   assert.ok(profile.temperatureMatrix[0] > profile.temperatureMatrix[10], 'warm temperature should lift red over blue');
   assert.equal(profile.saturationValue, 1.5);
   assert.equal(profile.hueValue, -15);
+  assert.equal(profile.ditherFilterId, '');
 });
 
 test('content script can be injected repeatedly without redeclaring globals', () => {
@@ -308,6 +309,15 @@ test('maps target luminance on a 10 to 500 nits logarithmic slider', () => {
   assert.equal(hooks.normalizeSettings({}).strength, 100);
   assert.equal(hooks.normalizeSettings({}).saturation, 100);
   assert.equal(hooks.normalizeSettings({}).grayscale, false);
+  assert.equal(hooks.normalizeSettings({}).dither, false);
+  assert.equal(hooks.normalizeSettings({}).ditherStrength, 2);
+  assert.equal(hooks.normalizeSettings({ ditherStrength: 0 }).ditherStrength, 1);
+  assert.equal(hooks.normalizeSettings({ ditherStrength: 8 }).ditherStrength, 5);
+  assert.equal(hooks.normalizeSettings({}).ditherColor, false);
+  assert.equal(hooks.normalizeSettings({ ditherColor: true }).ditherColor, true);
+  assert.equal(hooks.normalizeSettings({}).ditherNoise, true);
+  assert.equal(hooks.normalizeSettings({ ditherNoise: false }).ditherNoise, false);
+  assert.equal(hooks.normalizeSettings({ dither: true }).dither, true);
   assert.equal(hooks.normalizeSettings({}).hue, 0);
   assert.equal(hooks.normalizeSettings({ displayGamut: 'display-p3' }).displayGamut, 'display-p3');
   assert.equal(hooks.normalizeSettings({ transferFormula: 'gsdf' }).transferFormula, 'gsdf');
@@ -538,10 +548,32 @@ test('transfer formula selects CSDF or the GSDF RGB and YCbCr managed filters', 
     gsdfPipeline: 'ycbcr',
     displayGamut: 'display-p3'
   });
+  const ditherProfile = hooks.deriveToneProfile({
+    enabled: true,
+    lmax: 100,
+    strength: 100,
+    transferFormula: 'csdf',
+    dither: true,
+    ditherStrength: 5,
+    ditherColor: true,
+    ditherNoise: true
+  });
+  const inactiveDitherProfile = hooks.deriveToneProfile({
+    enabled: true,
+    lmax: 100,
+    strength: 100,
+    transferFormula: 'csdf',
+    dither: true,
+    ditherColor: false,
+    ditherNoise: false
+  });
 
   const gsdfYcbcrFilter = hooks.buildManagedFilterChain('', gsdfYcbcrProfile);
   const gsdfRgbFilter = hooks.buildManagedFilterChain('', gsdfRgbProfile);
   const csdfFilter = hooks.buildManagedFilterChain('', csdfProfile);
+  const ditherFilter = hooks.buildManagedFilterChain('', ditherProfile);
+  const inactiveDitherFilter = hooks.buildManagedFilterChain('', inactiveDitherProfile);
+  const identityMid = Number((128 / 255).toFixed(5));
 
   assert.match(gsdfYcbcrFilter, /url\("#gsdf-eotf-gsdf-ycbcr"\)/);
   assert.doesNotMatch(gsdfYcbcrFilter, /url\("#gsdf-eotf-gsdf-rgb"\)/);
@@ -551,6 +583,24 @@ test('transfer formula selects CSDF or the GSDF RGB and YCbCr managed filters', 
   assert.doesNotMatch(gsdfRgbFilter, /url\("#gsdf-eotf-csdf"\)/);
   assert.match(csdfFilter, /url\("#gsdf-eotf-csdf"\)/);
   assert.doesNotMatch(csdfFilter, /url\("#gsdf-eotf-gsdf-(?:rgb|ycbcr)"\)/);
+  assert.doesNotMatch(csdfFilter, /url\("#gsdf-eotf-dither"\)/);
+  assert.equal(ditherProfile.ditherFilterId, 'gsdf-eotf-dither');
+  assert.equal(ditherProfile.ditherStrength, 5);
+  assert.equal(ditherProfile.ditherColor, true);
+  assert.equal(ditherProfile.ditherNoise, true);
+  assert.equal(inactiveDitherProfile.ditherFilterId, '');
+  assert.doesNotMatch(inactiveDitherFilter, /url\("#gsdf-eotf-dither"\)/);
+  assert.match(ditherFilter, /url\("#gsdf-eotf-dither"\)/);
+  assert.ok(
+    ditherFilter.indexOf('url("#gsdf-eotf-color")') < ditherFilter.indexOf('url("#gsdf-eotf-dither")'),
+    'dither should be the final managed video output filter'
+  );
+  assert.notEqual(csdfProfile.transferTableValues[128], identityMid, 'CSDF should use the active RGB transfer table, not an identity filter');
+  assert.deepEqual(csdfProfile.transferTableValues, csdfProfile.gsdfTableValues);
+  assert.equal(
+    hooks.buildActiveTransferTableValues({ lmax: 100, strength: 100, transferFormula: 'csdf' })[128],
+    csdfProfile.transferTableValues[128]
+  );
   assert.ok(
     csdfFilter.indexOf('url("#gsdf-eotf-csdf")') < csdfFilter.indexOf('url("#gsdf-eotf-levels")'),
     'levels should apply after the selected transfer pipeline'
@@ -570,11 +620,12 @@ test('replaces stale GSDF filters while preserving host page filter tokens', () 
     whitePoint: 252,
     fineSharpness: 20,
     mediumSharpness: 12,
-    temperature: -600
+    temperature: -600,
+    dither: true
   });
 
   const filter = hooks.buildManagedFilterChain(
-    'brightness(90%) url("#gsdf-eotf-gamma") url("#gsdf-eotf-ycbcr") contrast(105%)',
+    'brightness(90%) url("#gsdf-eotf-gamma") url("#gsdf-eotf-ycbcr") url("#gsdf-eotf-dither") contrast(105%)',
     profile
   );
 
@@ -585,12 +636,17 @@ test('replaces stale GSDF filters while preserving host page filter tokens', () 
   assert.doesNotMatch(filter, /gsdf-eotf-ycbcr/);
   assert.doesNotMatch(filter, /gsdf-eotf-gsdf-(?:rgb|ycbcr)/);
   assert.equal((filter.match(/gsdf-eotf-csdf/g) ?? []).length, 1);
+  assert.equal((filter.match(/gsdf-eotf-dither/g) ?? []).length, 1);
   assert.ok(
     filter.indexOf('url("#gsdf-eotf-csdf")') < filter.indexOf('url("#gsdf-eotf-levels")'),
     'levels should remain after the selected transfer pipeline when preserving host filters'
   );
   assert.match(filter, /url\("#gsdf-eotf-temp"\)/);
   assert.match(filter, /url\("#gsdf-eotf-color"\)/);
+  assert.ok(
+    filter.indexOf('url("#gsdf-eotf-color")') < filter.indexOf('url("#gsdf-eotf-dither")'),
+    'dither should be restored after color as the final managed filter'
+  );
 });
 
 test('selects the YouTube watch player over muted preview videos', () => {

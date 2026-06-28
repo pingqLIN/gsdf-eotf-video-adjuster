@@ -1,8 +1,11 @@
 import React from 'react';
 import {
   AppSettings,
-  buildGsdfTableValues,
+  buildActiveTransferTableValues,
   buildLumaChromaMatrices,
+  DEFAULT_DITHER_STRENGTH,
+  DITHER_STRENGTH_MAX,
+  DITHER_STRENGTH_MIN,
   TEMPERATURE_MAX_K,
   TONE_LEVEL_COUNT,
 } from '../types';
@@ -11,8 +14,20 @@ interface VideoBackgroundProps {
   settings: AppSettings;
 }
 
+function getDitherCompositeAttributes(enabled: boolean, strength: number) {
+  if (!enabled) {
+    return { k3: 0, k4: 0 };
+  }
+
+  const codeAmplitude = Math.max(DITHER_STRENGTH_MIN, Math.min(DITHER_STRENGTH_MAX, Number.isFinite(strength) ? Math.round(strength) : DEFAULT_DITHER_STRENGTH));
+  return {
+    k3: Number((codeAmplitude / 255).toFixed(5)),
+    k4: Number((-codeAmplitude / 510).toFixed(5)),
+  };
+}
+
 export function VideoBackground({ settings }: VideoBackgroundProps) {
-  const gsdfTableValues = React.useMemo(() => buildGsdfTableValues(settings).join(' '), [settings]);
+  const transferTableValues = React.useMemo(() => buildActiveTransferTableValues(settings).join(' '), [settings]);
   const gsdfLumaChromaMatrices = React.useMemo(() => buildLumaChromaMatrices(settings.displayGamut), [settings.displayGamut]);
   const gsdfForwardMatrix = React.useMemo(() => gsdfLumaChromaMatrices.forward.map((value) => Number(value).toFixed(4)).join(' '), [gsdfLumaChromaMatrices]);
   const gsdfInverseMatrix = React.useMemo(() => gsdfLumaChromaMatrices.inverse.map((value) => Number(value).toFixed(4)).join(' '), [gsdfLumaChromaMatrices]);
@@ -43,6 +58,10 @@ export function VideoBackground({ settings }: VideoBackgroundProps) {
   ].filter(Boolean).join(' ');
   const gsdfFilter = settings.gsdfPipeline === 'rgb' ? 'url(#eotf-gsdf-rgb)' : 'url(#eotf-gsdf-ycbcr)';
   const transferFilter = settings.transferFormula === 'csdf' ? 'url(#eotf-csdf)' : gsdfFilter;
+  const ditherActive = settings.dither && (settings.ditherColor || settings.ditherNoise);
+  const ditherFilter = ditherActive ? 'url(#eotf-dither)' : '';
+  const ditherNoiseComposite = getDitherCompositeAttributes(ditherActive && settings.ditherNoise, settings.ditherStrength);
+  const ditherColorComposite = getDitherCompositeAttributes(ditherActive && settings.ditherColor, settings.ditherStrength);
 
   return (
     <div className="fixed inset-0 w-full h-full bg-black overflow-hidden select-none pointer-events-none">
@@ -56,9 +75,9 @@ export function VideoBackground({ settings }: VideoBackgroundProps) {
         </filter>
         <filter id="eotf-gsdf-rgb" colorInterpolationFilters="sRGB">
           <feComponentTransfer>
-            <feFuncR type="table" tableValues={gsdfTableValues} />
-            <feFuncG type="table" tableValues={gsdfTableValues} />
-            <feFuncB type="table" tableValues={gsdfTableValues} />
+            <feFuncR type="table" tableValues={transferTableValues} />
+            <feFuncG type="table" tableValues={transferTableValues} />
+            <feFuncB type="table" tableValues={transferTableValues} />
           </feComponentTransfer>
         </filter>
         <filter id="eotf-gsdf-ycbcr" colorInterpolationFilters="sRGB">
@@ -68,7 +87,7 @@ export function VideoBackground({ settings }: VideoBackgroundProps) {
             result="gsdf-ycc"
           />
           <feComponentTransfer in="gsdf-ycc" result="gsdf-ycbcr-adjusted">
-            <feFuncR type="table" tableValues={gsdfTableValues} />
+            <feFuncR type="table" tableValues={transferTableValues} />
             <feFuncG type="linear" slope={1} intercept={0} />
             <feFuncB type="linear" slope={1} intercept={0} />
           </feComponentTransfer>
@@ -80,9 +99,9 @@ export function VideoBackground({ settings }: VideoBackgroundProps) {
         </filter>
         <filter id="eotf-csdf" colorInterpolationFilters="sRGB">
           <feComponentTransfer>
-            <feFuncR type="linear" slope={1} intercept={0} />
-            <feFuncG type="linear" slope={1} intercept={0} />
-            <feFuncB type="linear" slope={1} intercept={0} />
+            <feFuncR type="table" tableValues={transferTableValues} />
+            <feFuncG type="table" tableValues={transferTableValues} />
+            <feFuncB type="table" tableValues={transferTableValues} />
           </feComponentTransfer>
         </filter>
         <filter id="eotf-temp" colorInterpolationFilters="sRGB">
@@ -94,6 +113,34 @@ export function VideoBackground({ settings }: VideoBackgroundProps) {
         <filter id="eotf-color" colorInterpolationFilters="sRGB">
           <feColorMatrix type="saturate" values={String(saturation)} />
           <feColorMatrix type="hueRotate" values={String(hue)} />
+        </filter>
+        <filter id="eotf-dither" colorInterpolationFilters="sRGB">
+          <feTurbulence type="fractalNoise" baseFrequency="0.75 0.75" numOctaves="1" seed="17" stitchTiles="stitch" result="dither-noise" />
+          <feColorMatrix
+            in="dither-noise"
+            type="matrix"
+            values="0.2126 0.7152 0.0722 0 0  0.2126 0.7152 0.0722 0 0  0.2126 0.7152 0.0722 0 0  0 0 0 0 1"
+            result="dither-luma"
+          />
+          <feComposite
+            in="SourceGraphic"
+            in2="dither-luma"
+            operator="arithmetic"
+            k1="0"
+            k2="1"
+            k3={ditherNoiseComposite.k3}
+            k4={ditherNoiseComposite.k4}
+            result="dither-noise-applied"
+          />
+          <feComposite
+            in="dither-noise-applied"
+            in2="dither-noise"
+            operator="arithmetic"
+            k1="0"
+            k2="1"
+            k3={ditherColorComposite.k3}
+            k4={ditherColorComposite.k4}
+          />
         </filter>
         <filter id="eotf-sharpen-fine">
           <feConvolveMatrix order="3" preserveAlpha="true" kernelMatrix={fineSharpenKernel} />
@@ -112,7 +159,7 @@ export function VideoBackground({ settings }: VideoBackgroundProps) {
         className="w-full h-full object-cover"
         style={{
           filter: settings.enabled
-            ? `${sharpnessFilter} ${transferFilter} url(#eotf-levels) url(#eotf-temp) url(#eotf-color)`.trim()
+            ? `${sharpnessFilter} ${transferFilter} url(#eotf-levels) url(#eotf-temp) url(#eotf-color) ${ditherFilter}`.trim()
             : 'none',
           transition: 'filter 0.3s ease-in-out'
         }}

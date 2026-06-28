@@ -79,14 +79,14 @@ m =  1.3635334e-3
 
 ```mermaid
 flowchart TD
-  A["使用者控制<br/>enabled, lmax, gammaTarget, strength, displayGamut,<br/>blackPoint, whitePoint, sharpness, temperature"] --> B["normalizeAppSettings / normalizeSettings"]
+  A["使用者控制<br/>enabled, lmax, gammaTarget, strength, displayGamut,<br/>blackPoint, whitePoint, sharpness, temperature,<br/>dither, ditherStrength, ditherColor, ditherNoise"] --> B["normalizeAppSettings / normalizeSettings"]
   B --> C["Gamma 前級補償<br/>0 = 2.2, left 3.0, right 1.0"]
-  C --> D["GSDF transfer model<br/>src/types.ts and extension/content.js"]
-  D --> E["buildGsdfTableValues(settings, 256)"]
+  C --> D["Active transfer model<br/>src/types.ts and extension/content.js"]
+  D --> E["buildActiveTransferTableValues(settings, 256)"]
   D --> F["buildGsdfStripeRows(settings)"]
   D --> G["buildGsdfCalibrationStripeRows()"]
-  E --> H["Preview SVG table<br/>VideoBackground.tsx"]
-  E --> I["Extension SVG table<br/>deriveToneProfile()"]
+  E --> H["Preview SVG transfer tables<br/>CSDF RGB 或 GSDF RGB/YCbCr"]
+  E --> I["Extension SVG transfer tables<br/>deriveToneProfile()"]
   E --> J["GSDFChart sampled curve"]
   F --> K["輸出預覽條紋<br/>跟隨 active transfer table"]
   G --> L["亮度校準條紋<br/>固定低對比 code pairs"]
@@ -167,11 +167,21 @@ mixedLevel = gammaLevel + (gsdfLevel - gammaLevel) * filterAmount
 
 若舊儲存設定含有 `curveMode: "pure"`，目前會正規化回這套單一 GSDF 路徑。使用者應調整 filter 總量，而不是在多套 GSDF 解讀之間切換。
 
-### CSDF-inspired 顯示色域假設
+### CSDF RGB 路徑與 GSDF 管線選項
 
-UI 不再讓使用者選 RGB/YCbCr 這種工程處理路徑，而是提供顯示色域假設：`sRGB`、`Display P3`、`Adobe RGB`，三者皆以 D65 white point 處理。extension 會用所選標準 primaries 推導 luminance coefficients，建立瀏覽器 SVG filter 可執行的 luma/chroma path，再把 GSDF-shaped table 套在 luminance component 上。
+`CSDF` 路徑是 native color path。它會把 active transfer table 直接套到瀏覽器 SVG `feComponentTransfer` 的 R、G、B channel，因此作用在 RGB cube，而不是先轉成 YCbCr 再只處理 luma。chart、輸出預覽條紋、CSDF 視覺線性圖樣與 CMY/RGB 連續漸層參考圖也會使用同一張 active table，所以 `gammaTarget`、`lmax` 與 `strength` 的變化會同時反映在影片與參考圖上。
 
-這是 CSDF-inspired 近似，不是完整 CSDF calibration。完整 Color Standard Display Function workflow 需要 display characterization、以 perceptual color-difference metric 重新分配 color lines，通常也需要比 SVG filter pipeline 更完整的 3D transform。因此本專案把色域選項視為實務瀏覽器影片調整的明確假設，而不是 display compliance 證明。
+`GSDF` 路徑則保留灰階導向的處理。它可以把同一張 transfer table 直接套到 RGB channel，或套到 YCbCr-style luma/chroma transform 的 Y component。`displayGamut` 選項會影響 GSDF YCbCr 路徑使用的 luminance coefficients。
+
+這仍是瀏覽器可執行的 CSDF approximation，不是經認證的 CSDF calibration。已發表的 CSDF 提案會以 GSDF 作為 neutral gray behavior，並用 CIEDE2000 這類 color-difference metric 重新分配 RGB cube 內的 color lines。完整 workflow 需要 display characterization，通常也需要 3D transform 或 device LUT。本專案為了保持本機、可逆與 SVG filter 可執行，只提供實務上的 color-video remapping，不代表 display compliance 證明。
+
+### Dither Beta
+
+Dither Beta settings 是 Beta 輸出選項。在受控影片路徑中，它們會在 transfer、levels、temperature、color 與 sharpening 之後，追加一個小幅度 SVG `feTurbulence`/`feComposite` filter。standalone preview 也使用同一個最終 filter 位置。
+
+Dither Beta 控制會顯示在 CMY/RGB 漸層參考圖視圖，而不是首頁輸出預覽曲線。控制項包含 Dither 主開關、1 到 5 的強度、`使用彩色` 與 `使用 Noise`。`使用彩色` 和 `使用 Noise` 是彼此獨立的 checkbox，因此可以單獨啟用其中一個，也可以兩個同時啟用。
+
+啟用時，同一組設定會影響受控影片濾鏡路徑與漸層參考 canvas。強度大致對應 1 到 5 個 8-bit code value offset。`使用 Noise` 會加入亮度 noise 成分；`使用彩色` 會加入彩色 channel-offset 成分。漸層基底仍維持為單一平順滿版 CMY/RGB ramp，不加入反向長條、分隔線或其他結構性疊加元素。影片端實作標示為 Beta，因為目前 runtime 是 SVG/CSS filters，不是逐像素 WebGL 或 canvas shader；browser 與 GPU path 可能改變實際視覺紋理。
 
 ### Black/White Point、Sharpness、Temperature
 
