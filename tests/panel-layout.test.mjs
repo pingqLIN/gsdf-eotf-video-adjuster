@@ -8,6 +8,7 @@ const typesSource = readFileSync(new URL('../src/types.ts', import.meta.url), 'u
 const videoBackgroundSource = readFileSync(new URL('../src/components/VideoBackground.tsx', import.meta.url), 'utf8');
 const contentSource = readFileSync(new URL('../extension/content.js', import.meta.url), 'utf8');
 const diagnosticProbeSource = readFileSync(new URL('../src/components/DiagnosticCameraProbe.tsx', import.meta.url), 'utf8');
+const chartSource = readFileSync(new URL('../src/components/GSDFChart.tsx', import.meta.url), 'utf8');
 const cameraProbeSource = readFileSync(new URL('../src/diagnostics/cameraProbe.ts', import.meta.url), 'utf8');
 const luminanceEstimatorSource = readFileSync(new URL('../src/diagnostics/luminanceEstimator.ts', import.meta.url), 'utf8');
 const i18nIndexSource = readFileSync(new URL('../src/i18n/index.ts', import.meta.url), 'utf8');
@@ -148,6 +149,12 @@ test('panel keeps project-owned GSDF pattern and chart logic', () => {
   assert.match(panelSource, /settings\.transferFormula/);
   assert.match(panelSource, /settings\.gsdfPipeline/);
   assert.match(panelSource, /function GsdfPipelinePills/);
+  assert.match(chartSource, /const optimizedCurveLabel = settings\.transferFormula === 'csdf'/);
+  assert.match(chartSource, /messages\.chart\.csdfOptimized/);
+  assert.match(chartSource, /messages\.chart\.gsdfOptimized/);
+  assert.match(chartSource, /name=\{optimizedCurveLabel\}/);
+  assert.match(i18nMessagesSource, /csdfOptimized: 'CSDF remap'/);
+  assert.match(i18nLocalesSource, /csdfOptimized: 'CSDF 重映射'/);
   assert.match(panelSource, /gsdfPipeline: value === 'gsdf' && prev\.transferFormula !== 'gsdf'[\s\S]*DEFAULT_APP_SETTINGS\.gsdfPipeline/);
   assert.match(i18nMessagesSource, /gsdfPipelineTitle: 'GSDF pipeline'/);
   assert.match(panelSource, /buildLumaChromaMatrices/);
@@ -223,13 +230,17 @@ test('panel keeps project-owned GSDF pattern and chart logic', () => {
 test('optimize preset keeps the display EOTF neutral gamma baseline', () => {
   const optimizeBlock = panelSource.slice(
     panelSource.indexOf('const applyOptimizedPreset = () =>'),
-    panelSource.indexOf('const handleLmaxChange ='),
+    panelSource.indexOf('const setLmaxWithLinkedDefaults ='),
   );
 
   assert.match(panelSource, /DEFAULT_TARGET_LUMINANCE_NITS/);
+  assert.match(panelSource, /LUMINANCE_REFERENCE_MARKS = \[58, DEFAULT_TARGET_LUMINANCE_NITS, 160, 203, 300\]/);
   assert.match(panelSource, /GAMMA_NEUTRAL_SLIDER_VALUE = luminanceToSliderValue\(DEFAULT_TARGET_LUMINANCE_NITS\)/);
+  assert.match(panelSource, /SPECIAL_MARK_SNAP_THRESHOLD = 8/);
+  assert.match(panelSource, /function snapSliderValueToMarks/);
   assert.match(panelSource, /function gammaCorrectionToAlignedSliderValue/);
   assert.match(panelSource, /function alignedSliderValueToGammaCorrection/);
+  assert.match(panelSource, /function gammaTargetToAlignedSliderValue/);
   assert.match(optimizeBlock, /displayGamma: DEFAULT_APP_SETTINGS\.displayGamma/);
   assert.match(optimizeBlock, /gammaTarget: DEFAULT_APP_SETTINGS\.displayGamma/);
   assert.match(optimizeBlock, /transferFormula: DEFAULT_APP_SETTINGS\.transferFormula/);
@@ -244,6 +255,10 @@ test('optimize preset keeps the display EOTF neutral gamma baseline', () => {
 });
 
 test('basic and advanced tools expose the revised correction controls', () => {
+  const curvePanelBlock = panelSource.slice(
+    panelSource.indexOf('const renderCurvePanel ='),
+    panelSource.indexOf('const renderBasicPanel = () =>'),
+  );
   const basicPanelBlock = panelSource.slice(
     panelSource.indexOf('const renderBasicPanel = () =>'),
     panelSource.indexOf('const renderAdvancedPanel = () =>'),
@@ -254,32 +269,62 @@ test('basic and advanced tools expose the revised correction controls', () => {
   );
 
   assert.match(panelSource, /function CheckboxControl/);
+  assert.match(panelSource, /function CompactAdjustControl/);
+  assert.match(panelSource, /function normalizeSteppedValue/);
   assert.match(basicPanelBlock, /messages\.panel\.displayGamma/);
   assert.match(basicPanelBlock, /messages\.panel\.displayGammaInverseHint/);
   assert.match(basicPanelBlock, /messages\.panel\.displayGammaTitle/);
   assert.match(basicPanelBlock, /headerAddon/);
   assert.match(basicPanelBlock, /DisplayGammaSelect/);
-  assert.match(basicPanelBlock, /gammaTargetToAlignedSliderValue\(2\.2, settings\.displayGamma\)/);
-  assert.match(basicPanelBlock, /gammaTargetToAlignedSliderValue\(1, settings\.displayGamma\)/);
-  assert.match(basicPanelBlock, /gammaTargetToAlignedSliderValue\(1\.8, settings\.displayGamma\)/);
-  assert.match(basicPanelBlock, /gammaTargetToAlignedSliderValue\(2\.4, settings\.displayGamma\)/);
-  assert.match(basicPanelBlock, /gammaTargetToAlignedSliderValue\(2\.6, settings\.displayGamma\)/);
-  assert.match(basicPanelBlock, /messages\.panel\.curvePanel/);
-  assert.match(basicPanelBlock, /GSDFChart settings=\{settings\} panelTheme=\{panelTheme\} messages=\{messages\}/);
+  assert.match(basicPanelBlock, /gammaScaleMarks/);
+  assert.match(basicPanelBlock, /GAMMA_REFERENCE_MARKS/);
+  assert.match(basicPanelBlock, /gammaTargetToAlignedSliderValue\(option, settings\.displayGamma\)/);
+  assert.match(basicPanelBlock, /marks=\{gammaScaleMarks\}/);
+  assert.match(basicPanelBlock, /gammaSnapValues/);
+  assert.match(basicPanelBlock, /snapValues=\{gammaSnapValues\}/);
+  assert.match(panelSource, /LUMINANCE_REFERENCE_MARKS\.map/);
+  assert.match(panelSource, /luminanceToSliderValue\(mark\)/);
+  assert.match(panelSource, /luminanceSnapValues/);
+  assert.match(panelSource, /snapSliderValueToMarks\(parseInt\(event\.target\.value, 10\), luminanceSnapValues\)/);
+  assert.match(curvePanelBlock, /messages\.panel\.curvePanel/);
+  assert.match(curvePanelBlock, /GSDFChart/);
+  assert.match(curvePanelBlock, /toolbarLeading/);
+  assert.match(curvePanelBlock, /toolbarAction/);
+  assert.match(curvePanelBlock, /gsdf-chart-frame/);
   assert.match(basicPanelBlock, /gsdf-panel-section-stack/);
   assert.match(basicPanelBlock, /gsdf-control-group--primary/);
-  assert.match(basicPanelBlock, /gsdf-basic-primary-grid/);
-  assert.match(basicPanelBlock, /gsdf-control-group--curve/);
+  assert.match(basicPanelBlock, /gsdf-basic-tuning-stack/);
+  assert.match(basicPanelBlock, /LuminanceDeck/);
+  assert.match(basicPanelBlock, /renderCurvePanel\(\)/);
   assert.match(basicPanelBlock, /gammaCorrectionToAlignedSliderValue\(gammaCorrection\)/);
-  assert.match(basicPanelBlock, /alignedSliderValueToGammaCorrection\(value\)/);
+  assert.match(basicPanelBlock, /setGammaCorrection\(alignedSliderValueToGammaCorrection\(value\)\)/);
   assert.match(basicPanelBlock, /setDisplayGamma\(value\)/);
   assert.match(basicPanelBlock, /setNumericSetting\('gammaTarget', settings\.displayGamma\)/);
-  assert.match(basicPanelBlock, /rangeRowClassName="pr-11"/);
+  assert.match(basicPanelBlock, /valuePlacement="trailing"/);
+  assert.match(basicPanelBlock, /rangePlacement="first"/);
+  assert.match(basicPanelBlock, /resetPlacement="range"/);
+  assert.doesNotMatch(basicPanelBlock, /minLabel="-100"/);
+  assert.doesNotMatch(basicPanelBlock, /maxLabel="\+100"/);
+  assert.match(basicPanelBlock, /rangeRowClassName="gsdf-gamma-range-row"/);
   assert.match(basicPanelBlock, /calibratedRange/);
   assert.match(basicPanelBlock, /onReset=\{\(\) => setNumericSetting\('strength', DEFAULT_APP_SETTINGS\.strength\)\}/);
   assert.match(basicPanelBlock, /gsdf-gamma-control/);
-  assert.match(basicPanelBlock, /gsdf-filter-control/);
+  assert.match(basicPanelBlock, /gsdf-filter-stepper-control/);
+  assert.match(basicPanelBlock, /CompactAdjustControl/);
+  assert.match(basicPanelBlock, /metaText="GSDF mix"/);
   assert.match(basicPanelBlock, /displayGamma/);
+  assert.match(panelSource, /function StatusModeStrip/);
+  assert.match(panelSource, /gsdf-header-status-strip/);
+  assert.match(panelSource, /data-state=\{settings\.enabled \? 'on' : 'off'\}/);
+  assert.doesNotMatch(panelSource, /onResetDefault/);
+  assert.match(panelSource, /gsdf-header-active-row/);
+  assert.match(panelSource, /gsdf-header-navigation-row/);
+  assert.match(panelSource, /gsdf-status-formula-row/);
+  assert.match(panelSource, /gsdf-status-metric-row/);
+  assert.match(panelSource, /gsdf-header-action-stack/);
+  assert.match(panelSource, /onTransferFormulaChange=\{setTransferFormula\}/);
+  assert.match(panelSource, /gsdf-control-leading/);
+  assert.match(panelSource, /gsdf-control-value-label/);
   assert.match(advancedPanelBlock, /remainingToneCount/);
   assert.match(advancedPanelBlock, /gsdf-advanced-grid/);
   assert.match(advancedPanelBlock, /gsdf-advanced-group--display/);
@@ -300,6 +345,11 @@ test('basic and advanced tools expose the revised correction controls', () => {
   assert.match(advancedPanelBlock, /messages\.panel\.grayscale/);
   assert.match(advancedPanelBlock, /headerAddon/);
   assert.match(advancedPanelBlock, /getRecommendedImageDefaults\(settings\.lmax\)\.saturation/);
+  assert.match(advancedPanelBlock, /CompactAdjustControl/);
+  assert.doesNotMatch(advancedPanelBlock, /SliderControl/);
+  assert.match(advancedPanelBlock, /valueText=\{`\$\{remainingToneCount\}\/\$\{TONE_LEVEL_COUNT\}`\}/);
+  assert.match(advancedPanelBlock, /step=\{50\}/);
+  assert.match(advancedPanelBlock, /renderCurvePanel\('gsdf-advanced-curve-block'\)/);
 });
 
 test('controls preserve expected interaction and resize affordances', () => {
@@ -347,33 +397,106 @@ test('visual language keeps the precision-panel styling hooks', () => {
   assert.match(cssSource, /\.gsdf-panel-title-row/);
   assert.match(cssSource, /\.gsdf-window-actions/);
   assert.match(cssSource, /\.gsdf-header-toolbar/);
+  assert.match(cssSource, /\.gsdf-header-controls/);
+  assert.match(cssSource, /\.gsdf-header-active-row/);
+  assert.match(cssSource, /grid-template-columns: minmax\(168px, 208px\) minmax\(0, 1fr\)/);
+  assert.match(cssSource, /align-items: start/);
+  assert.match(cssSource, /\.gsdf-header-navigation-row/);
+  assert.match(cssSource, /grid-template-columns: minmax\(0, 1fr\) minmax\(116px, max-content\)/);
+  assert.match(cssSource, /\.gsdf-header-action-stack/);
+  assert.match(cssSource, /\.gsdf-nav-row \.gsdf-tab-switch/);
   assert.match(cssSource, /\.gsdf-panel-header/);
   assert.match(cssSource, /\[data-panel-drag-handle\]/);
   assert.match(cssSource, /\.gsdf-text-scale-controls/);
+  assert.match(cssSource, /\.gsdf-status-mode-strip/);
+  assert.match(cssSource, /background: transparent !important/);
+  assert.match(cssSource, /\.gsdf-status-formula-row,\s*\.gsdf-status-metric-row/);
+  assert.match(cssSource, /@container \(min-width: 700px\)/);
+  assert.match(cssSource, /\.gsdf-panel-shell \.gsdf-header-active-row \{\s*align-items: stretch;\s*grid-template-columns: minmax\(224px, 240px\) minmax\(0, 1fr\);/);
+  assert.match(cssSource, /\.gsdf-panel-shell \.gsdf-power-cluster \{\s*gap: 8px;\s*overflow: visible;/);
+  assert.match(cssSource, /\.gsdf-panel-shell \.gsdf-power-status \{\s*min-width: 108px;/);
+  assert.match(cssSource, /\.gsdf-panel-shell \.gsdf-status-formula-row,\s*\.gsdf-panel-shell \.gsdf-status-formula-controls,\s*\.gsdf-panel-shell \.gsdf-status-metric-row,\s*\.gsdf-panel-shell \.gsdf-status-inline-metrics \{\s*flex-wrap: nowrap !important;/);
+  assert.match(cssSource, /\.gsdf-panel-shell \.gsdf-status-metric-row \{\s*min-width: max-content;/);
+  assert.match(cssSource, /\.gsdf-header-status-strip\[data-state="on"\] \.gsdf-status-current/);
+  assert.match(cssSource, /\.gsdf-header-status-strip\[data-state="on"\] \.gsdf-formula-pill-set button\[aria-pressed="true"\]/);
+  assert.match(cssSource, /\.gsdf-header-status-strip\[data-state="on"\] \.gsdf-formula-pill-set button\[aria-pressed="true"\],\s*\.gsdf-header-status-strip\[data-state="on"\] \.gsdf-pipeline-pill-set button\[aria-pressed="true"\] \{\s*color: #102018 !important;/);
+  assert.match(cssSource, /\.gsdf-panel\.theme-light \.gsdf-header-status-strip\[data-state="on"\] \.gsdf-formula-pill-set button\[aria-pressed="true"\],\s*\.gsdf-panel\.theme-light \.gsdf-header-status-strip\[data-state="on"\] \.gsdf-pipeline-pill-set button\[aria-pressed="true"\] \{\s*color: #172033 !important;/);
+  assert.doesNotMatch(cssSource, /\.gsdf-header-status-strip\[data-state="on"\] \.gsdf-status-mode-group \{/);
+  assert.match(cssSource, /\.gsdf-panel\.theme-light \.gsdf-header-status-strip/);
+  assert.match(cssSource, /\.gsdf-header-status-strip/);
   assert.match(cssSource, /\.gsdf-panel-section-stack/);
+  assert.match(cssSource, /\.gsdf-basic-tuning-stack/);
+  assert.match(cssSource, /\.gsdf-basic-tuning-stack \.gsdf-luminance-deck,\s*\.gsdf-basic-tuning-stack \.gsdf-gamma-control/);
+  assert.match(cssSource, /\.gsdf-luminance-deck/);
   assert.match(cssSource, /\.gsdf-basic-primary-grid/);
   assert.match(cssSource, /\.gsdf-advanced-grid/);
   assert.match(cssSource, /\.gsdf-advanced-group--tone \.gsdf-tone-pair/);
+  assert.match(cssSource, /\.gsdf-compact-adjust-control/);
+  assert.match(cssSource, /\.gsdf-compact-stepper/);
+  assert.match(cssSource, /min-height: 46px/);
+  assert.match(cssSource, /\.gsdf-panel\.theme-light \.gsdf-compact-adjust-control/);
   assert.match(cssSource, /\.gsdf-control-block/);
   assert.match(cssSource, /\.gsdf-control-headline/);
   assert.match(cssSource, /\.gsdf-control-reset/);
   assert.match(cssSource, /\.gsdf-range-mark--major/);
   assert.match(cssSource, /\.gsdf-basic-curve-block/);
+  assert.match(cssSource, /\.gsdf-filter-stepper-control/);
+  assert.match(cssSource, /flex-direction: row-reverse/);
+  assert.match(cssSource, /\.gsdf-chart-toolbar/);
+  assert.match(cssSource, /\.gsdf-chart-legend/);
+  assert.match(cssSource, /\.gsdf-chart-levels-check::after/);
+  assert.match(cssSource, /\.gsdf-chart-levels-check:checked/);
+  assert.match(cssSource, /color: rgba\(248, 113, 113, 0\.58\)/);
+  assert.match(cssSource, /opacity: 0\.58/);
+  assert.match(cssSource, /color: #ff2d2d/);
+  assert.match(cssSource, /background:\s*linear-gradient\(180deg, rgba\(255, 255, 255, 0\.98\), rgba\(241, 246, 251, 0\.92\)\) !important/);
+  assert.match(cssSource, /background:\s*linear-gradient\(180deg, rgba\(0, 0, 0, 0\.98\), rgba\(7, 10, 14, 0\.98\)\) !important/);
+  assert.match(cssSource, /\.gsdf-chart-viewport/);
   assert.match(cssSource, /\.gsdf-tab-switch/);
   assert.match(cssSource, /\.gsdf-checkbox/);
   assert.match(cssSource, /\.gsdf-gamma-control,\s*\.gsdf-filter-control/);
+  assert.match(cssSource, /\.gsdf-gamma-control \.gsdf-control-value-label/);
+  assert.match(cssSource, /\.gsdf-gamma-control \{\s*display: grid;\s*grid-template-rows: auto minmax\(34px, 1fr\);/);
+  assert.match(cssSource, /\.gsdf-gamma-control > \.gsdf-range-with-reset \{\s*align-self: start;/);
+  assert.match(cssSource, /\.gsdf-gamma-control \.gsdf-control-headline \{\s*align-self: end;/);
+  assert.match(cssSource, /\.gsdf-panel-shell \.gsdf-lmax-readout \{\s*margin-top: 5px;/);
+  assert.match(cssSource, /\.gsdf-panel-shell \.gsdf-gamma-control \.gsdf-control-headline \{\s*margin-right: 32px;\s*margin-bottom: 24px;\s*padding-bottom: 6px;/);
+  assert.match(cssSource, /\.gsdf-panel-shell \.gsdf-gamma-control \.gsdf-control-trailing \.gsdf-control-value-label \{\s*height: 28px;\s*padding: 2px;\s*line-height: 24px;/);
+  assert.match(cssSource, /font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace !important/);
+  assert.match(cssSource, /\.gsdf-control-value-row/);
+  assert.match(cssSource, /\.gsdf-gamma-control \.gsdf-control-value-row/);
+  assert.match(cssSource, /\.gsdf-gamma-range-row \.gsdf-range/);
+  assert.match(cssSource, /\.gsdf-gamma-control \.gsdf-range-with-reset/);
+  assert.match(cssSource, /\.gsdf-gamma-control \.gsdf-inline-select/);
+  assert.match(cssSource, /background: transparent/);
   assert.match(cssSource, /\.gsdf-calibrated-range-row \.gsdf-range/);
   assert.match(cssSource, /flex: 0 0 calc\(100% \+ 44px\)/);
   assert.match(cssSource, /width: calc\(100% \+ 44px\)/);
-  assert.match(cssSource, /padding-block: 20px/);
-  assert.match(cssSource, /min-height: 116px/);
+  assert.match(cssSource, /padding-block: 18px/);
+  assert.match(cssSource, /min-height: 128px/);
+  assert.match(cssSource, /\.gsdf-gamma-control \.gsdf-inline-select > span:last-child/);
+  assert.match(cssSource, /\.gsdf-panel\.theme-light \.gsdf-camera-preview \.text-zinc-300/);
   assert.match(cssSource, /\.gsdf-formula-pill-set/);
   assert.match(cssSource, /\.gsdf-pipeline-pill-set/);
   assert.match(cssSource, /border-radius: 3px !important/);
   assert.match(cssSource, /border-radius: 8px !important/);
+  assert.match(cssSource, /border-radius: 12px !important/);
   assert.match(cssSource, /\.gsdf-panel-header \.gsdf-icon-button/);
-  assert.match(cssSource, /min-width: 44px/);
-  assert.match(cssSource, /min-height: 44px/);
+  assert.match(cssSource, /min-width: 36px/);
+  assert.match(cssSource, /min-height: 36px/);
+  assert.match(cssSource, /\.gsdf-panel-title-row \.gsdf-text-button select/);
+  assert.match(cssSource, /height: 36px/);
+  assert.match(cssSource, /min-height: 36px/);
+  assert.match(cssSource, /width: 50px/);
+  assert.match(cssSource, /\.gsdf-header-controls \.gsdf-power-cluster \{\s*min-height: 42px;\s*height: 42px;/);
+  assert.match(cssSource, /\.gsdf-header-controls \.gsdf-effect-switch \{\s*position: relative;\s*width: 48px;\s*height: 30px;\s*overflow: hidden;/);
+  assert.match(cssSource, /\.gsdf-header-controls \.gsdf-effect-switch > span:last-child \{\s*position: absolute !important;\s*top: 4px;\s*left: 4px;\s*width: 22px;\s*height: 22px;\s*translate: 0 !important;/);
+  assert.match(cssSource, /\.gsdf-filter-stepper-control \.gsdf-compact-adjust-actions/);
+  assert.match(cssSource, /flex: 0 0 clamp\(196px, 42vw, 213px\)/);
+  assert.match(cssSource, /\.gsdf-panel-shell \.gsdf-filter-stepper-control \{\s*min-height: 58px;\s*padding: 4px 43px 4px 14px;/);
+  assert.match(cssSource, /\.gsdf-chart-frame/);
+  assert.match(cssSource, /padding: 2px !important/);
+  assert.match(cssSource, /\.gsdf-panel-shell \.gsdf-chart-toolbar \{\s*margin: 2px 10px 1px 2px;/);
   assert.match(cssSource, /\.gsdf-reference-panel/);
   assert.match(cssSource, /\.gsdf-diagnostic-placeholder/);
   assert.match(cssSource, /\.gsdf-camera-probe/);

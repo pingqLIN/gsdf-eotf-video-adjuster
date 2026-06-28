@@ -99,7 +99,10 @@ const PANEL_SIDE_PANEL_WIDTH = 820;
 const PANEL_MIN_HEIGHT = 560;
 const PANEL_MIN_WIDTH = 420;
 const PANEL_VIEWPORT_MARGIN = 16;
+const LUMINANCE_REFERENCE_MARKS = [58, DEFAULT_TARGET_LUMINANCE_NITS, 160, 203, 300] as const;
+const GAMMA_REFERENCE_MARKS = [...DISPLAY_GAMMA_OPTIONS].sort((a, b) => b - a);
 const GAMMA_NEUTRAL_SLIDER_VALUE = luminanceToSliderValue(DEFAULT_TARGET_LUMINANCE_NITS);
+const SPECIAL_MARK_SNAP_THRESHOLD = 8;
 let expandedOverlayCount = 0;
 
 interface DraggablePanelProps {
@@ -125,6 +128,7 @@ interface SliderControlProps {
   title?: string;
   valueText: string;
   valueVariant?: 'metric' | 'label';
+  valuePlacement?: 'trailing' | 'leading' | 'below';
   minLabel?: string;
   maxLabel?: string;
   min: number;
@@ -135,8 +139,30 @@ interface SliderControlProps {
   className?: string;
   rangeRowClassName?: string;
   calibratedRange?: boolean;
+  rangePlacement?: 'default' | 'first';
+  resetPlacement?: 'headline' | 'range';
   headerAddon?: React.ReactNode;
   marks?: RangeMark[];
+  snapValues?: number[];
+  snapThreshold?: number;
+  resetTitle?: string;
+  onReset?: () => void;
+  onChange: (value: number) => void;
+}
+
+interface CompactAdjustControlProps {
+  icon: React.ReactNode;
+  label: string;
+  title?: string;
+  valueText: string;
+  value: number;
+  min: number;
+  max: number;
+  step?: number;
+  disabled?: boolean;
+  className?: string;
+  metaText?: string;
+  headerAddon?: React.ReactNode;
   resetTitle?: string;
   onReset?: () => void;
   onChange: (value: number) => void;
@@ -260,6 +286,25 @@ function RangeMarks({
       })}
     </div>
   );
+}
+
+function snapSliderValueToMarks(value: number, snapValues?: number[], threshold = SPECIAL_MARK_SNAP_THRESHOLD): number {
+  if (!snapValues?.length || threshold <= 0) {
+    return value;
+  }
+
+  let closestValue = value;
+  let closestDistance = threshold + 1;
+
+  for (const snapValue of snapValues) {
+    const distance = Math.abs(value - snapValue);
+    if (distance <= threshold && distance < closestDistance) {
+      closestValue = snapValue;
+      closestDistance = distance;
+    }
+  }
+
+  return closestValue;
 }
 
 function ModePill({
@@ -415,6 +460,7 @@ function SliderControl({
   title,
   valueText,
   valueVariant = 'metric',
+  valuePlacement = 'trailing',
   minLabel,
   maxLabel,
   min,
@@ -425,77 +471,105 @@ function SliderControl({
   className,
   rangeRowClassName,
   calibratedRange = false,
+  rangePlacement = 'default',
+  resetPlacement = 'headline',
   headerAddon,
   marks,
+  snapValues,
+  snapThreshold = SPECIAL_MARK_SNAP_THRESHOLD,
   resetTitle,
   onReset,
   onChange,
 }: SliderControlProps) {
   const valueTextClass =
     valueVariant === 'label'
-      ? 'w-24 text-right font-sans text-[11px] font-semibold text-zinc-300'
+      ? 'gsdf-control-value-label w-28 text-right font-mono text-[13px] font-semibold tabular-nums text-zinc-100'
       : 'font-mono text-[16px] font-semibold tabular-nums text-zinc-100';
+  const valueNode = (
+    <div className={`shrink-0 ${valueTextClass}`}>
+      {valueText}
+    </div>
+  );
+  const resetNode = onReset && resetTitle ? (
+    <ControlResetButton title={resetTitle} onReset={onReset} disabled={disabled} />
+  ) : null;
+  const commitSliderValue = (rawValue: number) => {
+    onChange(snapSliderValueToMarks(rawValue, snapValues, snapThreshold));
+  };
+  const rangeNode = calibratedRange ? (
+    <div className={`gsdf-calibrated-range-row ${rangeRowClassName ?? ''}`}>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        disabled={disabled}
+        aria-disabled={disabled}
+        onChange={(event) => commitSliderValue(parseInt(event.target.value, 10))}
+        className="gsdf-range"
+      />
+      <div className="pointer-events-none absolute inset-x-0 top-1/2 flex -translate-y-1/2 items-center justify-between px-1 font-mono text-[10px] text-zinc-500">
+        {minLabel && <span>{minLabel}</span>}
+        {maxLabel && <span>{maxLabel}</span>}
+      </div>
+      <RangeMarks min={min} max={max} marks={marks} />
+    </div>
+  ) : (
+    <div className={`gsdf-range-row relative flex items-center gap-3 ${rangeRowClassName ?? ''}`}>
+      {minLabel && <span className="w-8 text-right font-mono text-[10px] text-zinc-500">{minLabel}</span>}
+      <div className="relative flex flex-1 items-center">
+        <input
+          type="range"
+          min={min}
+          max={max}
+          step={step}
+          value={value}
+          disabled={disabled}
+          aria-disabled={disabled}
+          onChange={(event) => commitSliderValue(parseInt(event.target.value, 10))}
+          className="gsdf-range w-full"
+        />
+        <RangeMarks min={min} max={max} marks={marks} />
+      </div>
+      {maxLabel && <span className="w-8 text-left font-mono text-[10px] text-zinc-500">{maxLabel}</span>}
+    </div>
+  );
+  const rangeLineNode = resetNode && resetPlacement === 'range' ? (
+    <div className="gsdf-range-with-reset">
+      {rangeNode}
+      {resetNode}
+    </div>
+  ) : rangeNode;
+  const headlineResetNode = resetPlacement === 'headline' ? resetNode : null;
 
   return (
     <div className={`gsdf-control-block min-w-0 space-y-2.5 transition-opacity ${disabled ? 'opacity-45 pointer-events-none' : 'opacity-100'} ${className ?? ''}`}>
+      {rangePlacement === 'first' && rangeLineNode}
       <div className="gsdf-control-headline">
-        <div className="flex min-w-0 items-center gap-2 overflow-hidden">
+        <div className="gsdf-control-leading flex min-w-0 items-center gap-2 overflow-hidden">
           <label title={title} className="gsdf-control-label flex min-w-0 items-center gap-2 text-[11px] font-semibold text-zinc-300">
             <span className="gsdf-control-icon flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-white/[0.05] text-zinc-200">
               {icon}
             </span>
             <span className="truncate">{label}</span>
           </label>
+          {valuePlacement === 'leading' && valueNode}
           {headerAddon}
         </div>
-        <div className="gsdf-control-trailing">
-          <div className={`shrink-0 ${valueTextClass}`}>
-            {valueText}
+        {(valuePlacement === 'trailing' || headlineResetNode) && (
+          <div className="gsdf-control-trailing">
+            {valuePlacement === 'trailing' && valueNode}
+            {headlineResetNode}
           </div>
-          {onReset && resetTitle && (
-            <ControlResetButton title={resetTitle} onReset={onReset} disabled={disabled} />
-          )}
-        </div>
+        )}
       </div>
-      {calibratedRange ? (
-        <div className={`gsdf-calibrated-range-row ${rangeRowClassName ?? ''}`}>
-          <input
-            type="range"
-            min={min}
-            max={max}
-            step={step}
-            value={value}
-            disabled={disabled}
-            aria-disabled={disabled}
-            onChange={(event) => onChange(parseInt(event.target.value, 10))}
-            className="gsdf-range"
-          />
-          <div className="pointer-events-none absolute inset-x-0 top-1/2 flex -translate-y-1/2 items-center justify-between px-1 font-mono text-[10px] text-zinc-500">
-            {minLabel && <span>{minLabel}</span>}
-            {maxLabel && <span>{maxLabel}</span>}
-          </div>
-          <RangeMarks min={min} max={max} marks={marks} />
-        </div>
-      ) : (
-        <div className={`gsdf-range-row relative flex items-center gap-3 ${rangeRowClassName ?? ''}`}>
-          {minLabel && <span className="w-8 text-right font-mono text-[10px] text-zinc-500">{minLabel}</span>}
-          <div className="relative flex flex-1 items-center">
-            <input
-              type="range"
-              min={min}
-              max={max}
-              step={step}
-              value={value}
-              disabled={disabled}
-              aria-disabled={disabled}
-              onChange={(event) => onChange(parseInt(event.target.value, 10))}
-              className="gsdf-range w-full"
-            />
-            <RangeMarks min={min} max={max} marks={marks} />
-          </div>
-          {maxLabel && <span className="w-8 text-left font-mono text-[10px] text-zinc-500">{maxLabel}</span>}
+      {valuePlacement === 'below' && (
+        <div className="gsdf-control-value-row">
+          {valueNode}
         </div>
       )}
+      {rangePlacement === 'default' && rangeLineNode}
     </div>
   );
 }
@@ -550,6 +624,85 @@ function CheckboxControl({
   );
 }
 
+function CompactAdjustControl({
+  icon,
+  label,
+  title,
+  valueText,
+  value,
+  min,
+  max,
+  step = 1,
+  disabled = false,
+  className,
+  metaText,
+  headerAddon,
+  resetTitle,
+  onReset,
+  onChange,
+}: CompactAdjustControlProps) {
+  const normalizedValue = normalizeSteppedValue(value, min, max, step);
+  const commitValue = (nextValue: number) => {
+    onChange(normalizeSteppedValue(nextValue, min, max, step));
+  };
+
+  return (
+    <div className={`gsdf-compact-adjust-control transition-opacity ${disabled ? 'pointer-events-none opacity-45' : 'opacity-100'} ${className ?? ''}`} title={title}>
+      <div className="gsdf-compact-adjust-label">
+        <span className="gsdf-control-icon flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-white/[0.05] text-zinc-200">
+          {icon}
+        </span>
+        <div className="min-w-0">
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="truncate text-[11px] font-semibold text-zinc-300">{label}</span>
+            {headerAddon}
+          </div>
+          <div className="gsdf-compact-adjust-meta">{min}..{max}{metaText ? ` · ${metaText}` : ''}</div>
+        </div>
+      </div>
+      <div className="gsdf-compact-adjust-actions" data-no-drag>
+        <span className="gsdf-compact-adjust-value">{valueText}</span>
+        <div className="gsdf-compact-stepper">
+          <button
+            type="button"
+            aria-label={`${label} -${step}`}
+            disabled={disabled || normalizedValue <= min}
+            onClick={() => commitValue(normalizedValue - step)}
+          >
+            <Minus size={12} />
+          </button>
+          <input
+            type="number"
+            min={min}
+            max={max}
+            step={step}
+            value={normalizedValue}
+            disabled={disabled}
+            aria-label={label}
+            onChange={(event) => {
+              if (event.target.value === '') {
+                return;
+              }
+              commitValue(Number(event.target.value));
+            }}
+          />
+          <button
+            type="button"
+            aria-label={`${label} +${step}`}
+            disabled={disabled || normalizedValue >= max}
+            onClick={() => commitValue(normalizedValue + step)}
+          >
+            <Plus size={12} />
+          </button>
+        </div>
+        {onReset && resetTitle && (
+          <ControlResetButton title={resetTitle} onReset={onReset} disabled={disabled} />
+        )}
+      </div>
+    </div>
+  );
+}
+
 function DisplayGammaSelect({
   value,
   onChange,
@@ -564,7 +717,7 @@ function DisplayGammaSelect({
   title?: string;
 }) {
   return (
-    <label className="gsdf-inline-select flex shrink-0 flex-col items-end gap-1" title={title}>
+    <label className="gsdf-inline-select gsdf-display-gamma-select flex shrink-0 flex-col items-end gap-1" title={title}>
       <span className="text-[10px] font-semibold text-zinc-400">{label}</span>
       <select
         value={value}
@@ -600,6 +753,22 @@ function isViewportPanBlockedTarget(target: EventTarget | null): boolean {
 
 function clampValue(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
+}
+
+function getStepPrecision(step: number): number {
+  if (!Number.isFinite(step) || !String(step).includes('.')) {
+    return 0;
+  }
+
+  return String(step).split('.')[1]?.length ?? 0;
+}
+
+function normalizeSteppedValue(value: number, min: number, max: number, step: number): number {
+  if (!Number.isFinite(value)) {
+    return min;
+  }
+
+  return Number(clampValue(value, min, max).toFixed(getStepPrecision(step)));
 }
 
 function normalizePanelTextScale(value: number): number {
@@ -1093,34 +1262,33 @@ function PanelTabSwitch({
   );
 }
 
-function StatusDeck({
+function StatusModeStrip({
   settings,
-  onLmaxChange,
-  onResetLmax,
-  onResetDefault,
   onTransferFormulaChange,
   onGsdfPipelineChange,
   messages,
+  className,
 }: {
   settings: AppSettings;
-  onLmaxChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
-  onResetLmax: () => void;
-  onResetDefault: () => void;
   onTransferFormulaChange: (value: AppSettings['transferFormula']) => void;
   onGsdfPipelineChange: (value: AppSettings['gsdfPipeline']) => void;
   messages: Messages;
+  className?: string;
 }) {
   const statusLabel = settings.enabled ? messages.panel.active : messages.panel.standby;
 
   return (
-    <section className="gsdf-status-deck space-y-3 rounded-md border border-white/10 bg-[#0a0e13] p-4 shadow-inner">
-      <div className="gsdf-status-topline flex flex-wrap items-center justify-between gap-3">
-        <div className="flex min-w-0 flex-wrap items-center gap-2.5">
-          <div className="flex shrink-0 items-center gap-2 text-[11px] font-semibold text-zinc-400">
+    <div
+      data-state={settings.enabled ? 'on' : 'off'}
+      className={`gsdf-status-mode-strip flex min-w-0 flex-wrap items-center justify-between gap-2 ${className ?? ''}`}
+    >
+      <div className="gsdf-status-mode-group flex min-w-0 flex-wrap items-center gap-2">
+        <div className="gsdf-status-formula-row">
+          <div className="gsdf-status-current flex shrink-0 items-center gap-2 text-[11px] font-semibold text-zinc-400">
             {settings.enabled ? <CheckCircle2 size={14} className="text-zinc-200" /> : <CircleOff size={14} className="text-zinc-500" />}
             <span>{statusLabel}</span>
           </div>
-          <div className="gsdf-status-inline-metrics flex min-w-0 flex-wrap items-center justify-start gap-1.5">
+          <div className="gsdf-status-formula-controls flex min-w-0 flex-wrap items-center justify-start gap-1.5">
             <FormulaModePills
               value={settings.transferFormula}
               onChange={onTransferFormulaChange}
@@ -1133,37 +1301,57 @@ function StatusDeck({
                 messages={messages}
               />
             )}
-            <ModePill title={messages.panel.gammaPillTitle}>
-              <Activity size={13} />
-              <span className="gsdf-pill-label">γ</span>
-              <span className="gsdf-pill-metric">{settings.gammaTarget.toFixed(1)}</span>
-            </ModePill>
-            <ModePill title={messages.panel.filterPillTitle}>
-              <Gauge size={13} />
-              <span className="gsdf-pill-label">mix</span>
-              <span className="gsdf-pill-metric">{settings.strength}%</span>
-            </ModePill>
-            <ModePill>
-              <BarChart3 size={13} />
-              {settings.displayGamut === 'display-p3' ? 'P3' : settings.displayGamut === 'adobe-rgb' ? 'Adobe RGB' : 'sRGB'}
-            </ModePill>
           </div>
         </div>
-        <button
-          onClick={onResetDefault}
-          className="gsdf-icon-button flex h-8 w-8 items-center justify-center rounded-md border border-white/10 bg-[#0b0d10] text-zinc-500 transition-colors hover:bg-white/[0.06] hover:text-zinc-100"
-          title={messages.panel.resetTitle}
-          data-no-drag
-          type="button"
-        >
-          <RotateCcw size={14} />
-        </button>
+        <div className="gsdf-status-inline-metrics gsdf-status-metric-row flex min-w-0 flex-wrap items-center justify-start gap-1.5">
+          <ModePill title={messages.panel.gammaPillTitle}>
+            <Activity size={13} />
+            <span className="gsdf-pill-label">γ</span>
+            <span className="gsdf-pill-metric">{settings.gammaTarget.toFixed(1)}</span>
+          </ModePill>
+          <ModePill title={messages.panel.filterPillTitle}>
+            <Gauge size={13} />
+            <span className="gsdf-pill-label">mix</span>
+            <span className="gsdf-pill-metric">{settings.strength}%</span>
+          </ModePill>
+          <ModePill>
+            <BarChart3 size={13} />
+            {settings.displayGamut === 'display-p3' ? 'P3' : settings.displayGamut === 'adobe-rgb' ? 'Adobe RGB' : 'sRGB'}
+          </ModePill>
+        </div>
       </div>
+    </div>
+  );
+}
+
+function LuminanceDeck({
+  settings,
+  onLmaxSliderChange,
+  onResetLmax,
+  messages,
+}: {
+  settings: AppSettings;
+  onLmaxSliderChange: (value: number) => void;
+  onResetLmax: () => void;
+  messages: Messages;
+}) {
+  const luminanceMarks = LUMINANCE_REFERENCE_MARKS.map((mark) => ({
+    value: luminanceToSliderValue(mark),
+    label: String(mark),
+    tone: mark === DEFAULT_TARGET_LUMINANCE_NITS ? 'major' as const : 'default' as const,
+  }));
+  const luminanceSnapValues = luminanceMarks.map((mark) => mark.value);
+  const handleLmaxSliderChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    onLmaxSliderChange(snapSliderValueToMarks(parseInt(event.target.value, 10), luminanceSnapValues));
+  };
+
+  return (
+    <section className="gsdf-luminance-deck gsdf-control-block space-y-3 rounded-md border border-white/10 bg-[#0a0e13] p-4 shadow-inner">
       <div
         title={messages.panel.lmaxTitle}
-        className="flex flex-wrap items-baseline gap-x-2 gap-y-1"
+        className="gsdf-lmax-readout flex flex-wrap items-baseline gap-x-2 gap-y-1"
       >
-        <span className="font-mono text-[30px] leading-none text-zinc-50 tabular-nums">{formatLuminance(settings.lmax)}</span>
+        <span className="gsdf-lmax-value font-mono text-[30px] leading-none text-zinc-50 tabular-nums">{formatLuminance(settings.lmax)}</span>
         <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-zinc-500">nits</span>
         <span className="text-[11px] font-semibold text-zinc-300">{messages.panel.lmaxLabel}</span>
         <span className="text-[9px] font-semibold text-zinc-500">{messages.panel.lmaxNote}</span>
@@ -1177,27 +1365,20 @@ function StatusDeck({
               max={LUMINANCE_SLIDER_MAX}
               step="1"
               value={luminanceToSliderValue(settings.lmax)}
-              onChange={onLmaxChange}
+              onChange={handleLmaxSliderChange}
               className="gsdf-range w-full"
             />
             <RangeMarks
               min={0}
               max={LUMINANCE_SLIDER_MAX}
-              marks={[
-                {
-                  value: luminanceToSliderValue(DEFAULT_TARGET_LUMINANCE_NITS),
-                  label: String(DEFAULT_TARGET_LUMINANCE_NITS),
-                  tone: 'major',
-                },
-              ]}
+              marks={luminanceMarks}
             />
           </div>
           <ControlResetButton title={messages.panel.resetTitle} onReset={onResetLmax} />
         </div>
-        <div className="grid grid-cols-[1fr_auto_1fr] items-center px-1 font-mono text-[10px] text-zinc-500">
-          <span>{LUMINANCE_MIN_NITS}</span>
-          <span className="gsdf-range-endpoint-major">{DEFAULT_TARGET_LUMINANCE_NITS}</span>
-          <span className="text-right">{LUMINANCE_MAX_NITS}</span>
+        <div className="grid grid-cols-2 items-center px-1 font-mono text-[10px] text-zinc-500">
+          <span>{LUMINANCE_MIN_NITS} nits</span>
+          <span className="text-right">{LUMINANCE_MAX_NITS} nits</span>
         </div>
       </div>
     </section>
@@ -2851,8 +3032,8 @@ export function DraggablePanel({
     });
   };
 
-  const handleLmaxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setLmaxWithLinkedDefaults(sliderValueToLuminance(e.target.value));
+  const handleLmaxSliderChange = (value: number) => {
+    setLmaxWithLinkedDefaults(sliderValueToLuminance(value));
   };
 
   const setDisplayGamut = (value: AppSettings['displayGamut']) => {
@@ -2957,105 +3138,112 @@ export function DraggablePanel({
     );
   }, [extensionMode, inspectionMode, sidePanelOpen]);
 
-  const renderBasicPanel = () => (
-    <div className="gsdf-panel-section-stack">
-      <div className={`gsdf-control-group gsdf-control-group--status transition-opacity ${settings.enabled ? 'opacity-100' : 'opacity-75'}`}>
-        <StatusDeck
-          settings={settings}
-          onLmaxChange={handleLmaxChange}
-          onResetLmax={() => setLmaxWithLinkedDefaults(DEFAULT_TARGET_LUMINANCE_NITS)}
-          onResetDefault={resetToDefault}
-          onTransferFormulaChange={setTransferFormula}
-          onGsdfPipelineChange={setGsdfPipeline}
-          messages={messages}
-        />
+  const renderCurvePanel = (className = '') => (
+    <section className={`gsdf-control-block gsdf-control-group gsdf-control-group--curve gsdf-basic-curve-block ${className}`}>
+      <div className="gsdf-chart-frame min-h-0 rounded-md border border-white/10 bg-[#080b0f] p-2">
+        <React.Suspense fallback={<div className="h-[177px]" />}>
+          <GSDFChart
+            settings={settings}
+            panelTheme={panelTheme}
+            messages={messages}
+            className="h-[177px]"
+            toolbarLeading={(
+              <div className="gsdf-chart-title-lockup">
+                <span className="gsdf-control-icon flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-white/[0.05] text-zinc-200">
+                  <BarChart3 size={14} />
+                </span>
+                <span className="truncate">{messages.panel.curvePanel}</span>
+              </div>
+            )}
+            toolbarAction={(
+              <button
+                type="button"
+                title={messages.panel.openFullChart}
+                onClick={() => openInspectionMode('chart')}
+                className="gsdf-control-reset gsdf-chart-expand-button flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-white/10 bg-[#0b0d10] text-zinc-500 transition-colors hover:bg-white/[0.06] hover:text-zinc-100"
+                data-no-drag
+              >
+                <Maximize2 size={13} />
+              </button>
+            )}
+          />
+        </React.Suspense>
       </div>
+    </section>
+  );
 
-      <div className="gsdf-control-group gsdf-control-group--primary gsdf-basic-primary-grid">
-        <SliderControl
-          icon={<Activity size={14} />}
-          label={messages.panel.gammaLabel}
-          title={messages.panel.gammaTitle}
-          valueText={`${gammaCorrection > 0 ? '+' : ''}${gammaCorrection} · γ ${settings.gammaTarget.toFixed(1)}`}
-          valueVariant="label"
-          minLabel="-100"
-          maxLabel="+100"
-          min={0}
-          max={LUMINANCE_SLIDER_MAX}
-          value={gammaCorrectionToAlignedSliderValue(gammaCorrection)}
-          className="gsdf-gamma-control"
-          rangeRowClassName="pr-11"
-          calibratedRange
-          marks={[
-            { value: gammaTargetToAlignedSliderValue(1, settings.displayGamma), label: '1', tone: 'default' },
-            { value: gammaTargetToAlignedSliderValue(1.8, settings.displayGamma), label: '1.8', tone: 'default' },
-            { value: gammaTargetToAlignedSliderValue(2.2, settings.displayGamma), label: '2.2', tone: 'major' },
-            { value: gammaTargetToAlignedSliderValue(2.4, settings.displayGamma), label: '2.4', tone: 'major' },
-            { value: gammaTargetToAlignedSliderValue(2.6, settings.displayGamma), label: '2.6', tone: 'major' },
-          ]}
-          resetTitle={messages.panel.resetTitle}
-          onReset={() => {
-            setNumericSetting('gammaTarget', settings.displayGamma);
-          }}
-          headerAddon={(
-            <DisplayGammaSelect
-              value={settings.displayGamma}
-              onChange={(value) => setDisplayGamma(value)}
-              label={messages.panel.displayGamma}
-              note={messages.panel.displayGammaInverseHint}
-              title={messages.panel.displayGammaTitle}
-            />
-          )}
-          onChange={(value) => setGammaCorrection(alignedSliderValueToGammaCorrection(value))}
-        />
+  const renderBasicPanel = () => {
+    const gammaScaleMarks = GAMMA_REFERENCE_MARKS
+      .map((option) => ({
+        value: gammaTargetToAlignedSliderValue(option, settings.displayGamma),
+        label: String(option),
+        tone: option === settings.displayGamma ? 'major' as const : 'default' as const,
+      }));
+    const gammaSnapValues = gammaScaleMarks.map((mark) => mark.value);
 
-        <SliderControl
+    return (
+      <div className="gsdf-panel-section-stack">
+        <div className={`gsdf-control-group gsdf-control-group--primary gsdf-basic-tuning-stack transition-opacity ${settings.enabled ? 'opacity-100' : 'opacity-75'}`}>
+          <LuminanceDeck
+            settings={settings}
+            onLmaxSliderChange={handleLmaxSliderChange}
+            onResetLmax={() => setLmaxWithLinkedDefaults(DEFAULT_TARGET_LUMINANCE_NITS)}
+            messages={messages}
+          />
+          <SliderControl
+            icon={<Activity size={14} />}
+            label={messages.panel.gammaLabel}
+            title={messages.panel.gammaTitle}
+            valueText={`${gammaCorrection > 0 ? '+' : ''}${gammaCorrection} · γ ${settings.gammaTarget.toFixed(1)}`}
+            valueVariant="label"
+            valuePlacement="trailing"
+            min={0}
+            max={LUMINANCE_SLIDER_MAX}
+            value={gammaCorrectionToAlignedSliderValue(gammaCorrection)}
+            className="gsdf-gamma-control"
+            rangeRowClassName="gsdf-gamma-range-row"
+            calibratedRange
+            rangePlacement="first"
+            resetPlacement="range"
+            marks={gammaScaleMarks}
+            snapValues={gammaSnapValues}
+            resetTitle={messages.panel.resetTitle}
+            onReset={() => {
+              setNumericSetting('gammaTarget', settings.displayGamma);
+            }}
+            headerAddon={(
+              <DisplayGammaSelect
+                value={settings.displayGamma}
+                onChange={(value) => setDisplayGamma(value)}
+                label={messages.panel.displayGamma}
+                note={messages.panel.displayGammaInverseHint}
+                title={messages.panel.displayGammaTitle}
+              />
+            )}
+            onChange={(value) => setGammaCorrection(alignedSliderValueToGammaCorrection(value))}
+          />
+        </div>
+
+        <CompactAdjustControl
           icon={<Gauge size={14} />}
           label={messages.panel.filterLabel}
           title={messages.panel.filterTitle}
           valueText={`${settings.strength}%`}
-          valueVariant="label"
-          minLabel="0"
-          maxLabel="100"
           min={0}
           max={100}
           step={5}
           value={settings.strength}
-          className="gsdf-filter-control"
-          rangeRowClassName="pr-11"
-          calibratedRange
+          className="gsdf-filter-stepper-control"
+          metaText="GSDF mix"
           resetTitle={messages.panel.resetTitle}
           onReset={() => setNumericSetting('strength', DEFAULT_APP_SETTINGS.strength)}
           onChange={(value) => setNumericSetting('strength', value)}
         />
-      </div>
 
-      <section className="gsdf-control-block gsdf-control-group gsdf-control-group--curve gsdf-basic-curve-block space-y-2.5">
-        <div className="gsdf-control-headline">
-          <div className="gsdf-control-label flex min-w-0 items-center gap-2 text-[11px] font-semibold text-zinc-300">
-            <span className="gsdf-control-icon flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-white/[0.05] text-zinc-200">
-              <BarChart3 size={14} />
-            </span>
-            <span className="truncate">{messages.panel.curvePanel}</span>
-          </div>
-          <button
-            type="button"
-            title={messages.panel.openFullChart}
-            onClick={() => openInspectionMode('chart')}
-            className="gsdf-control-reset flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-white/10 bg-[#0b0d10] text-zinc-500 transition-colors hover:bg-white/[0.06] hover:text-zinc-100"
-            data-no-drag
-          >
-            <Maximize2 size={13} />
-          </button>
-        </div>
-        <div className="min-h-0 rounded-md border border-white/10 bg-[#080b0f] p-2">
-          <React.Suspense fallback={<div className="h-[158px]" />}>
-            <GSDFChart settings={settings} panelTheme={panelTheme} messages={messages} className="h-[158px]" />
-          </React.Suspense>
-        </div>
-      </section>
-    </div>
-  );
+        {renderCurvePanel()}
+      </div>
+    );
+  };
 
   const renderAdvancedPanel = () => {
     const remainingToneCount = Math.max(0, settings.whitePoint - settings.blackPoint);
@@ -3081,13 +3269,11 @@ export function DraggablePanel({
 
       <div className="gsdf-control-group gsdf-advanced-group gsdf-advanced-group--tone">
         <div className={`gsdf-tone-pair grid grid-cols-2 gap-3 transition-opacity ${settings.enabled ? 'opacity-100' : 'opacity-45 pointer-events-none'}`}>
-          <SliderControl
+          <CompactAdjustControl
             icon={<SlidersHorizontal size={14} />}
             label={messages.panel.blackPoint}
             title={messages.panel.clipTonesTitle}
-            valueText={`${settings.blackPoint} · ${remainingToneCount}/${TONE_LEVEL_COUNT}`}
-            minLabel={String(BLACK_CLIP_TONE_MIN)}
-            maxLabel={String(BLACK_CLIP_TONE_MAX)}
+            valueText={`${remainingToneCount}/${TONE_LEVEL_COUNT}`}
             min={BLACK_CLIP_TONE_MIN}
             max={BLACK_CLIP_TONE_MAX}
             step={1}
@@ -3096,13 +3282,11 @@ export function DraggablePanel({
             onReset={() => setNumericSetting('blackPoint', getRecommendedImageDefaults(settings.lmax).blackPoint)}
             onChange={(value) => setNumericSetting('blackPoint', value)}
           />
-          <SliderControl
+          <CompactAdjustControl
             icon={<Sun size={14} />}
             label={messages.panel.whitePoint}
             title={messages.panel.clipTonesTitle}
-            valueText={`${settings.whitePoint} · ${remainingToneCount}/${TONE_LEVEL_COUNT}`}
-            minLabel={String(WHITE_CLIP_TONE_MIN)}
-            maxLabel={String(WHITE_CLIP_TONE_MAX)}
+            valueText={`${remainingToneCount}/${TONE_LEVEL_COUNT}`}
             min={WHITE_CLIP_TONE_MIN}
             max={WHITE_CLIP_TONE_MAX}
             step={1}
@@ -3115,13 +3299,11 @@ export function DraggablePanel({
       </div>
 
       <div className="gsdf-control-group gsdf-advanced-group gsdf-advanced-group--detail">
-        <SliderControl
+        <CompactAdjustControl
           disabled={!settings.enabled}
           icon={<SlidersHorizontal size={14} />}
           label={messages.panel.fineDetailSharpening}
           valueText={`${settings.fineSharpness}%`}
-          minLabel="0"
-          maxLabel="50"
           min={0}
           max={50}
           step={1}
@@ -3131,13 +3313,11 @@ export function DraggablePanel({
           onChange={(value) => setNumericSetting('fineSharpness', value)}
         />
 
-        <SliderControl
+        <CompactAdjustControl
           disabled={!settings.enabled}
           icon={<SlidersHorizontal size={14} />}
           label={messages.panel.mediumDetailSharpening}
           valueText={`${settings.mediumSharpness}%`}
-          minLabel="0"
-          maxLabel="40"
           min={0}
           max={40}
           step={1}
@@ -3149,13 +3329,11 @@ export function DraggablePanel({
       </div>
 
       <div className="gsdf-control-group gsdf-advanced-group gsdf-advanced-group--color">
-        <SliderControl
+        <CompactAdjustControl
           disabled={!settings.enabled}
           icon={<Thermometer size={14} />}
           label={messages.panel.temperatureShift}
           valueText={settings.temperature === 0 ? '0K' : settings.temperature > 0 ? `+${settings.temperature}K` : `${settings.temperature}K`}
-          minLabel="-1000"
-          maxLabel="+1000"
           min={TEMPERATURE_MIN_K}
           max={TEMPERATURE_MAX_K}
           step={50}
@@ -3165,13 +3343,11 @@ export function DraggablePanel({
           onChange={(value) => setNumericSetting('temperature', value)}
         />
 
-        <SliderControl
+        <CompactAdjustControl
           disabled={!settings.enabled}
           icon={<Palette size={14} />}
           label={messages.panel.saturation}
           valueText={`${settings.saturation}%`}
-          minLabel={String(SATURATION_MIN)}
-          maxLabel={String(SATURATION_MAX)}
           min={SATURATION_MIN}
           max={SATURATION_MAX}
           step={5}
@@ -3200,13 +3376,11 @@ export function DraggablePanel({
           onChange={(value) => setNumericSetting('saturation', value)}
         />
 
-        <SliderControl
+        <CompactAdjustControl
           disabled={!settings.enabled}
           icon={<Activity size={14} />}
           label={messages.panel.hue}
           valueText={settings.hue === 0 ? '0' : settings.hue > 0 ? `+${settings.hue}` : String(settings.hue)}
-          minLabel="-30"
-          maxLabel="+30"
           min={-30}
           max={30}
           step={5}
@@ -3216,6 +3390,7 @@ export function DraggablePanel({
           onChange={(value) => setNumericSetting('hue', value)}
         />
       </div>
+      {renderCurvePanel('gsdf-advanced-curve-block')}
     </div>
     );
   };
@@ -3421,6 +3596,15 @@ export function DraggablePanel({
                   </div>
                 </div>
               </div>
+              <div className="gsdf-header-toolbar flex shrink-0 items-center gap-1.5" data-no-drag>
+                <TextScaleControls
+                  value={panelTextScale}
+                  messages={messages}
+                  onDecrease={() => setPanelTextScale((current) => getPanelTextScaleStep(current, -1))}
+                  onIncrease={() => setPanelTextScale((current) => getPanelTextScaleStep(current, 1))}
+                />
+                <LanguageSelector locale={locale} messages={messages} onLocaleChange={onLocaleChange} />
+              </div>
               <div className="gsdf-window-actions ml-auto flex shrink-0 items-center justify-end gap-2" data-no-drag>
                 <button
                   type="button"
@@ -3452,78 +3636,67 @@ export function DraggablePanel({
                 </button>
               </div>
             </div>
-            <div className="gsdf-nav-row flex min-w-0 flex-wrap items-center justify-between gap-2" data-no-drag>
-              <PanelTabSwitch value={activeTab} onChange={setActiveTab} panelTheme={panelTheme} messages={messages} />
-              <div className="gsdf-header-toolbar flex shrink-0 items-center gap-1.5">
-                <TextScaleControls
-                  value={panelTextScale}
-                  messages={messages}
-                  onDecrease={() => setPanelTextScale((current) => getPanelTextScaleStep(current, -1))}
-                  onIncrease={() => setPanelTextScale((current) => getPanelTextScaleStep(current, 1))}
-                />
-                <LanguageSelector locale={locale} messages={messages} onLocaleChange={onLocaleChange} />
-              </div>
-            </div>
             <div className="gsdf-header-controls shrink-0" data-no-drag>
-              <button
-                type="button"
-                onClick={toggleEnabled}
-                aria-pressed={settings.enabled}
-                aria-label={messages.panel.enableEotf}
-                title={messages.panel.enableEotf}
-                className="gsdf-power-cluster flex min-w-0 items-center justify-start gap-[5px] rounded-md border border-white/10 bg-[#080b0f] p-1.5 text-left transition-colors hover:bg-white/[0.04]"
-              >
-                <span
-                  aria-hidden="true"
-                  data-state={settings.enabled ? 'on' : 'off'}
-                  className="gsdf-effect-switch relative inline-flex h-8 w-14 shrink-0 items-center rounded-md border border-white/10 bg-[#0b0d10] p-1 transition-colors"
+              <div className="gsdf-header-active-row">
+                <button
+                  type="button"
+                  onClick={toggleEnabled}
+                  aria-pressed={settings.enabled}
+                  aria-label={messages.panel.enableEotf}
+                  title={messages.panel.enableEotf}
+                  className="gsdf-power-cluster flex min-w-0 items-center justify-start gap-[5px] rounded-md border border-white/10 bg-[#080b0f] p-1.5 text-left transition-colors hover:bg-white/[0.04]"
                 >
-                  <span className={`pointer-events-none absolute inset-1 rounded transition-colors ${settings.enabled ? 'bg-white/[0.10]' : 'bg-white/[0.04]'}`} />
-                  <span className={`relative z-10 flex h-6 w-6 items-center justify-center rounded text-[#0b0d10] transition-transform ${settings.enabled ? 'translate-x-6 bg-zinc-100' : 'translate-x-0 bg-zinc-500'}`}>
-                    <Power size={13} />
+                  <span
+                    aria-hidden="true"
+                    data-state={settings.enabled ? 'on' : 'off'}
+                    className="gsdf-effect-switch relative inline-flex h-8 w-14 shrink-0 items-center rounded-md border border-white/10 bg-[#0b0d10] p-1 transition-colors"
+                  >
+                    <span className={`pointer-events-none absolute inset-1 rounded transition-colors ${settings.enabled ? 'bg-white/[0.10]' : 'bg-white/[0.04]'}`} />
+                    <span className={`relative z-10 flex h-6 w-6 items-center justify-center rounded text-[#0b0d10] transition-transform ${settings.enabled ? 'translate-x-6 bg-zinc-100' : 'translate-x-0 bg-zinc-500'}`}>
+                      <Power size={13} />
+                    </span>
                   </span>
-                </span>
-                <span className="gsdf-power-status flex h-[30px] w-[78px] min-w-0 flex-col items-start justify-center px-px py-0.5">
-                  <span className={`truncate text-[10px] font-semibold uppercase tracking-[0.12em] ${settings.enabled ? 'text-zinc-100' : 'text-zinc-400'}`}>
-                    {settings.enabled ? messages.panel.active : messages.panel.standby}
+                  <span className="gsdf-power-status flex h-[30px] w-[78px] min-w-0 flex-col items-start justify-center px-px py-0.5">
+                    <span className={`truncate text-[10px] font-semibold uppercase tracking-[0.12em] ${settings.enabled ? 'text-zinc-100' : 'text-zinc-400'}`}>
+                      {settings.enabled ? messages.panel.active : messages.panel.standby}
+                    </span>
+                    <span className="truncate text-[8px] font-semibold uppercase tracking-[0.14em] text-zinc-500">
+                      {settings.enabled ? messages.panel.effectOn : messages.panel.effectOff}
+                    </span>
                   </span>
-                  <span className="truncate text-[8px] font-semibold uppercase tracking-[0.14em] text-zinc-500">
-                    {settings.enabled ? messages.panel.effectOn : messages.panel.effectOff}
-                  </span>
-                </span>
-              </button>
-              <button
-                type="button"
-                onClick={applyOptimizedPreset}
-                title={messages.panel.optimizePresetTitle}
-                className="gsdf-quick-action flex h-10 min-w-[96px] items-center justify-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-[11px] font-semibold text-zinc-200 transition-colors hover:text-zinc-50"
-              >
-                <CheckCircle2 size={13} />
-                <span>{messages.panel.optimizePreset}</span>
-              </button>
-              <div className="gsdf-header-metrics flex min-w-0 flex-1 flex-wrap items-center justify-end gap-[5px]">
-                <FormulaModePills
-                  value={settings.transferFormula}
-                  onChange={setTransferFormula}
+                </button>
+                <StatusModeStrip
+                  settings={settings}
+                  onTransferFormulaChange={setTransferFormula}
+                  onGsdfPipelineChange={setGsdfPipeline}
                   messages={messages}
+                  className="gsdf-header-metrics gsdf-header-status-strip"
                 />
-                {settings.transferFormula === 'gsdf' && (
-                  <GsdfPipelinePills
-                    value={settings.gsdfPipeline}
-                    onChange={setGsdfPipeline}
-                    messages={messages}
-                  />
-                )}
-                <ModePill title={messages.panel.gammaPillTitle}>
-                  <Activity size={13} />
-                  <span className="gsdf-pill-label">gamma</span>
-                  <span className="gsdf-pill-metric">{settings.gammaTarget.toFixed(1)}</span>
-                </ModePill>
-                <ModePill title={messages.panel.filterPillTitle}>
-                  <Gauge size={13} />
-                  <span className="gsdf-pill-label">mix</span>
-                  <span className="gsdf-pill-metric">{settings.strength}%</span>
-                </ModePill>
+              </div>
+              <div className="gsdf-header-navigation-row">
+                <div className="gsdf-nav-row flex min-w-0 flex-wrap items-center justify-between gap-2">
+                  <PanelTabSwitch value={activeTab} onChange={setActiveTab} panelTheme={panelTheme} messages={messages} />
+                </div>
+                <div className="gsdf-header-action-stack">
+                  <button
+                    type="button"
+                    onClick={applyOptimizedPreset}
+                    title={messages.panel.optimizePresetTitle}
+                    className="gsdf-quick-action flex h-10 min-w-[96px] items-center justify-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-[11px] font-semibold text-zinc-200 transition-colors hover:text-zinc-50"
+                  >
+                    <CheckCircle2 size={13} />
+                    <span>{messages.panel.optimizePreset}</span>
+                  </button>
+                  <button
+                    onClick={resetToDefault}
+                    className="gsdf-icon-button gsdf-status-reset flex h-8 w-8 items-center justify-center rounded-md border border-white/10 bg-[#0b0d10] text-zinc-500 transition-colors hover:bg-white/[0.06] hover:text-zinc-100"
+                    title={messages.panel.resetTitle}
+                    data-no-drag
+                    type="button"
+                  >
+                    <RotateCcw size={14} />
+                  </button>
+                </div>
               </div>
             </div>
           </div>

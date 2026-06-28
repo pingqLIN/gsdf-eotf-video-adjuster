@@ -165,6 +165,7 @@ export const zhTwMessages: Messages = {
   chart: {
     standardSrgb: '標準 sRGB',
     gsdfOptimized: 'GSDF 重映射',
+    csdfOptimized: 'CSDF 重映射',
     includeLevels: '黑/白位',
     includeLevelsTitle: '把目前黑位與白位調整加入曲線輸出顯示。',
   },
@@ -350,6 +351,7 @@ export const zhCnMessages: Messages = {
   chart: {
     standardSrgb: '标准 sRGB',
     gsdfOptimized: 'GSDF 重映射',
+    csdfOptimized: 'CSDF 重映射',
     includeLevels: '黑/白位',
     includeLevelsTitle: '把当前黑位与白位调整加入曲线输出显示。',
   },
@@ -535,6 +537,7 @@ export const jaMessages: Messages = {
   chart: {
     standardSrgb: '標準 sRGB',
     gsdfOptimized: 'GSDF リマップ',
+    csdfOptimized: 'CSDF リマップ',
     includeLevels: '黒/白点',
     includeLevelsTitle: '現在の黒点と白点の調整を表示曲線に含めます。',
   },

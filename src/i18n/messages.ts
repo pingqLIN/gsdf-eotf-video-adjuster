@@ -181,6 +181,7 @@ export const enMessages = {
   chart: {
     standardSrgb: 'Standard sRGB',
     gsdfOptimized: 'GSDF remap',
+    csdfOptimized: 'CSDF remap',
     includeLevels: 'Black/white',
     includeLevelsTitle: 'Include the current black and white point adjustment in the displayed output curve.',
   },
