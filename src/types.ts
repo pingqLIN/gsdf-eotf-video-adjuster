@@ -1,3 +1,26 @@
+import {
+  buildToneCurveSnapshot as buildToneCurveSnapshotCore,
+} from './color/buildToneCurveSnapshot';
+export {
+  buildToneCurveSnapshot,
+  normalizeToneCurveSettings,
+  DEFAULT_TONE_CURVE_SETTINGS,
+} from './color/buildToneCurveSnapshot';
+export type {
+  BuildToneCurveSnapshotOptions,
+  IccProfileIntent,
+  ToneCurveSettings,
+  ToneCurveSnapshot,
+  ToneCurveSnapshotMetadata,
+} from './color/buildToneCurveSnapshot';
+import { linearToGamma } from './color/curveMath';
+import { VIRTUAL_GAMUT_PRESETS } from './color/gamutPresets';
+import {
+  GSDF_DISPLAY_LMIN_NITS,
+  gsdfJndToLuminance as calculateGsdfJndToLuminance,
+  gsdfTargetLuminanceNorm,
+  luminanceToGsdfJnd as calculateLuminanceToGsdfJnd,
+} from './color/perceptualLuminance';
 export interface AppSettings {
   enabled: boolean;
   lmax: number;
@@ -54,29 +77,10 @@ export const DITHER_STRENGTH_MIN = 1;
 export const DITHER_STRENGTH_MAX = 5;
 export const DEFAULT_DITHER_STRENGTH = 2;
 const LUMINANCE_LOG_RANGE = Math.log(LUMINANCE_MAX_NITS / LUMINANCE_MIN_NITS);
-const GSDF_DISPLAY_LMIN_NITS = 0.05;
-const GSDF_JND_MIN = 1;
-const GSDF_JND_MAX = 1023;
-const GSDF_COEFFICIENTS = {
-  a: -1.3011877,
-  b: -2.5840191e-2,
-  c: 8.0242636e-2,
-  d: -1.0320229e-1,
-  e: 1.3646699e-1,
-  f: 2.8745620e-2,
-  g: -2.5468404e-2,
-  h: -3.1978977e-3,
-  k: 1.2992634e-4,
-  m: 1.3635334e-3,
-};
 const DEFAULT_BLACK_POINT = 0;
 const DEFAULT_WHITE_POINT = TONE_LEVEL_COUNT;
 const DEFAULT_SATURATION = 100;
-const DISPLAY_GAMUT_PROFILES: Record<DisplayGamut, { kr: number; kg: number; kb: number }> = {
-  srgb: { kr: 0.2126, kg: 0.7152, kb: 0.0722 },
-  'display-p3': { kr: 0.2290, kg: 0.6917, kb: 0.0793 },
-  'adobe-rgb': { kr: 0.2974, kg: 0.6274, kb: 0.0752 },
-};
+const DISPLAY_GAMUT_PROFILES = VIRTUAL_GAMUT_PRESETS;
 
 function clampRecommendedLuminance(value: unknown): number {
   const numeric = Number(value);
@@ -279,44 +283,11 @@ export function luminanceToSliderValue(value: unknown): number {
 }
 
 export function gsdfJndToLuminance(jndIndex: number): number {
-  const j = clampNumber(jndIndex, GSDF_JND_MIN, GSDF_JND_MAX, GSDF_JND_MIN);
-  const lnJ = Math.log(j);
-  const lnJ2 = lnJ * lnJ;
-  const lnJ3 = lnJ2 * lnJ;
-  const lnJ4 = lnJ3 * lnJ;
-  const lnJ5 = lnJ4 * lnJ;
-  const numerator =
-    GSDF_COEFFICIENTS.a +
-    GSDF_COEFFICIENTS.c * lnJ +
-    GSDF_COEFFICIENTS.e * lnJ2 +
-    GSDF_COEFFICIENTS.g * lnJ3 +
-    GSDF_COEFFICIENTS.m * lnJ4;
-  const denominator =
-    1 +
-    GSDF_COEFFICIENTS.b * lnJ +
-    GSDF_COEFFICIENTS.d * lnJ2 +
-    GSDF_COEFFICIENTS.f * lnJ3 +
-    GSDF_COEFFICIENTS.h * lnJ4 +
-    GSDF_COEFFICIENTS.k * lnJ5;
-
-  return Math.pow(10, numerator / denominator);
+  return calculateGsdfJndToLuminance(jndIndex);
 }
 
 export function luminanceToGsdfJnd(luminance: number): number {
-  const target = clampNumber(luminance, GSDF_DISPLAY_LMIN_NITS, 4000, GSDF_DISPLAY_LMIN_NITS);
-  let low = GSDF_JND_MIN;
-  let high = GSDF_JND_MAX;
-
-  for (let iteration = 0; iteration < 28; iteration += 1) {
-    const mid = (low + high) / 2;
-    if (gsdfJndToLuminance(mid) < target) {
-      low = mid;
-    } else {
-      high = mid;
-    }
-  }
-
-  return (low + high) / 2;
+  return calculateLuminanceToGsdfJnd(luminance);
 }
 
 export function getGsdfDisplayCode(
@@ -328,18 +299,9 @@ export function getGsdfDisplayCode(
   const maxLuminance = clampLuminance(lmax);
   const deviceGamma = normalizeDisplayGamma(displayGamma);
   const minLuminance = Math.min(GSDF_DISPLAY_LMIN_NITS, maxLuminance * 0.01);
-  const jndMin = luminanceToGsdfJnd(minLuminance);
-  const jndMax = luminanceToGsdfJnd(maxLuminance);
-  const jnd = jndMin + normalized * (jndMax - jndMin);
-  const luminance = gsdfJndToLuminance(jnd);
-  const linearDisplayLevel = clampNumber(
-    (luminance - minLuminance) / Math.max(0.0001, maxLuminance - minLuminance),
-    0,
-    1,
-    normalized,
-  );
+  const linearDisplayLevel = gsdfTargetLuminanceNorm(normalized, maxLuminance, { blackNits: minLuminance });
 
-  return clampNumber(Math.pow(linearDisplayLevel, 1 / deviceGamma), 0, 1, normalized);
+  return linearToGamma(linearDisplayLevel, deviceGamma);
 }
 
 export function getGammaAdjustedInputLevel(
@@ -357,20 +319,7 @@ export function getGammaAdjustedInputLevel(
 
 export function buildGsdfTableValues(settings: Partial<AppSettings>, tableSize = 256): number[] {
   const normalized = normalizeAppSettings(settings);
-  const filterAmount = normalized.strength / 100;
-
-  return Array.from({ length: tableSize }, (_, index) => {
-    const inputLevel = index / Math.max(1, tableSize - 1);
-    const baselineLevel = getGammaAdjustedInputLevel(
-      inputLevel,
-      normalized.gammaTarget,
-      normalized.displayGamma,
-    );
-    const gsdfLevel = getGsdfDisplayCode(baselineLevel, normalized.lmax, normalized.displayGamma);
-    const mixedLevel = baselineLevel + (gsdfLevel - baselineLevel) * filterAmount;
-
-    return Number(clampNumber(mixedLevel, 0, 1, inputLevel).toFixed(5));
-  });
+  return buildToneCurveSnapshotCore(normalized, { tableSize }).codeRemapNorm;
 }
 
 export function buildActiveTransferTableValues(settings: Partial<AppSettings>, tableSize = 256): number[] {

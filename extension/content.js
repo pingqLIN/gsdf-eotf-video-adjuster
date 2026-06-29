@@ -56,14 +56,20 @@ const GSDF_JND_MIN = 1;
 const GSDF_JND_MAX = 1023;
 const GSDF_TABLE_SIZE = 256;
 const DISPLAY_GAMUT_PROFILES = {
-  srgb: { kr: 0.2126, kg: 0.7152, kb: 0.0722 },
-  'display-p3': { kr: 0.2290, kg: 0.6917, kb: 0.0793 },
-  'adobe-rgb': { kr: 0.2974, kg: 0.6274, kb: 0.0752 }
+  srgb: { kr: 0.2126, kg: 0.7152, kb: 0.0722, sourceTransfer: { kind: 'srgb' } },
+  'display-p3': { kr: 0.2290, kg: 0.6917, kb: 0.0793, sourceTransfer: { kind: 'srgb' } },
+  'adobe-rgb': { kr: 0.2974, kg: 0.6274, kb: 0.0752, sourceTransfer: { kind: 'gamma', gamma: 563 / 256 } }
 };
 const DEFAULT_BLACK_POINT = 0;
 const DEFAULT_WHITE_POINT = TONE_LEVEL_COUNT;
 const DEFAULT_SATURATION = 100;
 const DISPLAY_GAMMA_OPTIONS = [1, 1.8, 2.2, 2.4, 2.6];
+const DEFAULT_DISPLAY_PRESET_ID = 'lcd-1000';
+const DISPLAY_DEVICE_PRESETS = {
+  'lcd-1000': { id: 'lcd-1000', contrastRatio: 1000, blackFloorNits: 0.05 },
+  'lcd-2000': { id: 'lcd-2000', contrastRatio: 2000, blackFloorNits: 0.025 },
+  'oled-true-black': { id: 'oled-true-black', contrastRatio: 1000000, blackFloorNits: 0, oledToeNits: 0.0005 }
+};
 const GSDF_COEFFICIENTS = {
   a: -1.3011877,
   b: -2.5840191e-2,
@@ -132,6 +138,108 @@ function clampNumber(value, min, max, fallback = min) {
   }
 
   return Math.max(min, Math.min(max, numeric));
+}
+
+function clamp01(value, fallback = 0) {
+  return clampNumber(value, 0, 1, fallback);
+}
+
+function gammaToLinear(value, gamma) {
+  const normalized = clamp01(value);
+  const exponent = clampNumber(gamma, 0.1, 5, 2.2);
+
+  return Math.pow(normalized, exponent);
+}
+
+function linearToGamma(value, gamma) {
+  const normalized = clamp01(value);
+  const exponent = clampNumber(gamma, 0.1, 5, 2.2);
+
+  return Math.pow(normalized, 1 / exponent);
+}
+
+function srgbToLinear(value) {
+  const normalized = clamp01(value);
+
+  if (normalized <= 0.04045) {
+    return normalized / 12.92;
+  }
+
+  return Math.pow((normalized + 0.055) / 1.055, 2.4);
+}
+
+function decodeSourceTransfer(value, sourceTransfer) {
+  if (sourceTransfer.kind === 'linear') {
+    return clamp01(value);
+  }
+
+  if (sourceTransfer.kind === 'srgb') {
+    return srgbToLinear(value);
+  }
+
+  return gammaToLinear(value, sourceTransfer.gamma ?? 2.2);
+}
+
+function repairMonotonicUnitTable(values) {
+  if (values.length === 0) {
+    return [];
+  }
+
+  if (values.length === 1) {
+    return [clamp01(values[0])];
+  }
+
+  const repaired = values.map((value) => clamp01(value));
+  repaired[0] = 0;
+
+  for (let index = 1; index < repaired.length; index += 1) {
+    repaired[index] = Math.max(repaired[index - 1], repaired[index]);
+  }
+
+  repaired[repaired.length - 1] = 1;
+
+  for (let index = repaired.length - 2; index >= 0; index -= 1) {
+    repaired[index] = Math.min(repaired[index], repaired[index + 1]);
+  }
+
+  return repaired;
+}
+
+function invertMonotonicUnitTable(values) {
+  const table = repairMonotonicUnitTable(values);
+
+  if (table.length <= 1) {
+    return table;
+  }
+
+  return Array.from({ length: table.length }, (_, index) => {
+    const target = index / (table.length - 1);
+    const highIndex = table.findIndex((value) => value >= target);
+
+    if (highIndex <= 0) {
+      return 0;
+    }
+
+    if (highIndex === -1) {
+      return 1;
+    }
+
+    const lowIndex = highIndex - 1;
+    const lowValue = table[lowIndex] ?? 0;
+    const highValue = table[highIndex] ?? 1;
+    const span = highValue - lowValue;
+
+    if (span <= 0.000001) {
+      return highIndex / (table.length - 1);
+    }
+
+    const localRatio = (target - lowValue) / span;
+    return clamp01((lowIndex + localRatio) / (table.length - 1));
+  });
+}
+
+function roundUnitTable(values, digits = 5) {
+  return values.map((value) => Number(clamp01(value).toFixed(digits)));
 }
 
 function roundLuminance(value) {
@@ -306,23 +414,39 @@ function luminanceToGsdfJnd(luminance) {
   return (low + high) / 2;
 }
 
+function gsdfTargetLuminanceNorm(inputNorm, lmax, options = {}) {
+  const normalized = clamp01(inputNorm);
+  const maxLuminance = clampNumber(lmax, GSDF_DISPLAY_LMIN_NITS + 0.001, 4000, 100);
+  const minLuminance = Math.min(
+    Math.max(options.blackNits ?? GSDF_DISPLAY_LMIN_NITS, GSDF_DISPLAY_LMIN_NITS),
+    maxLuminance - 0.001
+  );
+  const jndMin = luminanceToGsdfJnd(minLuminance);
+  const jndMax = luminanceToGsdfJnd(maxLuminance);
+  const jnd = jndMin + normalized * (jndMax - jndMin);
+  const luminance = gsdfJndToLuminance(jnd);
+
+  return clamp01((luminance - minLuminance) / Math.max(0.0001, maxLuminance - minLuminance), normalized);
+}
+
+function csdfTargetLuminanceNorm(inputNorm, lmax, options = {}) {
+  const normalized = clamp01(inputNorm);
+  const shadowBias = Math.sin(Math.PI * normalized) * (1 - normalized * 0.35);
+  const contrastInput = clamp01(normalized + shadowBias * 0.035, normalized);
+  const gsdfLinear = gsdfTargetLuminanceNorm(contrastInput, lmax, options);
+  const shadowToe = Math.sin(Math.PI * normalized) * Math.max(0, 1 - normalized);
+
+  return clamp01(gsdfLinear + shadowToe * 0.012 * (1 - gsdfLinear), gsdfLinear);
+}
+
 function getGsdfDisplayCode(inputLevel, lmax, displayGamma = DEFAULT_GAMMA_TARGET) {
   const normalized = clampNumber(inputLevel, 0, 1, 0);
   const maxLuminance = clampLuminance(lmax);
   const deviceGamma = normalizeDisplayGamma(displayGamma);
   const minLuminance = Math.min(GSDF_DISPLAY_LMIN_NITS, maxLuminance * 0.01);
-  const jndMin = luminanceToGsdfJnd(minLuminance);
-  const jndMax = luminanceToGsdfJnd(maxLuminance);
-  const jnd = jndMin + normalized * (jndMax - jndMin);
-  const luminance = gsdfJndToLuminance(jnd);
-  const linearDisplayLevel = clampNumber(
-    (luminance - minLuminance) / Math.max(0.0001, maxLuminance - minLuminance),
-    0,
-    1,
-    normalized
-  );
+  const linearDisplayLevel = gsdfTargetLuminanceNorm(normalized, maxLuminance, { blackNits: minLuminance });
 
-  return clampNumber(Math.pow(linearDisplayLevel, 1 / deviceGamma), 0, 1, normalized);
+  return linearToGamma(linearDisplayLevel, deviceGamma);
 }
 
 function getGammaAdjustedInputLevel(inputLevel, gammaTarget, displayGamma) {
@@ -334,22 +458,85 @@ function getGammaAdjustedInputLevel(inputLevel, gammaTarget, displayGamma) {
   return clampNumber(Math.pow(normalized, exponent), 0, 1, normalized);
 }
 
-function buildGsdfTableValues(settings = currentSettings, tableSize = GSDF_TABLE_SIZE) {
-  const normalized = normalizeSettings(settings);
-  const filterAmount = normalized.strength / 100;
+function resolveDisplayPreset(value = DEFAULT_DISPLAY_PRESET_ID) {
+  if (value && typeof value === 'object') {
+    return value;
+  }
 
-  return Array.from({ length: tableSize }, (_, index) => {
-    const inputLevel = index / Math.max(1, tableSize - 1);
-    const baselineLevel = getGammaAdjustedInputLevel(
-      inputLevel,
-      normalized.gammaTarget,
-      normalized.displayGamma
-    );
-    const gsdfLevel = getGsdfDisplayCode(baselineLevel, normalized.lmax, normalized.displayGamma);
-    const mixedLevel = baselineLevel + (gsdfLevel - baselineLevel) * filterAmount;
+  return DISPLAY_DEVICE_PRESETS[value] ?? DISPLAY_DEVICE_PRESETS[DEFAULT_DISPLAY_PRESET_ID];
+}
 
-    return Number(clampNumber(mixedLevel, 0, 1, inputLevel).toFixed(5));
+function resolveEffectiveBlackNits(lmax, preset) {
+  const displayPreset = resolveDisplayPreset(preset);
+  const maxLuminance = clampNumber(lmax, 0.001, 4000, 100);
+  const contrastBlack = displayPreset.contrastRatio
+    ? maxLuminance / displayPreset.contrastRatio
+    : 0;
+  const oledToe = displayPreset.oledToeNits ?? 0;
+  const blackNits = Math.max(displayPreset.blackFloorNits, contrastBlack, oledToe);
+
+  return Math.min(maxLuminance * 0.25, Math.max(0.0001, blackNits));
+}
+
+function normalizeTableSize(value) {
+  return Math.max(2, Math.round(clampNumber(value, 2, 65536, GSDF_TABLE_SIZE)));
+}
+
+function buildToneCurveSnapshot(settings = currentSettings, options = {}) {
+  const normalized = normalizeSettings(settings ?? currentSettings);
+  const tableSize = normalizeTableSize(options.tableSize);
+  const digits = Math.round(clampNumber(options.digits, 0, 8, 5));
+  const displayPreset = resolveDisplayPreset(options.displayPreset ?? DEFAULT_DISPLAY_PRESET_ID);
+  const displayBlackNits = resolveEffectiveBlackNits(normalized.lmax, displayPreset);
+  const gamutPreset = DISPLAY_GAMUT_PROFILES[normalizeDisplayGamut(normalized.displayGamut)];
+  const strengthRatio = normalized.strength / 100;
+  const blackCode = clamp01(normalized.blackPoint / TONE_LEVEL_COUNT);
+  const whiteCode = clamp01(normalized.whitePoint / TONE_LEVEL_COUNT, 1);
+  const usableCodeRange = Math.max(1 / TONE_LEVEL_COUNT, whiteCode - blackCode);
+  const inputNorm = Array.from({ length: tableSize }, (_, index) => index / (tableSize - 1));
+  const targetRaw = inputNorm.map((inputCode) => {
+    const leveledInputCode = clamp01((inputCode - blackCode) / usableCodeRange, inputCode);
+    const baselineCode = linearToGamma(gammaToLinear(leveledInputCode, normalized.gammaTarget), normalized.displayGamma);
+    const baselineLinear = gammaToLinear(baselineCode, normalized.displayGamma);
+    const perceptualLinear = normalized.transferFormula === 'csdf'
+      ? csdfTargetLuminanceNorm(baselineCode, normalized.lmax, { blackNits: displayBlackNits })
+      : gsdfTargetLuminanceNorm(baselineCode, normalized.lmax, { blackNits: displayBlackNits });
+
+    return clamp01(baselineLinear + (perceptualLinear - baselineLinear) * strengthRatio, baselineLinear);
   });
+  const targetEotfNorm = roundUnitTable(repairMonotonicUnitTable(targetRaw), digits);
+  const codeRemapNorm = roundUnitTable(
+    repairMonotonicUnitTable(targetEotfNorm.map((value) => linearToGamma(value, normalized.displayGamma))),
+    digits
+  );
+  const inverseCodeRemapNorm = roundUnitTable(invertMonotonicUnitTable(codeRemapNorm), digits);
+  const profileIntent = options.profileIntent ?? 'compensation';
+  const iccRaw = profileIntent === 'descriptive'
+    ? targetEotfNorm
+    : inverseCodeRemapNorm.map((sourceCode) => decodeSourceTransfer(sourceCode, gamutPreset.sourceTransfer));
+  const iccTrcNorm = roundUnitTable(repairMonotonicUnitTable(iccRaw), digits);
+
+  return {
+    inputNorm: roundUnitTable(inputNorm, digits),
+    targetEotfNorm,
+    codeRemapNorm,
+    inverseCodeRemapNorm,
+    iccTrcNorm,
+    metadata: {
+      tableSize,
+      transferFormula: normalized.transferFormula,
+      displayGamut: normalizeDisplayGamut(normalized.displayGamut),
+      sourceTransferKind: gamutPreset.sourceTransfer.kind,
+      sourceTransferGamma: gamutPreset.sourceTransfer.gamma,
+      displayPresetId: displayPreset.id,
+      displayBlackNits,
+      displayWhiteNits: normalized.lmax,
+      profileIntent
+    }
+  };
+}
+function buildGsdfTableValues(settings = currentSettings, tableSize = GSDF_TABLE_SIZE) {
+  return buildToneCurveSnapshot(settings, { tableSize }).codeRemapNorm;
 }
 
 function buildActiveTransferTableValues(settings = currentSettings, tableSize = GSDF_TABLE_SIZE) {
@@ -1617,6 +1804,7 @@ if (window.__GSDF_EOTF_TEST__) {
   window.__gsdfEotfTestHooks = {
     buildManagedFilterChain,
     buildActiveTransferTableValues,
+    buildToneCurveSnapshot,
     buildGsdfTableValues,
     classifyPickedElement,
     deriveToneProfile,
