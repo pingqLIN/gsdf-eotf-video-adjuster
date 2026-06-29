@@ -113,6 +113,7 @@ let scanTimer = null;
 let mutationObserver = null;
 let pendingPanelDrag = null;
 let pendingPanelDragFrame = 0;
+let targetPicker = null;
 const managedVideos = new Set();
 const originalVideoStyles = new WeakMap();
 
@@ -944,6 +945,288 @@ function discoverVideos(root = document) {
   return videos;
 }
 
+function getElementLabel(element) {
+  if (!element) {
+    return 'unknown';
+  }
+
+  const tagName = String(element.tagName || element.nodeName || 'element').toLowerCase();
+  const id = element.id ? `#${element.id}` : '';
+  const className = typeof element.className === 'string'
+    ? element.className.trim().split(/\s+/).filter(Boolean).slice(0, 3).map((name) => `.${name}`).join('')
+    : '';
+
+  return `${tagName}${id}${className}`;
+}
+
+function getElementBackgroundImage(element) {
+  if (!element || typeof window.getComputedStyle !== 'function') {
+    return '';
+  }
+
+  try {
+    return window.getComputedStyle(element).backgroundImage || '';
+  } catch {
+    return '';
+  }
+}
+
+function findDescendantVideo(element) {
+  if (!element) {
+    return null;
+  }
+
+  if (typeof HTMLVideoElement !== 'undefined' && element instanceof HTMLVideoElement) {
+    return element;
+  }
+
+  if (typeof element.querySelector === 'function') {
+    const directVideo = element.querySelector('video');
+    if (directVideo) {
+      return directVideo;
+    }
+  }
+
+  if (element.shadowRoot) {
+    const [shadowVideo] = discoverVideos(element.shadowRoot);
+    if (shadowVideo) {
+      return shadowVideo;
+    }
+  }
+
+  return null;
+}
+
+function describeVideoElement(video) {
+  if (!video) {
+    return null;
+  }
+
+  const rect = video.getBoundingClientRect();
+  const rendered = isRendered(video);
+
+  return {
+    label: getElementLabel(video),
+    rendered,
+    readyState: video.readyState || 0,
+    paused: video.paused === true,
+    muted: video.muted === true,
+    width: Math.round(rect.width),
+    height: Math.round(rect.height),
+    videoWidth: Number(video.videoWidth || 0),
+    videoHeight: Number(video.videoHeight || 0)
+  };
+}
+
+function classifyPickedElement(element) {
+  if (!element) {
+    return {
+      support: 'unsupported',
+      reason: 'No page element was found at the pointer position.',
+      selected: 'none',
+      target: null
+    };
+  }
+
+  const tagName = String(element.tagName || '').toLowerCase();
+  const selected = getElementLabel(element);
+
+  if (tagName === 'video' || (typeof HTMLVideoElement !== 'undefined' && element instanceof HTMLVideoElement)) {
+    return {
+      support: 'supported',
+      reason: 'The selected element is an HTML video element, so the extension can apply its managed filter chain directly.',
+      selected,
+      target: describeVideoElement(element)
+    };
+  }
+
+  const ancestorVideo = typeof element.closest === 'function' ? element.closest('video') : null;
+  if (ancestorVideo) {
+    return {
+      support: 'supported',
+      reason: 'The selected element is inside an HTML video element; the extension can target the ancestor video.',
+      selected,
+      target: describeVideoElement(ancestorVideo)
+    };
+  }
+
+  const descendantVideo = findDescendantVideo(element);
+  if (descendantVideo) {
+    return {
+      support: 'likely',
+      reason: 'The selected container contains an HTML video element. The automatic selector can usually target that video if it is rendered and large enough.',
+      selected,
+      target: describeVideoElement(descendantVideo)
+    };
+  }
+
+  if (tagName === 'iframe') {
+    return {
+      support: 'limited',
+      reason: 'The selected element is an iframe. Same-origin frames may be inspectable, but cross-origin frames require the content script to run inside that frame.',
+      selected,
+      target: null
+    };
+  }
+
+  if (tagName === 'canvas') {
+    return {
+      support: 'unsupported',
+      reason: 'The selected element is a canvas. The current extension filter path targets HTML video elements, not canvas/WebGL render targets.',
+      selected,
+      target: null
+    };
+  }
+
+  if (tagName === 'img' || tagName === 'picture' || getElementBackgroundImage(element).startsWith('url(')) {
+    return {
+      support: 'unsupported',
+      reason: 'The selected element is an image or background image. The current extension is a browser video viewing aid, not a generic image filter.',
+      selected,
+      target: null
+    };
+  }
+
+  return {
+    support: 'unsupported',
+    reason: 'No HTML video element was found at or inside the selected element.',
+    selected,
+    target: null
+  };
+}
+
+function postTargetPickResult(result) {
+  if (!uiIframe?.contentWindow) {
+    return;
+  }
+
+  uiIframe.contentWindow.postMessage({
+    type: 'GSDF_TARGET_PICK_RESULT',
+    payload: result
+  }, '*');
+}
+
+function stopTargetPicker(result) {
+  if (!targetPicker) {
+    return;
+  }
+
+  const picker = targetPicker;
+  targetPicker = null;
+  window.removeEventListener('pointermove', picker.handlePointerMove, true);
+  window.removeEventListener('click', picker.handleClick, true);
+  window.removeEventListener('keydown', picker.handleKeyDown, true);
+  picker.overlay.remove();
+
+  if (uiIframe) {
+    uiIframe.style.pointerEvents = picker.previousIframePointerEvents;
+  }
+
+  if (result) {
+    postTargetPickResult(result);
+  }
+}
+
+function updateTargetPickerOverlay(element) {
+  if (!targetPicker?.overlay || !element) {
+    return;
+  }
+
+  const rect = element.getBoundingClientRect();
+  Object.assign(targetPicker.overlay.style, {
+    display: 'block',
+    left: `${Math.max(0, rect.left)}px`,
+    top: `${Math.max(0, rect.top)}px`,
+    width: `${Math.max(1, rect.width)}px`,
+    height: `${Math.max(1, rect.height)}px`
+  });
+  targetPicker.overlay.dataset.label = getElementLabel(element);
+}
+
+function getPickElementFromPoint(clientX, clientY) {
+  const element = document.elementFromPoint(clientX, clientY);
+  if (!element || element === targetPicker?.overlay || element === uiIframe || uiIframe?.contains?.(element)) {
+    return null;
+  }
+
+  return element;
+}
+
+function startTargetPicker() {
+  if (targetPicker) {
+    stopTargetPicker({
+      support: 'cancelled',
+      reason: 'Previous target picker was cancelled.',
+      selected: 'none',
+      target: null
+    });
+  }
+
+  const overlay = document.createElement('div');
+  overlay.id = 'gsdf-eotf-target-picker-overlay';
+  Object.assign(overlay.style, {
+    position: 'fixed',
+    display: 'none',
+    pointerEvents: 'none',
+    zIndex: '2147483646',
+    border: '2px solid rgba(125, 211, 252, 0.96)',
+    background: 'rgba(14, 165, 233, 0.12)',
+    boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.18), 0 0 20px rgba(125, 211, 252, 0.5)',
+    boxSizing: 'border-box'
+  });
+  document.documentElement.appendChild(overlay);
+
+  const previousIframePointerEvents = uiIframe?.style.pointerEvents || 'auto';
+  if (uiIframe) {
+    uiIframe.style.pointerEvents = 'none';
+  }
+
+  const handlePointerMove = (event) => {
+    const element = getPickElementFromPoint(event.clientX, event.clientY);
+    if (element) {
+      updateTargetPickerOverlay(element);
+    }
+  };
+
+  const handleClick = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const element = getPickElementFromPoint(event.clientX, event.clientY);
+    stopTargetPicker(classifyPickedElement(element));
+  };
+
+  const handleKeyDown = (event) => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      stopTargetPicker({
+        support: 'cancelled',
+        reason: 'Target picker cancelled with Escape.',
+        selected: 'none',
+        target: null
+      });
+    }
+  };
+
+  targetPicker = {
+    overlay,
+    previousIframePointerEvents,
+    handlePointerMove,
+    handleClick,
+    handleKeyDown
+  };
+
+  window.addEventListener('pointermove', handlePointerMove, true);
+  window.addEventListener('click', handleClick, true);
+  window.addEventListener('keydown', handleKeyDown, true);
+
+  postTargetPickResult({
+    support: 'picking',
+    reason: 'Move the pointer over the page and click an element to inspect whether it can be handled as a video target.',
+    selected: 'none',
+    target: null
+  });
+}
+
 function applyVideoFilter(video, profile) {
   rememberOriginalVideoStyle(video);
   const original = originalVideoStyles.get(video);
@@ -1304,6 +1587,10 @@ window.addEventListener('message', (event) => {
     }
     applyPanelFrameLayout();
   }
+
+  if (event.data && event.data.type === 'GSDF_TARGET_PICK_REQUEST') {
+    startTargetPicker();
+  }
 });
 
 setInterval(() => {
@@ -1331,7 +1618,9 @@ if (window.__GSDF_EOTF_TEST__) {
     buildManagedFilterChain,
     buildActiveTransferTableValues,
     buildGsdfTableValues,
+    classifyPickedElement,
     deriveToneProfile,
+    describeVideoElement,
     gammaCorrectionToTarget,
     gammaTargetToCorrection,
     getGammaAdjustedInputLevel,

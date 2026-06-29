@@ -6,6 +6,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { CameraExposureTestPage } from './components/CameraExposureTestPage';
 import { DraggablePanel } from './components/DraggablePanel';
+import { ToneLossTestPage } from './components/ToneLossTestPage';
 import { VideoBackground } from './components/VideoBackground';
 import { getInitialLocale, LANGUAGE_STORAGE_KEY, messagesByLocale, type SupportedLocale } from './i18n';
 import { DEFAULT_APP_SETTINGS, getRecommendedImageDefaults, normalizeAppSettings, type AppSettings } from './types';
@@ -47,6 +48,8 @@ export default function App() {
   const isExtension = window.location.search.includes('mode=extension');
   const isCameraExposureTest = window.location.pathname === '/camera-exposure-test' ||
     window.location.search.includes('mode=camera-exposure-test');
+  const isToneLossTest = window.location.pathname === '/tone-loss-test' ||
+    window.location.search.includes('mode=tone-loss-test');
   const [locale, setLocale] = useState<SupportedLocale>(() => getInitialLocale());
   const [settings, setSettings] = useState<AppSettings>(() => {
     const saved = localStorage.getItem('gsdf_extension_settings');
@@ -155,6 +158,10 @@ export default function App() {
 
   if (isCameraExposureTest) {
     return <CameraExposureTestPage />;
+  }
+
+  if (isToneLossTest) {
+    return <ToneLossTestPage />;
   }
 
   return (

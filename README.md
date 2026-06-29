@@ -132,6 +132,7 @@ No cloud API key is required. The extension runs locally in the browser and shou
 | **Output preview stripes** | Generated from the active transfer table — follows current luminance, gamma, and filter settings |
 | **Calibration stripes** | Fixed low-contrast code pairs — stable reference independent of the active GSDF table |
 | **Full GSDF-QC pattern** | Multi-frequency grayscale, modulation, line-pair, and gradient checks |
+| **Tone-loss video pattern** | Standalone `/tone-loss-test` route with a dynamic 8-bit patch grid and optional `captureStream` HTML video target |
 | **Curve chart** | Input pixel value vs normalized output — compares the baseline gamma curve and the active GSDF-inspired transfer table |
 
 ---
@@ -185,6 +186,7 @@ No global keyboard shortcuts are registered yet. The extension is controlled fro
 | **Basic / Advanced tabs** | Switch between core tone controls and image-level refinements in A mode |
 | **Language selector** | Change UI language without rebuilding the extension |
 | **Theme button** | Switch between dark and light panel styling |
+| **Element picker** | Inspect whether a clicked page element can be handled as an HTML video target |
 | **Panel resize handles** | Resize the floating extension panel and expanded overlays |
 
 ---
@@ -198,6 +200,7 @@ src/
   components/
     DraggablePanel.tsx            # Extension control panel, layouts, inspection overlays
     GSDFChart.tsx                 # Responsive transfer-curve chart
+    ToneLossTestPage.tsx          # Standalone dynamic tone-loss test pattern route
     VideoBackground.tsx           # Standalone local preview video
   i18n/                           # UI language registry and localized copy
 extension/
@@ -208,10 +211,14 @@ extension/
 scripts/
   buildExt.js                     # Copies Vite build output into extension/ui
   smokeExtensionChrome.mjs        # Real Chrome/Chromium smoke test for the unpacked extension
+tools/
+  icc-lut/                        # ICC/TRC and EIZO LUT conversion helpers
 tests/
   *.test.mjs                      # Node regression tests for model, manifest, content, layout
 docs/
   gsdf-model.md                   # Formula and implementation notes
+  icc-lut/                        # Dynamic ICC and EIZO LUT design archive
+  test-patterns.md                # Standalone dynamic test-pattern route notes
   gsdf-application-and-ui-review.md # GSDF usage, caveats, and UI review notes
 ```
 
@@ -221,9 +228,11 @@ docs/
 |---|---|---|
 | `src/types.ts` | Shared app model | Normalizes settings, evaluates GSDF luminance/JND mapping, builds transfer tables and stripe rows |
 | `src/components/DraggablePanel.tsx` | React UI | Presents A/B/C panel layouts, controls, stripe preview, and inspection overlays |
+| `src/components/ToneLossTestPage.tsx` | React route | Renders the dynamic tone-loss pattern and optional `captureStream` video target |
 | `extension/content.js` | Host page content script | Injects the iframe UI, mirrors the model, discovers videos, and applies managed filters |
 | `extension/background.js` | Extension service worker | Handles action clicks and reinjects the content script when needed |
 | `scripts/smokeExtensionChrome.mjs` | Verification | Launches a real browser profile, loads the unpacked extension, toggles the panel, and captures evidence |
+| `tools/icc-lut/` | Offline conversion | Keeps ICC/TRC and EIZO LUT helpers out of the browser runtime |
 
 ### Message Flow
 
@@ -286,10 +295,16 @@ The smoke runner writes local evidence under `output/playwright/`.
 | Document | Description |
 |---|---|
 | [PRODUCT.md](PRODUCT.md) | Product framing and interface intent |
+| [docs/project-lines.md](docs/project-lines.md) | Main extension line, derivative work lines, and archive map |
+| [docs/project-lines.zh-tw.md](docs/project-lines.zh-tw.md) | Traditional Chinese project line and archive map |
 | [docs/gsdf-model.md](docs/gsdf-model.md) | GSDF formula source, browser approximation, and implementation pipeline |
 | [docs/gsdf-model.ZHTW.md](docs/gsdf-model.ZHTW.md) | Traditional Chinese GSDF model notes |
 | [docs/gsdf-application-and-ui-review.md](docs/gsdf-application-and-ui-review.md) | Formula review, UI review inputs, implemented corrections, and verification notes |
 | [docs/gsdf-application-and-ui-review.ZHTW.md](docs/gsdf-application-and-ui-review.ZHTW.md) | Traditional Chinese review notes |
+| [docs/test-patterns.md](docs/test-patterns.md) | Standalone tone-loss test-pattern route notes |
+| [docs/test-patterns.zh-tw.md](docs/test-patterns.zh-tw.md) | Traditional Chinese test-pattern route notes |
+| [docs/icc-lut/README.md](docs/icc-lut/README.md) | Dynamic ICC profile and EIZO one-dimensional LUT archive |
+| [docs/icc-lut/README.zh-tw.md](docs/icc-lut/README.zh-tw.md) | Traditional Chinese ICC and EIZO LUT archive notes |
 
 ---
 

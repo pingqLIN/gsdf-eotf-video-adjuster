@@ -11,6 +11,7 @@ import {
   Maximize2,
   Minus,
   Moon,
+  MousePointer2,
   PanelRightClose,
   PanelRightOpen,
   Palette,
@@ -131,6 +132,23 @@ interface DraggablePanelProps {
   onExtensionDrag?: (deltaX: number, deltaY: number) => void;
   onExtensionResize?: (deltaWidth: number, deltaHeight: number) => void;
   onExtensionClose?: () => void;
+}
+
+interface TargetPickResult {
+  support: 'picking' | 'supported' | 'likely' | 'limited' | 'unsupported' | 'cancelled';
+  reason: string;
+  selected: string;
+  target: {
+    label: string;
+    rendered: boolean;
+    readyState: number;
+    paused: boolean;
+    muted: boolean;
+    width: number;
+    height: number;
+    videoWidth: number;
+    videoHeight: number;
+  } | null;
 }
 
 interface ReferenceRenderSize {
@@ -1532,7 +1550,7 @@ function LuminanceDeck({
         className="gsdf-lmax-readout flex flex-wrap items-baseline gap-x-2 gap-y-1"
       >
         <span className="gsdf-lmax-value font-mono text-[30px] leading-none text-zinc-50 tabular-nums">{formatLuminance(settings.lmax)}</span>
-        <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-zinc-500">nits</span>
+        <span className="font-mono text-[11px] uppercase tracking-normal text-zinc-500">nits</span>
         <span className="text-[11px] font-semibold text-zinc-300">{messages.panel.lmaxLabel}</span>
         <span className="text-[9px] font-semibold text-zinc-500">{messages.panel.lmaxNote}</span>
       </div>
@@ -2814,7 +2832,7 @@ function InspectionModeHeader({
           className="gsdf-range flex-1"
         />
         <span className="w-8 text-left font-mono text-[10px] text-zinc-500">{LUMINANCE_MAX_NITS}</span>
-        <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-zinc-500">nits</span>
+        <span className="font-mono text-[10px] uppercase tracking-normal text-zinc-500">nits</span>
       </div>
       {isCsdfFigureControlMode(mode) && (
         <div className="mt-3">
@@ -3253,12 +3271,26 @@ export function DraggablePanel({
   const [panelClosed, setPanelClosed] = React.useState(false);
   const [standaloneInspectionSize, setStandaloneInspectionSize] = React.useState(() => getDefaultInspectionSize());
   const [standalonePanelSize, setStandalonePanelSize] = React.useState(() => getDefaultPanelSize());
+  const [targetPickResult, setTargetPickResult] = React.useState<TargetPickResult | null>(null);
   const [panelTheme, setPanelTheme] = React.useState<PanelTheme>(() => {
     const savedTheme = localStorage.getItem(PANEL_THEME_STORAGE_KEY);
     return savedTheme === 'light' ? 'light' : 'dark';
   });
   const [panelTextScale, setPanelTextScale] = React.useState(getInitialPanelTextScale);
   useExpandedOverlayViewport(inspectionMode !== null || sidePanelOpen);
+
+  React.useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (event.source !== window.parent || event.data?.type !== 'GSDF_TARGET_PICK_RESULT') {
+        return;
+      }
+
+      setTargetPickResult(event.data.payload as TargetPickResult);
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, []);
 
   React.useEffect(() => {
     if (typeof window === 'undefined') {
@@ -3734,10 +3766,68 @@ export function DraggablePanel({
     );
   };
 
+  const requestTargetPick = () => {
+    if (!extensionMode || !window.parent || window.parent === window) {
+      setTargetPickResult({
+        support: 'limited',
+        reason: '元素選取需要在 Chrome 擴充注入頁面的 iframe 中執行；本機獨立頁只能顯示診斷介面。',
+        selected: 'standalone app',
+        target: null,
+      });
+      return;
+    }
+
+    setTargetPickResult({
+      support: 'picking',
+      reason: '請把滑鼠移到頁面元素上並點一下；按 Escape 可取消。',
+      selected: 'none',
+      target: null,
+    });
+    window.parent.postMessage({ type: 'GSDF_TARGET_PICK_REQUEST' }, '*');
+  };
+
+  const renderTargetPickResult = () => {
+    if (!targetPickResult) {
+      return null;
+    }
+
+    const supportTone = targetPickResult.support === 'supported'
+      ? 'border-emerald-300/35 bg-emerald-300/10 text-emerald-100'
+      : targetPickResult.support === 'likely' || targetPickResult.support === 'limited' || targetPickResult.support === 'picking'
+        ? 'border-amber-300/35 bg-amber-300/10 text-amber-100'
+        : 'border-red-300/35 bg-red-400/10 text-red-100';
+
+    return (
+      <div className={`rounded-md border p-3 text-[11px] leading-5 ${supportTone}`}>
+        <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
+          <span className="font-semibold uppercase tracking-normal">{targetPickResult.support}</span>
+          <span className="font-mono text-[10px] opacity-80">{targetPickResult.selected}</span>
+        </div>
+        <div>{targetPickResult.reason}</div>
+        {targetPickResult.target && (
+          <div className="mt-2 grid gap-1 rounded-md border border-white/10 bg-black/20 p-2 font-mono text-[10px] text-zinc-200">
+            <div>target: {targetPickResult.target.label}</div>
+            <div>rendered: {String(targetPickResult.target.rendered)} · readyState: {targetPickResult.target.readyState}</div>
+            <div>css: {targetPickResult.target.width}x{targetPickResult.target.height} · video: {targetPickResult.target.videoWidth}x{targetPickResult.target.videoHeight}</div>
+            <div>paused: {String(targetPickResult.target.paused)} · muted: {String(targetPickResult.target.muted)}</div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const renderDiagnosticPlaceholder = () => (
     <div className="space-y-3">
       <DiagnosticCameraProbe settings={settings} setSettings={setSettings} messages={messages} />
       <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={requestTargetPick}
+          className="gsdf-text-button flex h-9 items-center gap-2 rounded-md border border-white/10 px-3 text-[11px] font-semibold text-zinc-200 transition-colors hover:text-zinc-50"
+        >
+          <MousePointer2 size={13} />
+          選取元素
+        </button>
         <button
           type="button"
           onClick={() => {
@@ -3772,6 +3862,7 @@ export function DraggablePanel({
           {messages.panel.curvePanel}
         </button>
       </div>
+      {renderTargetPickResult()}
     </div>
   );
 
@@ -3980,7 +4071,7 @@ export function DraggablePanel({
                   </div>
                   <div className="min-w-0">
                     <div className="truncate text-[14px] font-semibold text-white">LumaLift</div>
-                    <div className="truncate font-mono text-[9px] tracking-[0.08em] text-zinc-500">GSDF EOTF Adjuster · {messages.panel.subtitle}</div>
+                    <div className="truncate font-mono text-[9px] tracking-normal text-zinc-500">GSDF EOTF Adjuster · {messages.panel.subtitle}</div>
                   </div>
                 </div>
               </div>
@@ -4045,10 +4136,10 @@ export function DraggablePanel({
                     </span>
                   </span>
                   <span className="gsdf-power-status flex h-[30px] w-[78px] min-w-0 flex-col items-start justify-center px-px py-0.5">
-                    <span className={`truncate text-[10px] font-semibold uppercase tracking-[0.12em] ${settings.enabled ? 'text-zinc-100' : 'text-zinc-400'}`}>
+                    <span className={`truncate text-[10px] font-semibold uppercase tracking-normal ${settings.enabled ? 'text-zinc-100' : 'text-zinc-400'}`}>
                       {settings.enabled ? messages.panel.active : messages.panel.standby}
                     </span>
-                    <span className="truncate text-[8px] font-semibold uppercase tracking-[0.14em] text-zinc-500">
+                    <span className="truncate text-[8px] font-semibold uppercase tracking-normal text-zinc-500">
                       {settings.enabled ? messages.panel.effectOn : messages.panel.effectOff}
                     </span>
                   </span>

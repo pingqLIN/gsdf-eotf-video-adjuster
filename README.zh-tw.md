@@ -132,6 +132,7 @@ npm run build:ext
 | **輸出預覽條紋** | 由目前生效的轉換表產生，會跟隨亮度、Gamma 與 Filter 設定 |
 | **校正條紋** | 固定低對比碼值配對，不受目前 GSDF 轉換表影響 |
 | **完整 GSDF-QC 圖樣** | 多頻率灰階、調變、線對與漸層檢查 |
+| **階調流失影片圖樣** | 獨立 `/tone-loss-test` route，提供動態 8-bit 色塊格與可選的 `captureStream` HTML video target |
 | **曲線圖** | 顯示輸入像素值與正規化輸出，並比較基準 Gamma 曲線與目前 GSDF 啟發式轉換表的輸出 |
 
 ---
@@ -185,6 +186,7 @@ README 截圖與診斷圖片若未另行註明，皆為本專案文件資產。�
 | **基本 / 進階分頁** | 在 A 模式中切換核心階調控制與影像細節控制 |
 | **語言選單** | 不需重新建置即可切換介面語言 |
 | **主題按鈕** | 切換深色與淺色面板 |
+| **元素選取器** | 檢查點選的頁面元素是否能作為 HTML video 目標處理 |
 | **面板尺寸控制** | 調整浮動面板與展開視圖大小 |
 
 ---
@@ -198,6 +200,7 @@ src/
   components/
     DraggablePanel.tsx            # 擴充功能控制面板、版面、檢查覆蓋層
     GSDFChart.tsx                 # 可響應尺寸的轉換曲線圖
+    ToneLossTestPage.tsx          # 獨立動態階調流失測試圖路由
     VideoBackground.tsx           # 本機獨立預覽影片
   i18n/                           # 介面語言註冊與本地化文案
 extension/
@@ -208,10 +211,14 @@ extension/
 scripts/
   buildExt.js                     # 將 Vite 建置產物複製到 extension/ui
   smokeExtensionChrome.mjs        # 對未封裝擴充功能執行真實 Chrome/Chromium 冒煙測試
+tools/
+  icc-lut/                        # ICC/TRC 與 EIZO LUT 轉換輔助工具
 tests/
   *.test.mjs                      # Node 回歸測試，涵蓋模型、manifest、content、layout
 docs/
   gsdf-model.md                   # 公式與實作說明
+  icc-lut/                        # 動態 ICC 與 EIZO LUT 設計歸檔
+  test-patterns.md                # 獨立動態測試圖路由說明
   gsdf-application-and-ui-review.md # GSDF 使用方式、限制與 UI 審查紀錄
 ```
 
@@ -221,9 +228,11 @@ docs/
 |---|---|---|
 | `src/types.ts` | 共用應用模型 | 正規化設定、計算 GSDF 亮度/JND 映射、建立轉換表與條紋列 |
 | `src/components/DraggablePanel.tsx` | React 介面 | 提供 A/B/C 面板版面、控制項、條紋預覽與檢查覆蓋層 |
+| `src/components/ToneLossTestPage.tsx` | React route | 渲染動態階調流失圖樣與可選的 `captureStream` video target |
 | `extension/content.js` | 主頁 content script | 注入 iframe 介面、鏡像模型、偵測影片並套用受控濾鏡 |
 | `extension/background.js` | 擴充功能 service worker | 處理 action 點擊，必要時重新注入 content script |
 | `scripts/smokeExtensionChrome.mjs` | 驗證流程 | 啟動真實瀏覽器設定檔、載入未封裝擴充功能、切換面板並擷取證據 |
+| `tools/icc-lut/` | 離線轉換 | 將 ICC/TRC 與 EIZO LUT 輔助工具和瀏覽器 runtime 分開 |
 
 ### 訊息流程
 
@@ -286,10 +295,16 @@ npm run smoke:ext:env
 | 文件 | 說明 |
 |---|---|
 | [PRODUCT.md](PRODUCT.md) | 產品定位與介面意圖 |
+| [docs/project-lines.md](docs/project-lines.md) | 擴充功能主線、衍生工作線與歸檔地圖 |
+| [docs/project-lines.zh-tw.md](docs/project-lines.zh-tw.md) | 繁體中文專案線與歸檔地圖 |
 | [docs/gsdf-model.md](docs/gsdf-model.md) | GSDF 公式來源、瀏覽器近似與實作流程 |
 | [docs/gsdf-model.ZHTW.md](docs/gsdf-model.ZHTW.md) | 繁體中文 GSDF 模型說明 |
 | [docs/gsdf-application-and-ui-review.md](docs/gsdf-application-and-ui-review.md) | 公式審查、UI 審查輸入、已實作修正與驗證紀錄 |
 | [docs/gsdf-application-and-ui-review.ZHTW.md](docs/gsdf-application-and-ui-review.ZHTW.md) | 繁體中文審查紀錄 |
+| [docs/test-patterns.md](docs/test-patterns.md) | 獨立階調流失測試圖 route 說明 |
+| [docs/test-patterns.zh-tw.md](docs/test-patterns.zh-tw.md) | 繁體中文測試圖 route 說明 |
+| [docs/icc-lut/README.md](docs/icc-lut/README.md) | 動態 ICC profile 與 EIZO 一維 LUT 歸檔 |
+| [docs/icc-lut/README.zh-tw.md](docs/icc-lut/README.zh-tw.md) | 繁體中文 ICC 與 EIZO LUT 歸檔說明 |
 
 ---
 

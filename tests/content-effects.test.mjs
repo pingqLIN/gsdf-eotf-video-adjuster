@@ -115,6 +115,9 @@ function loadContentHooks() {
 function makeVideo(overrides = {}) {
   const matchers = new Set(overrides.closestMatchers ?? []);
   return {
+    tagName: 'VIDEO',
+    id: overrides.id ?? '',
+    className: overrides.className ?? '',
     isConnected: overrides.isConnected ?? true,
     readyState: overrides.readyState ?? 4,
     paused: overrides.paused ?? false,
@@ -133,6 +136,31 @@ function makeVideo(overrides = {}) {
         }
       }
       return null;
+    },
+    querySelector() {
+      return null;
+    },
+    get shadowRoot() {
+      return null;
+    }
+  };
+}
+
+function makeElement(tagName, overrides = {}) {
+  return {
+    tagName: tagName.toUpperCase(),
+    id: overrides.id ?? '',
+    className: overrides.className ?? '',
+    isConnected: overrides.isConnected ?? true,
+    shadowRoot: overrides.shadowRoot ?? null,
+    getBoundingClientRect() {
+      return overrides.rect ?? { left: 0, top: 0, right: 320, bottom: 180, width: 320, height: 180 };
+    },
+    closest(selector) {
+      return overrides.closest?.(selector) ?? null;
+    },
+    querySelector(selector) {
+      return selector === 'video' ? overrides.descendantVideo ?? null : null;
     }
   };
 }
@@ -189,6 +217,22 @@ test('content script exposes a direct toggle API for fallback activation', () =>
   assert.equal(context.__testState.bodyChildren.length, 1);
   assert.equal(context.__testState.bodyChildren[0].id, 'gsdf-eotf-ui-iframe');
   assert.equal(context.__testState.bodyChildren[0].allow, 'camera');
+});
+
+test('target picker classifies video-capable and unsupported elements', () => {
+  const hooks = loadContentHooks();
+  const video = makeVideo({ id: 'movie', rect: { left: 0, top: 0, right: 640, bottom: 360, width: 640, height: 360 } });
+  const canvas = makeElement('canvas', { id: 'painted-player' });
+  const iframe = makeElement('iframe', { id: 'embedded-player' });
+  const container = makeElement('div', { id: 'player-shell', descendantVideo: video });
+
+  assert.equal(hooks.classifyPickedElement(video).support, 'supported');
+  assert.equal(hooks.classifyPickedElement(container).support, 'likely');
+  assert.match(hooks.classifyPickedElement(container).reason, /contains an HTML video element/);
+  assert.equal(hooks.classifyPickedElement(canvas).support, 'unsupported');
+  assert.match(hooks.classifyPickedElement(canvas).reason, /canvas/);
+  assert.equal(hooks.classifyPickedElement(iframe).support, 'limited');
+  assert.match(hooks.classifyPickedElement(iframe).reason, /iframe/);
 });
 
 test('content script opens the full GSDF pattern view as a movable and resizable frame', () => {
