@@ -6,6 +6,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { CameraExposureTestPage } from './components/CameraExposureTestPage';
 import { DraggablePanel } from './components/DraggablePanel';
+import { IccProfilePage } from './components/IccProfilePage';
 import { ToneLossTestPage } from './components/ToneLossTestPage';
 import { VideoBackground } from './components/VideoBackground';
 import { getInitialLocale, LANGUAGE_STORAGE_KEY, messagesByLocale, type SupportedLocale } from './i18n';
@@ -50,6 +51,8 @@ export default function App() {
     window.location.search.includes('mode=camera-exposure-test');
   const isToneLossTest = window.location.pathname === '/tone-loss-test' ||
     window.location.search.includes('mode=tone-loss-test');
+  const isIccProfilePage = window.location.pathname === '/icc-profile' ||
+    window.location.search.includes('mode=icc-profile');
   const [locale, setLocale] = useState<SupportedLocale>(() => getInitialLocale());
   const [settings, setSettings] = useState<AppSettings>(() => {
     const saved = localStorage.getItem('gsdf_extension_settings');
@@ -162,6 +165,10 @@ export default function App() {
 
   if (isToneLossTest) {
     return <ToneLossTestPage />;
+  }
+
+  if (isIccProfilePage) {
+    return <IccProfilePage settings={settings} />;
   }
 
   return (
