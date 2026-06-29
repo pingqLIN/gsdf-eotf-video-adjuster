@@ -172,15 +172,15 @@ test('luminance, transfer formula, and display preset choices change the model c
   const bright = buildToneCurveSnapshot({ ...base, lmax: 400, transferFormula: 'gsdf' });
   const gsdf = buildToneCurveSnapshot({ ...base, lmax: 140, transferFormula: 'gsdf' });
   const csdf = buildToneCurveSnapshot({ ...base, lmax: 140, transferFormula: 'csdf' });
-  const lcd1000 = buildToneCurveSnapshot({ ...base, lmax: 120, transferFormula: 'gsdf' }, { displayPreset: 'lcd-1000' });
-  const lcd2000 = buildToneCurveSnapshot({ ...base, lmax: 120, transferFormula: 'gsdf' }, { displayPreset: 'lcd-2000' });
-  const oled = buildToneCurveSnapshot({ ...base, lmax: 120, transferFormula: 'gsdf' }, { displayPreset: 'oled-true-black' });
+  const ips1000 = buildToneCurveSnapshot({ ...base, lmax: 120, transferFormula: 'gsdf' }, { displayPreset: 'ips-1000' });
+  const blackIps2000 = buildToneCurveSnapshot({ ...base, lmax: 120, transferFormula: 'gsdf' }, { displayPreset: 'black-ips-2000' });
+  const oled = buildToneCurveSnapshot({ ...base, lmax: 120, transferFormula: 'gsdf' }, { displayPreset: 'oled-zero-black' });
 
   assert.ok(maxDifference(dim.targetEotfNorm, bright.targetEotfNorm) > 0.00001);
   assert.ok(maxDifference(dim.codeRemapNorm, bright.codeRemapNorm) > 0.00001);
   assert.ok(maxDifference(gsdf.targetEotfNorm, csdf.targetEotfNorm) > 0.00001);
   assert.ok(maxDifference(gsdf.codeRemapNorm, csdf.codeRemapNorm) > 0.00001);
-  assert.ok(maxDifference(lcd1000.targetEotfNorm, lcd2000.targetEotfNorm) > 0.000001);
+  assert.ok(maxDifference(ips1000.targetEotfNorm, blackIps2000.targetEotfNorm) > 0.000001);
   assert.ok(oled.metadata.displayBlackNits > 0, 'OLED preset should keep a positive mathematical black floor');
   assertMonotonicUnitTable(oled.targetEotfNorm, 'oled targetEotfNorm');
 });
@@ -216,7 +216,7 @@ test('content script mirror matches the bundled TypeScript tone curve snapshot',
     blackPoint: 4,
     whitePoint: 252,
   };
-  const options = { tableSize: 64, displayPreset: 'lcd-2000' };
+  const options = { tableSize: 64, displayPreset: 'black-ips-2000' };
   const tsSnapshot = buildToneCurveSnapshot(settings, options);
   const contentSnapshot = hooks.buildToneCurveSnapshot(settings, options);
 

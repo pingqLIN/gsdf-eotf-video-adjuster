@@ -64,11 +64,16 @@ const DEFAULT_BLACK_POINT = 0;
 const DEFAULT_WHITE_POINT = TONE_LEVEL_COUNT;
 const DEFAULT_SATURATION = 100;
 const DISPLAY_GAMMA_OPTIONS = [1, 1.8, 2.2, 2.4, 2.6];
-const DEFAULT_DISPLAY_PRESET_ID = 'lcd-1000';
+const DEFAULT_DISPLAY_PRESET_ID = 'ips-1000';
 const DISPLAY_DEVICE_PRESETS = {
-  'lcd-1000': { id: 'lcd-1000', contrastRatio: 1000, blackFloorNits: 0.05 },
-  'lcd-2000': { id: 'lcd-2000', contrastRatio: 2000, blackFloorNits: 0.025 },
-  'oled-true-black': { id: 'oled-true-black', contrastRatio: 1000000, blackFloorNits: 0, oledToeNits: 0.0005 }
+  'ips-1000': { id: 'ips-1000', contrastRatio: 1000, blackFloorNits: 0.05 },
+  'black-ips-2000': { id: 'black-ips-2000', contrastRatio: 2000, blackFloorNits: 0.025 },
+  'oled-zero-black': { id: 'oled-zero-black', contrastRatio: 1000000, blackFloorNits: 0, oledToeNits: 0.0005 }
+};
+const DISPLAY_PRESET_ALIASES = {
+  'lcd-1000': 'ips-1000',
+  'lcd-2000': 'black-ips-2000',
+  'oled-true-black': 'oled-zero-black'
 };
 const GSDF_COEFFICIENTS = {
   a: -1.3011877,
@@ -463,7 +468,10 @@ function resolveDisplayPreset(value = DEFAULT_DISPLAY_PRESET_ID) {
     return value;
   }
 
-  return DISPLAY_DEVICE_PRESETS[value] ?? DISPLAY_DEVICE_PRESETS[DEFAULT_DISPLAY_PRESET_ID];
+  const presetId = DISPLAY_DEVICE_PRESETS[value]
+    ? value
+    : DISPLAY_PRESET_ALIASES[value] ?? DEFAULT_DISPLAY_PRESET_ID;
+  return DISPLAY_DEVICE_PRESETS[presetId];
 }
 
 function resolveEffectiveBlackNits(lmax, preset) {
@@ -531,6 +539,12 @@ function buildToneCurveSnapshot(settings = currentSettings, options = {}) {
       displayPresetId: displayPreset.id,
       displayBlackNits,
       displayWhiteNits: normalized.lmax,
+      targetLuminanceNits: normalized.lmax,
+      displayGamma: normalized.displayGamma,
+      gammaTarget: normalized.gammaTarget,
+      strength: normalized.strength,
+      blackPoint: normalized.blackPoint,
+      whitePoint: normalized.whitePoint,
       profileIntent
     }
   };

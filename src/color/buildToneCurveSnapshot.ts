@@ -11,6 +11,7 @@ import {
 import {
   type DisplayDevicePreset,
   type DisplayPresetId,
+  type DisplayPresetInput,
   DEFAULT_DISPLAY_PRESET_ID,
   resolveDisplayPreset,
   resolveEffectiveBlackNits,
@@ -48,6 +49,12 @@ export interface ToneCurveSnapshotMetadata {
   displayPresetId: DisplayPresetId | string;
   displayBlackNits: number;
   displayWhiteNits: number;
+  targetLuminanceNits: number;
+  displayGamma: number;
+  gammaTarget: number;
+  strength: number;
+  blackPoint: number;
+  whitePoint: number;
   profileIntent: IccProfileIntent;
 }
 
@@ -62,7 +69,7 @@ export interface ToneCurveSnapshot {
 
 export interface BuildToneCurveSnapshotOptions {
   tableSize?: number;
-  displayPreset?: DisplayPresetId | DisplayDevicePreset;
+  displayPreset?: DisplayPresetInput | DisplayDevicePreset;
   profileIntent?: IccProfileIntent;
   digits?: number;
 }
@@ -184,6 +191,12 @@ export function buildToneCurveSnapshot(
       displayPresetId: displayPreset.id,
       displayBlackNits,
       displayWhiteNits: settings.lmax,
+      targetLuminanceNits: settings.lmax,
+      displayGamma: settings.displayGamma,
+      gammaTarget: settings.gammaTarget,
+      strength: settings.strength,
+      blackPoint: settings.blackPoint,
+      whitePoint: settings.whitePoint,
       profileIntent,
     },
   };
