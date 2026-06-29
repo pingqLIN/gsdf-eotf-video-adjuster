@@ -13,12 +13,13 @@ import {
   buildEizoGammaLutFileName,
   validateEizoGammaLutCsv,
 } from '../eizo/exportEizoLutCsv';
+import { buildVirtualDisplayIcc } from '../icc/buildVirtualDisplayIcc';
 
 interface IccProfilePageProps {
   settings: AppSettings;
 }
 
-type ExportKind = 'eizo-gamma-lut-csv' | 'json-sidecar';
+type ExportKind = 'icc-profile' | 'eizo-gamma-lut-csv' | 'json-sidecar';
 
 const PREVIEW_SAMPLE_INDEXES = [0, 1, 16, 64, 128, 192, 255];
 
@@ -100,6 +101,15 @@ export function IccProfilePage({ settings }: IccProfilePageProps) {
   const eizoFileName = buildEizoGammaLutFileName(snapshot);
   const jsonFileName = eizoFileName.replace(/\.csv$/i, '.json');
 
+  const handleExportIcc = (profileIntent: 'compensation' | 'descriptive') => {
+    const result = buildVirtualDisplayIcc(settings, {
+      profileIntent,
+      trcSampleCount: 8192,
+      displayPreset: displayPresetId,
+    });
+    downloadBlob(result.bytes, result.fileName, 'application/vnd.iccprofile');
+  };
+
   const handleExportEizoCsv = () => {
     downloadBlob(eizoCsv, eizoFileName, 'text/csv;charset=utf-8');
   };
@@ -160,6 +170,20 @@ export function IccProfilePage({ settings }: IccProfilePageProps) {
           </dl>
 
           <div className="grid gap-2">
+            <button
+              type="button"
+              onClick={() => handleExportIcc('compensation')}
+              className="h-10 rounded bg-zinc-100 px-4 text-sm font-semibold text-black hover:bg-white"
+            >
+              Export ICC compensation
+            </button>
+            <button
+              type="button"
+              onClick={() => handleExportIcc('descriptive')}
+              className="h-10 rounded border border-white/15 px-4 text-sm font-semibold text-zinc-100 hover:border-sky-300"
+            >
+              Export ICC descriptive
+            </button>
             <button
               type="button"
               onClick={handleExportEizoCsv}

@@ -2,12 +2,21 @@ import type { SourceTransferCurve } from './curveMath';
 
 export type VirtualGamutId = 'srgb' | 'display-p3' | 'adobe-rgb';
 
+export interface XyChromaticity {
+  x: number;
+  y: number;
+}
+
 export interface VirtualGamutPreset {
   id: VirtualGamutId;
   label: string;
   kr: number;
   kg: number;
   kb: number;
+  red: XyChromaticity;
+  green: XyChromaticity;
+  blue: XyChromaticity;
+  white: XyChromaticity;
   sourceTransfer: SourceTransferCurve;
 }
 
@@ -20,6 +29,10 @@ export const VIRTUAL_GAMUT_PRESETS: Record<VirtualGamutId, VirtualGamutPreset> =
     kr: 0.2126,
     kg: 0.7152,
     kb: 0.0722,
+    red: { x: 0.640, y: 0.330 },
+    green: { x: 0.300, y: 0.600 },
+    blue: { x: 0.150, y: 0.060 },
+    white: { x: 0.3127, y: 0.3290 },
     sourceTransfer: { kind: 'srgb' },
   },
   'display-p3': {
@@ -28,6 +41,10 @@ export const VIRTUAL_GAMUT_PRESETS: Record<VirtualGamutId, VirtualGamutPreset> =
     kr: 0.2290,
     kg: 0.6917,
     kb: 0.0793,
+    red: { x: 0.680, y: 0.320 },
+    green: { x: 0.265, y: 0.690 },
+    blue: { x: 0.150, y: 0.060 },
+    white: { x: 0.3127, y: 0.3290 },
     sourceTransfer: { kind: 'srgb' },
   },
   'adobe-rgb': {
@@ -36,6 +53,10 @@ export const VIRTUAL_GAMUT_PRESETS: Record<VirtualGamutId, VirtualGamutPreset> =
     kr: 0.2974,
     kg: 0.6274,
     kb: 0.0752,
+    red: { x: 0.640, y: 0.330 },
+    green: { x: 0.210, y: 0.710 },
+    blue: { x: 0.150, y: 0.060 },
+    white: { x: 0.3127, y: 0.3290 },
     sourceTransfer: { kind: 'gamma', gamma: ADOBE_RGB_GAMMA },
   },
 };

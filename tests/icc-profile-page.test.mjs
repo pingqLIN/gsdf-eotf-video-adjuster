@@ -16,6 +16,11 @@ test('ICC profile page is routed as a standalone app surface', () => {
 
 test('ICC profile page exports EIZO CSV through Blob download without extension download permission', () => {
   assert.match(pageSource, /buildToneCurveSnapshot\(settings, \{ tableSize: 256, displayPreset: displayPresetId \}\)/);
+  assert.match(pageSource, /buildVirtualDisplayIcc\(settings, \{/);
+  assert.match(pageSource, /profileIntent,[\s\S]*trcSampleCount: 8192,[\s\S]*displayPreset: displayPresetId/);
+  assert.match(pageSource, /application\/vnd\.iccprofile/);
+  assert.match(pageSource, /Export ICC compensation/);
+  assert.match(pageSource, /Export ICC descriptive/);
   assert.match(pageSource, /buildEizoGammaLutCsv\(snapshot\)/);
   assert.match(pageSource, /validateEizoGammaLutCsv\(eizoCsv\)/);
   assert.match(pageSource, /URL\.createObjectURL\(blob\)/);
@@ -48,5 +53,5 @@ test('export metadata avoids page and video-target private context', () => {
 });
 
 test('floating diagnostic panel does not own ICC or EIZO export actions', () => {
-  assert.doesNotMatch(panelSource, /IccProfilePage|buildEizoGammaLutCsv|Export EIZO CSV|Install ICC profile/);
+  assert.doesNotMatch(panelSource, /IccProfilePage|buildEizoGammaLutCsv|buildVirtualDisplayIcc|Export EIZO CSV|Export ICC compensation|Install ICC profile/);
 });
