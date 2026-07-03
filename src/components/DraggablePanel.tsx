@@ -87,6 +87,8 @@ const INSPECTION_REFERENCE_RESERVED_HEIGHT = 176;
 const REFERENCE_RENDER_MARGIN = 32;
 const REFERENCE_RENDER_MAX_WIDTH = 2400;
 const REFERENCE_RENDER_MAX_HEIGHT = 1600;
+const DIAGNOSTIC_PATTERN_MIN_VIEWPORT_ASPECT = 3 / 4;
+const DIAGNOSTIC_PATTERN_MAX_VIEWPORT_ASPECT = 2.45;
 const DIAGNOSTIC_PATTERN_WIDTH = 2048;
 const DIAGNOSTIC_PATTERN_HEIGHT = 1200;
 const COLOR_LINEARITY_PATTERN_WIDTH = 1800;
@@ -99,13 +101,6 @@ const CSDF_FIG9_MAX_CYCLES = 120;
 const CSDF_FIG9_DEFAULT_EXAGGERATION = 1;
 const CSDF_FIG9_MIN_EXAGGERATION = 0;
 const CSDF_FIG9_MAX_EXAGGERATION = 3;
-const REFERENCE_DITHER_MATRIX_SIZE = 4;
-const REFERENCE_ORDERED_DITHER_MATRIX = [
-  0, 8, 2, 10,
-  12, 4, 14, 6,
-  3, 11, 1, 9,
-  15, 7, 13, 5,
-] as const;
 const CHART_VIEW_WIDTH = 1040;
 const CHART_VIEW_HEIGHT = 640;
 const INSPECTION_ZOOM_MIN = 0.5;
@@ -973,6 +968,30 @@ function fitReferenceSizeToBox(base: ReferenceRenderSize, box: ReferenceRenderSi
   };
 }
 
+function fitDiagnosticPatternSizeToViewport(box: ReferenceRenderSize): ReferenceRenderSize {
+  const viewportAspect = box.width / box.height;
+  const targetAspect = clampValue(
+    Number.isFinite(viewportAspect) && viewportAspect > 0
+      ? viewportAspect
+      : DIAGNOSTIC_PATTERN_WIDTH / DIAGNOSTIC_PATTERN_HEIGHT,
+    DIAGNOSTIC_PATTERN_MIN_VIEWPORT_ASPECT,
+    DIAGNOSTIC_PATTERN_MAX_VIEWPORT_ASPECT,
+  );
+  const widthFromHeight = box.height * targetAspect;
+
+  if (widthFromHeight <= box.width) {
+    return {
+      width: Math.max(1, Math.round(widthFromHeight)),
+      height: Math.max(1, Math.round(box.height)),
+    };
+  }
+
+  return {
+    width: Math.max(1, Math.round(box.width)),
+    height: Math.max(1, Math.round(box.width / targetAspect)),
+  };
+}
+
 function getScreenAwareReferenceSize(mode: SidePanelMode): ReferenceRenderSize {
   const base = getReferenceBaseSize(mode);
   if (typeof window === 'undefined') {
@@ -992,6 +1011,10 @@ function getScreenAwareReferenceSize(mode: SidePanelMode): ReferenceRenderSize {
       Math.max(1, viewportHeight - INSPECTION_REFERENCE_RESERVED_HEIGHT - REFERENCE_RENDER_MARGIN),
     ),
   };
+
+  if (mode === 'pattern') {
+    return fitDiagnosticPatternSizeToViewport(availableSize);
+  }
 
   return fitReferenceSizeToBox(base, availableSize);
 }
@@ -1108,15 +1131,29 @@ function ReferenceDisplayScaleWarning({
 
   return (
     <div
-      className={`shrink-0 rounded-md border border-amber-300/20 bg-amber-300/10 text-amber-100 ${compact ? 'px-3 py-2' : 'mt-3 px-3 py-2.5'}`}
+      className={`gsdf-display-scale-warning shrink-0 rounded-md border border-amber-300/70 bg-amber-50 text-amber-950 shadow-sm ${compact ? 'px-3 py-2' : 'mt-3 px-3 py-2.5'}`}
+      style={{
+        backgroundColor: '#fff7ed',
+        borderColor: 'rgba(217, 119, 6, 0.55)',
+        color: '#431407',
+      }}
       data-no-drag
     >
       <div className="flex items-start gap-2">
-        <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border border-amber-200/25 bg-amber-200/15 text-[12px] font-black leading-none">!</span>
+        <span
+          className="gsdf-display-scale-warning__icon mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border border-amber-300 bg-amber-100 text-[12px] font-black leading-none text-amber-950"
+          style={{
+            backgroundColor: '#ffedd5',
+            borderColor: 'rgba(217, 119, 6, 0.5)',
+            color: '#431407',
+          }}
+        >
+          !
+        </span>
         <div className="min-w-0 space-y-1">
-          <div className="text-[11px] font-semibold text-amber-50">{messages.panel.displayScaleWarningTitle}</div>
-          <div className="text-[10px] leading-4 text-amber-100/85">{messages.panel.displayScaleWarningBody}</div>
-          <div className="font-mono text-[9px] leading-4 text-amber-100/70">
+          <div className="gsdf-display-scale-warning__title text-[11px] font-semibold text-amber-950" style={{ color: '#431407' }}>{messages.panel.displayScaleWarningTitle}</div>
+          <div className="gsdf-display-scale-warning__body text-[10px] leading-4 text-amber-900" style={{ color: '#7c2d12' }}>{messages.panel.displayScaleWarningBody}</div>
+          <div className="gsdf-display-scale-warning__metrics font-mono text-[9px] leading-4 text-amber-800" style={{ color: '#9a3412' }}>
             {messages.panel.displayScaleWarningMetrics}: {metrics}
           </div>
         </div>
@@ -1126,7 +1163,7 @@ function ReferenceDisplayScaleWarning({
             title={messages.panel.dismissDisplayScaleWarning}
             aria-label={messages.panel.dismissDisplayScaleWarning}
             onClick={onDismiss}
-            className="gsdf-icon-button ml-auto flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-amber-100/20 bg-black/25 text-amber-100/70 transition-colors hover:text-amber-50"
+            className="gsdf-icon-button gsdf-display-scale-warning__close ml-auto flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-amber-300 bg-amber-100 text-amber-900 transition-colors hover:bg-amber-200 hover:text-amber-950"
           >
             <X size={12} />
           </button>
@@ -2028,12 +2065,7 @@ function getReferenceDitherStrength(settings: AppSettings): number {
 }
 
 function getReferenceOrderedDitherOffset(x: number, y: number, strength: number): number {
-  const matrixIndex = (y % REFERENCE_DITHER_MATRIX_SIZE) * REFERENCE_DITHER_MATRIX_SIZE + (x % REFERENCE_DITHER_MATRIX_SIZE);
-  const threshold = ((REFERENCE_ORDERED_DITHER_MATRIX[matrixIndex] ?? 0) + 0.5)
-    / (REFERENCE_DITHER_MATRIX_SIZE * REFERENCE_DITHER_MATRIX_SIZE)
-    - 0.5;
-
-  return threshold * strength;
+  return getReferenceNoiseDitherOffset(x, y, 17, strength);
 }
 
 function getReferenceNoiseDitherOffset(x: number, y: number, salt: number, strength: number): number {
@@ -2094,6 +2126,14 @@ function unitColorToRgb(color: UnitColorTuple): RgbTuple {
   ];
 }
 
+function unitColorToRgbFloat(color: UnitColorTuple): RgbTuple {
+  return [
+    clampValue(color[0], 0, 1) * 255,
+    clampValue(color[1], 0, 1) * 255,
+    clampValue(color[2], 0, 1) * 255,
+  ];
+}
+
 function applyReferenceColorMatrix(color: UnitColorTuple, matrix: number[]): UnitColorTuple {
   const [red, green, blue] = color;
   const applyRow = (offset: number) => (
@@ -2142,6 +2182,29 @@ function applyReferenceGsdfRgbToneTable(color: RgbTuple, transferTable: number[]
   }) as RgbTuple;
 }
 
+function applyReferenceGsdfYcbcrToneTableFloat(
+  color: RgbTuple,
+  transferTable: number[],
+  displayGamut: AppSettings['displayGamut'],
+): RgbTuple {
+  const matrices = buildLumaChromaMatrices(displayGamut);
+  const ycbcr = applyReferenceColorMatrix([
+    clampValue(color[0] / 255, 0, 1),
+    clampValue(color[1] / 255, 0, 1),
+    clampValue(color[2] / 255, 0, 1),
+  ], matrices.forward);
+  const mappedY = sampleReferenceToneTable(transferTable, ycbcr[0]);
+  const adjustedRgb = applyReferenceColorMatrix([mappedY, ycbcr[1], ycbcr[2]], matrices.inverse);
+
+  return unitColorToRgbFloat(adjustedRgb);
+}
+
+function applyReferenceGsdfRgbToneTableFloat(color: RgbTuple, transferTable: number[]): RgbTuple {
+  return color.map((channel) => (
+    sampleReferenceToneTable(transferTable, clampValue(channel / 255, 0, 1)) * 255
+  )) as RgbTuple;
+}
+
 function applyColorReferenceToneTable(
   color: RgbTuple,
   transferTable: number[],
@@ -2158,6 +2221,24 @@ function applyColorReferenceToneTable(
   }
 
   return applyReferenceGsdfYcbcrToneTable(color, transferTable, displayGamut);
+}
+
+function applyColorReferenceToneTableFloat(
+  color: RgbTuple,
+  transferTable: number[],
+  displayGamut: AppSettings['displayGamut'],
+  transferFormula: AppSettings['transferFormula'],
+  gsdfPipeline: AppSettings['gsdfPipeline'],
+): RgbTuple {
+  if (transferFormula === 'csdf') {
+    return applyReferenceGsdfRgbToneTableFloat(color, transferTable);
+  }
+
+  if (gsdfPipeline === 'rgb') {
+    return applyReferenceGsdfRgbToneTableFloat(color, transferTable);
+  }
+
+  return applyReferenceGsdfYcbcrToneTableFloat(color, transferTable, displayGamut);
 }
 
 function applyActiveReferenceToneTable(color: RgbTuple, transferTable: number[], settings: AppSettings): RgbTuple {
@@ -2380,9 +2461,15 @@ function drawBidirectionalColorPattern(
   renderHeight = BIDIRECTIONAL_COLOR_PATTERN_HEIGHT,
 ) {
   const transferTable = buildActiveTransferTableValues(settings);
+  const pixelWidth = Math.max(1, context.canvas.width);
+  const pixelHeight = Math.max(1, context.canvas.height);
 
-  drawCmyRgbContinuousGradientBand(context, 0, 0, renderWidth, renderHeight, transferTable, settings);
-  applyReferenceOrderedDither(context, renderWidth, renderHeight, settings);
+  context.save();
+  context.setTransform(1, 0, 0, 1, 0, 0);
+  context.imageSmoothingEnabled = true;
+  drawCmyRgbContinuousGradientBand(context, 0, 0, pixelWidth, pixelHeight, transferTable, settings);
+  applyReferenceOrderedDither(context, pixelWidth, pixelHeight, settings);
+  context.restore();
 }
 
 function drawCmyRgbContinuousGradientBand(
@@ -2394,16 +2481,31 @@ function drawCmyRgbContinuousGradientBand(
   transferTable: number[],
   settings: AppSettings,
 ) {
+  const imageWidth = Math.max(1, Math.floor(width));
+  const imageHeight = Math.max(1, Math.floor(height));
+  const imageData = context.createImageData(imageWidth, imageHeight);
+  const { data } = imageData;
+
   for (let column = 0; column < width; column += 1) {
-    const progress = width <= 1 ? 0 : column / (width - 1);
-    const color = applyActiveReferenceToneTable(
+    const progress = width <= 1 ? 0 : (column + 0.5) / width;
+    const color = applyColorReferenceToneTableFloat(
       sampleCmyRgbGradient(progress),
       transferTable,
-      settings,
+      settings.displayGamut,
+      settings.transferFormula,
+      settings.gsdfPipeline,
     );
-    context.fillStyle = formatRgb(color);
-    context.fillRect(x + column, y, 1, height);
+
+    for (let row = 0; row < imageHeight; row += 1) {
+      const pixelOffset = (row * imageWidth + column) * 4;
+      data[pixelOffset] = clampTone(color[0]);
+      data[pixelOffset + 1] = clampTone(color[1]);
+      data[pixelOffset + 2] = clampTone(color[2]);
+      data[pixelOffset + 3] = 255;
+    }
   }
+
+  context.putImageData(imageData, x, y);
 }
 
 function sampleCmyRgbGradient(progress: number): RgbTuple {
@@ -2687,7 +2789,7 @@ function CsdfFigureControlsPanel({
           <RotateCcw size={13} />
         </button>
       </div>
-      <div className={`grid gap-3 ${compact ? 'grid-cols-1' : 'grid-cols-1 min-[880px]:grid-cols-[minmax(132px,0.7fr)_minmax(180px,1fr)_minmax(180px,1fr)]'}`}>
+      <div className={`grid gap-3 ${compact ? 'grid-cols-[minmax(112px,0.85fr)_minmax(0,1.15fr)]' : 'grid-cols-1 min-[620px]:grid-cols-[minmax(132px,0.68fr)_minmax(0,1.32fr)]'}`}>
         <label className="grid gap-1.5 text-[10px] font-semibold text-zinc-400" title={messages.panel.fig9ModeTitle}>
           <span>{messages.panel.fig9Mode}</span>
           <select
@@ -2699,36 +2801,38 @@ function CsdfFigureControlsPanel({
             <option value="plain" className="bg-[#111418]">{messages.panel.fig9ModePlain}</option>
           </select>
         </label>
-        <label className="grid gap-1.5 text-[10px] font-semibold text-zinc-400" title={messages.panel.fig9CyclesTitle}>
-          <span className="flex items-center justify-between gap-2">
-            <span>{messages.panel.fig9Cycles}</span>
-            <span className="font-mono text-[11px] text-zinc-200">{controls.cycles}</span>
-          </span>
-          <input
-            type="range"
-            min={CSDF_FIG9_MIN_CYCLES}
-            max={CSDF_FIG9_MAX_CYCLES}
-            step={1}
-            value={controls.cycles}
-            onChange={(event) => updateCycles(Number(event.target.value))}
-            className="gsdf-range w-full"
-          />
-        </label>
-        <label className="grid gap-1.5 text-[10px] font-semibold text-zinc-400" title={messages.panel.fig9ExaggerationTitle}>
-          <span className="flex items-center justify-between gap-2">
-            <span>{messages.panel.fig9Exaggeration}</span>
-            <span className="font-mono text-[11px] text-zinc-200">{controls.exaggeration.toFixed(1)}</span>
-          </span>
-          <input
-            type="range"
-            min={CSDF_FIG9_MIN_EXAGGERATION}
-            max={CSDF_FIG9_MAX_EXAGGERATION}
-            step={0.1}
-            value={controls.exaggeration}
-            onChange={(event) => updateExaggeration(Number(event.target.value))}
-            className="gsdf-range w-full"
-          />
-        </label>
+        <div className="grid min-w-0 gap-2">
+          <label className="grid gap-1.5 text-[10px] font-semibold text-zinc-400" title={messages.panel.fig9CyclesTitle}>
+            <span className="flex items-center justify-between gap-2">
+              <span>{messages.panel.fig9Cycles}</span>
+              <span className="font-mono text-[11px] text-zinc-200">{controls.cycles}</span>
+            </span>
+            <input
+              type="range"
+              min={CSDF_FIG9_MIN_CYCLES}
+              max={CSDF_FIG9_MAX_CYCLES}
+              step={1}
+              value={controls.cycles}
+              onChange={(event) => updateCycles(Number(event.target.value))}
+              className="gsdf-range w-full"
+            />
+          </label>
+          <label className="grid gap-1.5 text-[10px] font-semibold text-zinc-400" title={messages.panel.fig9ExaggerationTitle}>
+            <span className="flex items-center justify-between gap-2">
+              <span>{messages.panel.fig9Exaggeration}</span>
+              <span className="font-mono text-[11px] text-zinc-200">{controls.exaggeration.toFixed(1)}</span>
+            </span>
+            <input
+              type="range"
+              min={CSDF_FIG9_MIN_EXAGGERATION}
+              max={CSDF_FIG9_MAX_EXAGGERATION}
+              step={0.1}
+              value={controls.exaggeration}
+              onChange={(event) => updateExaggeration(Number(event.target.value))}
+              className="gsdf-range w-full"
+            />
+          </label>
+        </div>
       </div>
     </div>
   );
