@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="760" viewBox="0 0 1280 760" role="img" aria-labelledby="title desc">
+  <title id="title">GSDF/CSDF drawing surfaces affected by adjustment versus fixed references</title>
+  <desc id="desc">A two-column Traditional Chinese diagram. The left column lists surfaces that follow current Lmax, Gamma, Filter amount, Levels, route, and Dither settings. The right column lists fixed reference surfaces that remain stable for comparison.</desc>
+  <rect width="1280" height="760" fill="#071015"/>
+  <rect x="32" y="32" width="1216" height="696" rx="24" fill="#0d161d" stroke="#29404d" stroke-width="2"/>
+  <text x="72" y="92" fill="#f8fafc" font-family="Segoe UI, Noto Sans TC, Arial, sans-serif" font-size="34" font-weight="700">繪製區：會受調整影響 vs 固定參考</text>
+  <text x="72" y="128" fill="#a7b7c4" font-family="Segoe UI, Noto Sans TC, Arial, sans-serif" font-size="18">左側會跟著目前 transfer table 或後級 filter 變動；右側保留穩定基準，方便檢查顯示與縮放。</text>
+
+  <g transform="translate(72 174)">
+    <rect width="536" height="494" rx="18" fill="#102936" stroke="#23b6d4" stroke-width="2"/>
+    <text x="28" y="48" fill="#67e8f9" font-family="Segoe UI, Noto Sans TC, Arial, sans-serif" font-size="24" font-weight="700">會受目前調整影響</text>
+    <text x="28" y="80" fill="#c8eef6" font-family="Segoe UI, Noto Sans TC, Arial, sans-serif" font-size="15">跟著 Lmax、Gamma、Filter amount、Levels、路徑與 Dither 變動</text>
+
+    <g transform="translate(28 118)">
+      <rect width="480" height="62" rx="10" fill="#08202b" stroke="#1f8da7"/>
+      <text x="22" y="38" fill="#f8fafc" font-family="Segoe UI, Noto Sans TC, Arial, sans-serif" font-size="18" font-weight="600">曲線圖 active remap 線</text>
+      <text x="278" y="38" fill="#67e8f9" font-family="Consolas, monospace" font-size="15">table sample</text>
+    </g>
+    <g transform="translate(28 196)">
+      <rect width="480" height="62" rx="10" fill="#08202b" stroke="#1f8da7"/>
+      <text x="22" y="38" fill="#f8fafc" font-family="Segoe UI, Noto Sans TC, Arial, sans-serif" font-size="18" font-weight="600">輸出預覽條紋</text>
+      <text x="278" y="38" fill="#67e8f9" font-family="Consolas, monospace" font-size="15">active stripes</text>
+    </g>
+    <g transform="translate(28 274)">
+      <rect width="480" height="62" rx="10" fill="#08202b" stroke="#1f8da7"/>
+      <text x="22" y="38" fill="#f8fafc" font-family="Segoe UI, Noto Sans TC, Arial, sans-serif" font-size="18" font-weight="600">CSDF 色彩線性圖與 CMY/RGB 漸層</text>
+      <text x="278" y="38" fill="#67e8f9" font-family="Consolas, monospace" font-size="15">color refs</text>
+    </g>
+    <g transform="translate(28 352)">
+      <rect width="480" height="62" rx="10" fill="#08202b" stroke="#1f8da7"/>
+      <text x="22" y="38" fill="#f8fafc" font-family="Segoe UI, Noto Sans TC, Arial, sans-serif" font-size="18" font-weight="600">實際 HTML video 的 managed filter chain</text>
+      <text x="278" y="38" fill="#67e8f9" font-family="Consolas, monospace" font-size="15">runtime path</text>
+    </g>
+  </g>
+
+  <g transform="translate(672 174)">
+    <rect width="536" height="494" rx="18" fill="#1a1d22" stroke="#94a3b8" stroke-width="2"/>
+    <text x="28" y="48" fill="#e2e8f0" font-family="Segoe UI, Noto Sans TC, Arial, sans-serif" font-size="24" font-weight="700">不受目前 table 影響 / 固定參考</text>
+    <text x="28" y="80" fill="#cbd5e1" font-family="Segoe UI, Noto Sans TC, Arial, sans-serif" font-size="15">用來保留穩定比較基準，避免所有檢查畫面一起移動</text>
+
+    <g transform="translate(28 136)">
+      <rect width="480" height="72" rx="10" fill="#111827" stroke="#64748b"/>
+      <text x="22" y="34" fill="#f8fafc" font-family="Segoe UI, Noto Sans TC, Arial, sans-serif" font-size="18" font-weight="600">亮度校正條紋</text>
+      <text x="22" y="58" fill="#cbd5e1" font-family="Segoe UI, Noto Sans TC, Arial, sans-serif" font-size="14">固定低對比 code-value pair，不跟著 GSDF/CSDF table 移動</text>
+    </g>
+    <g transform="translate(28 232)">
+      <rect width="480" height="72" rx="10" fill="#111827" stroke="#64748b"/>
+      <text x="22" y="34" fill="#f8fafc" font-family="Segoe UI, Noto Sans TC, Arial, sans-serif" font-size="18" font-weight="600">固定低對比碼值配對</text>
+      <text x="22" y="58" fill="#cbd5e1" font-family="Segoe UI, Noto Sans TC, Arial, sans-serif" font-size="14">用來判斷暗部與亮部是否仍能分辨</text>
+    </g>
+    <g transform="translate(28 328)">
+      <rect width="480" height="72" rx="10" fill="#111827" stroke="#64748b"/>
+      <text x="22" y="34" fill="#f8fafc" font-family="Segoe UI, Noto Sans TC, Arial, sans-serif" font-size="18" font-weight="600">顯示縮放與幾何參考邊界</text>
+      <text x="22" y="58" fill="#cbd5e1" font-family="Segoe UI, Noto Sans TC, Arial, sans-serif" font-size="14">協助辨識 OS scaling、browser zoom 或非原生輸出造成的偏差</text>
+    </g>
+  </g>
+
+  <g transform="translate(72 694)">
+    <circle cx="10" cy="0" r="7" fill="#67e8f9"/>
+    <text x="28" y="6" fill="#a7b7c4" font-family="Segoe UI, Noto Sans TC, Arial, sans-serif" font-size="15">左側變動代表設定真的進入目前視覺路徑；右側固定代表它是比較基準，不是失效。</text>
+  </g>
+</svg>
