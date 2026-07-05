@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" role="img" aria-labelledby="title desc">
+  <title id="title">GSDF and CSDF technical boundary</title>
+  <desc id="desc">A Traditional Chinese side-by-side diagram that separates DICOM GSDF standard, CSDF literature, and the LumaLift browser remap implementation.</desc>
+  <rect width="1280" height="720" fill="#071016"/>
+  <text x="64" y="72" fill="#f8fafc" font-family="Segoe UI, Noto Sans TC, Arial, sans-serif" font-size="32" font-weight="700">技術依據與本專案邊界</text>
+  <text x="64" y="108" fill="#b8c7d4" font-family="Segoe UI, Noto Sans TC, Arial, sans-serif" font-size="17">三個來源必須並列看：標準與論文提供方法背景，本擴充功能提供瀏覽器端觀看輔助。</text>
+
+  <g font-family="Segoe UI, Noto Sans TC, Arial, sans-serif">
+    <g transform="translate(64 158)">
+      <rect width="352" height="420" rx="18" fill="#101923" stroke="#64748b" stroke-width="2"/>
+      <text x="28" y="48" fill="#e2e8f0" font-size="24" font-weight="700">DICOM GSDF</text>
+      <text x="28" y="78" fill="#94a3b8" font-size="14">PS3.14 / grayscale display function</text>
+      <line x1="28" y1="108" x2="324" y2="108" stroke="#334155" stroke-width="2"/>
+      <text x="28" y="148" fill="#f8fafc" font-size="17" font-weight="700">提供</text>
+      <text x="28" y="178" fill="#cbd5e1" font-size="15">JND 與 luminance 的標準函數</text>
+      <text x="28" y="206" fill="#cbd5e1" font-size="15">顯示器量測與 conformance 方法</text>
+      <text x="28" y="260" fill="#f8fafc" font-size="17" font-weight="700">本專案借用</text>
+      <text x="28" y="290" fill="#cbd5e1" font-size="15">灰階感知導向的 tone table 思路</text>
+      <text x="28" y="344" fill="#f8fafc" font-size="17" font-weight="700">不等於</text>
+      <text x="28" y="374" fill="#cbd5e1" font-size="15">已完成實體顯示器 GSDF conformance</text>
+    </g>
+
+    <g transform="translate(464 158)">
+      <rect width="352" height="420" rx="18" fill="#10212b" stroke="#22d3ee" stroke-width="2"/>
+      <text x="28" y="48" fill="#e2e8f0" font-size="24" font-weight="700">CSDF 論文</text>
+      <text x="28" y="78" fill="#94a3b8" font-size="14">color extension of DICOM GSDF</text>
+      <line x1="28" y1="108" x2="324" y2="108" stroke="#155e75" stroke-width="2"/>
+      <text x="28" y="148" fill="#f8fafc" font-size="17" font-weight="700">提供</text>
+      <text x="28" y="178" fill="#cbd5e1" font-size="15">把感知線性化延伸到色彩的方向</text>
+      <text x="28" y="206" fill="#cbd5e1" font-size="15">需要色彩差異與顯示器特性資料</text>
+      <text x="28" y="260" fill="#f8fafc" font-size="17" font-weight="700">本專案借用</text>
+      <text x="28" y="290" fill="#cbd5e1" font-size="15">CSDF-inspired RGB / color remap</text>
+      <text x="28" y="344" fill="#f8fafc" font-size="17" font-weight="700">不等於</text>
+      <text x="28" y="374" fill="#cbd5e1" font-size="15">完整色度計、3D LUT 或 QA 流程</text>
+    </g>
+
+    <g transform="translate(864 158)">
+      <rect width="352" height="420" rx="18" fill="#151a24" stroke="#a78bfa" stroke-width="2"/>
+      <text x="28" y="48" fill="#e2e8f0" font-size="24" font-weight="700">LumaLift 實作</text>
+      <text x="28" y="78" fill="#94a3b8" font-size="14">browser SVG / CSS filter path</text>
+      <line x1="28" y1="108" x2="324" y2="108" stroke="#4c1d95" stroke-width="2"/>
+      <text x="28" y="148" fill="#f8fafc" font-size="17" font-weight="700">實際做</text>
+      <text x="28" y="178" fill="#cbd5e1" font-size="15">由設定建立 active transfer table</text>
+      <text x="28" y="206" fill="#cbd5e1" font-size="15">套到曲線、參考圖與影片濾鏡</text>
+      <text x="28" y="260" fill="#f8fafc" font-size="17" font-weight="700">使用者看到</text>
+      <text x="28" y="290" fill="#cbd5e1" font-size="15">active remap 線與受調整圖樣</text>
+      <text x="28" y="344" fill="#f8fafc" font-size="17" font-weight="700">仍需要</text>
+      <text x="28" y="374" fill="#cbd5e1" font-size="15">目視判讀、固定參考與外部量測</text>
+    </g>
+  </g>
+
+  <g stroke="#475569" stroke-width="2" fill="none" stroke-dasharray="6 8">
+    <path d="M416 368 C440 368 440 368 464 368"/>
+    <path d="M816 368 C840 368 840 368 864 368"/>
+  </g>
+
+  <text x="64" y="650" fill="#94a3b8" font-family="Segoe UI, Noto Sans TC, Arial, sans-serif" font-size="15">判讀原則：標準與論文支撐概念；本專案只負責在瀏覽器中產生可觀察的 remap 與參考圖，不取代顯示器量測。</text>
+</svg>

@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="820" viewBox="0 0 1280 820" role="img" aria-labelledby="title desc">
+  <title id="title">GSDF/CSDF comparison matrix</title>
+  <desc id="desc">A Traditional Chinese comparison matrix for GSDF versus CSDF, GSDF output sweep versus fixed contrast sweep, and black and white point checkbox off versus on.</desc>
+  <rect width="1280" height="820" fill="#080f14"/>
+  <text x="60" y="70" fill="#f8fafc" font-family="Segoe UI, Noto Sans TC, Arial, sans-serif" font-size="32" font-weight="700">並列比較：功能關聯一定要同畫面說清楚</text>
+  <text x="60" y="106" fill="#b8c7d4" font-family="Segoe UI, Noto Sans TC, Arial, sans-serif" font-size="17">這張圖對應 guide 中所有「兩者以上比較」的段落，避免只用抽象文字描述。</text>
+
+  <g transform="translate(60 146)">
+    <rect width="1160" height="178" rx="18" fill="#0f1720" stroke="#334155" stroke-width="2"/>
+    <text x="30" y="42" fill="#e2e8f0" font-family="Segoe UI, Noto Sans TC, Arial, sans-serif" font-size="22" font-weight="700">GSDF route vs CSDF route</text>
+    <rect x="34" y="68" width="520" height="78" rx="12" fill="#111827" stroke="#94a3b8"/>
+    <text x="58" y="100" fill="#f8fafc" font-family="Segoe UI, Noto Sans TC, Arial, sans-serif" font-size="18" font-weight="700">GSDF：灰階/亮度導向</text>
+    <text x="58" y="126" fill="#cbd5e1" font-family="Segoe UI, Noto Sans TC, Arial, sans-serif" font-size="14">RGB channel 或 YCbCr-style Y channel 套 table</text>
+    <rect x="606" y="68" width="520" height="78" rx="12" fill="#102936" stroke="#22d3ee"/>
+    <text x="630" y="100" fill="#f8fafc" font-family="Segoe UI, Noto Sans TC, Arial, sans-serif" font-size="18" font-weight="700">CSDF：目前預設色彩路徑</text>
+    <text x="630" y="126" fill="#cbd5e1" font-family="Segoe UI, Noto Sans TC, Arial, sans-serif" font-size="14">同一 active table 直接套到 R/G/B channel</text>
+  </g>
+
+  <g transform="translate(60 352)">
+    <rect width="1160" height="178" rx="18" fill="#0f1720" stroke="#334155" stroke-width="2"/>
+    <text x="30" y="42" fill="#e2e8f0" font-family="Segoe UI, Noto Sans TC, Arial, sans-serif" font-size="22" font-weight="700">GSDF 輸出掃描 vs 固定對比掃描</text>
+    <rect x="34" y="68" width="520" height="78" rx="12" fill="#102936" stroke="#22d3ee"/>
+    <text x="58" y="100" fill="#f8fafc" font-family="Segoe UI, Noto Sans TC, Arial, sans-serif" font-size="18" font-weight="700">GSDF 輸出掃描：會變動</text>
+    <text x="58" y="126" fill="#cbd5e1" font-family="Segoe UI, Noto Sans TC, Arial, sans-serif" font-size="14">GSDF-QC 圖中央偏左，跟著 active table 改變</text>
+    <rect x="606" y="68" width="520" height="78" rx="12" fill="#111827" stroke="#94a3b8"/>
+    <text x="630" y="100" fill="#f8fafc" font-family="Segoe UI, Noto Sans TC, Arial, sans-serif" font-size="18" font-weight="700">固定對比掃描：固定參考</text>
+    <text x="630" y="126" fill="#cbd5e1" font-family="Segoe UI, Noto Sans TC, Arial, sans-serif" font-size="14">GSDF 輸出掃描右側，用來保留比較基準</text>
+  </g>
+
+  <g transform="translate(60 558)">
+    <rect width="1160" height="178" rx="18" fill="#0f1720" stroke="#334155" stroke-width="2"/>
+    <text x="30" y="42" fill="#e2e8f0" font-family="Segoe UI, Noto Sans TC, Arial, sans-serif" font-size="22" font-weight="700">黑/白位 checkbox off vs on</text>
+    <rect x="34" y="68" width="520" height="78" rx="12" fill="#111827" stroke="#94a3b8"/>
+    <text x="58" y="100" fill="#f8fafc" font-family="Segoe UI, Noto Sans TC, Arial, sans-serif" font-size="18" font-weight="700">Off：只看 active table</text>
+    <text x="58" y="126" fill="#cbd5e1" font-family="Segoe UI, Noto Sans TC, Arial, sans-serif" font-size="14">曲線代表 GSDF/CSDF remap 本身</text>
+    <rect x="606" y="68" width="520" height="78" rx="12" fill="#102936" stroke="#22d3ee"/>
+    <text x="630" y="100" fill="#f8fafc" font-family="Segoe UI, Noto Sans TC, Arial, sans-serif" font-size="18" font-weight="700">On：納入 Black/White point levels</text>
+    <text x="630" y="126" fill="#cbd5e1" font-family="Segoe UI, Noto Sans TC, Arial, sans-serif" font-size="14">可觀察後級裁切或拉伸後的輸出結果</text>
+  </g>
+</svg>

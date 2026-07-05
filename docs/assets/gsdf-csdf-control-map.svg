@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="780" viewBox="0 0 1280 780" role="img" aria-labelledby="title desc">
+  <title id="title">LumaLift control map for GSDF and CSDF guide</title>
+  <desc id="desc">A Traditional Chinese schematic of the extension panel. It labels the route selector, Lmax slider, gamma compensation, filter amount, output preview curve, fixed contrast sweep, side reference panel, and Dither Beta controls.</desc>
+  <rect width="1280" height="780" fill="#070d12"/>
+  <text x="60" y="72" fill="#f8fafc" font-family="Segoe UI, Noto Sans TC, Arial, sans-serif" font-size="32" font-weight="700">擴充功能控制面板位置對照</text>
+  <text x="60" y="106" fill="#b8c7d4" font-family="Segoe UI, Noto Sans TC, Arial, sans-serif" font-size="17">此圖不是實際截圖；它用固定位置說明 guide 第一次提到控制項時要標出的區域與樣式。</text>
+
+  <g transform="translate(74 144)">
+    <rect width="420" height="572" rx="18" fill="#111820" stroke="#334155" stroke-width="2"/>
+    <text x="28" y="48" fill="#e2e8f0" font-family="Segoe UI, Noto Sans TC, Arial, sans-serif" font-size="24" font-weight="700">左側控制欄</text>
+
+    <rect x="28" y="76" width="364" height="50" rx="10" fill="#0b1218" stroke="#475569"/>
+    <text x="48" y="107" fill="#f8fafc" font-family="Segoe UI, Noto Sans TC, Arial, sans-serif" font-size="17" font-weight="700">Enable / 狀態列</text>
+    <text x="258" y="107" fill="#86efac" font-family="Consolas, monospace" font-size="14">ACTIVE</text>
+
+    <rect x="28" y="146" width="364" height="46" rx="8" fill="#101923" stroke="#25637a"/>
+    <text x="48" y="175" fill="#f8fafc" font-family="Segoe UI, Noto Sans TC, Arial, sans-serif" font-size="16">GSDF / CSDF route pill set</text>
+    <text x="286" y="175" fill="#67e8f9" font-family="Consolas, monospace" font-size="14">CSDF</text>
+
+    <rect x="28" y="212" width="364" height="72" rx="8" fill="#101923" stroke="#334155"/>
+    <text x="48" y="240" fill="#f8fafc" font-family="Segoe UI, Noto Sans TC, Arial, sans-serif" font-size="16">Lmax 目標亮度 slider</text>
+    <line x1="48" y1="264" x2="340" y2="264" stroke="#64748b" stroke-width="5"/>
+    <circle cx="180" cy="264" r="10" fill="#22d3ee"/>
+
+    <rect x="28" y="304" width="364" height="72" rx="8" fill="#101923" stroke="#334155"/>
+    <text x="48" y="332" fill="#f8fafc" font-family="Segoe UI, Noto Sans TC, Arial, sans-serif" font-size="16">Gamma compensation slider</text>
+    <line x1="48" y1="356" x2="340" y2="356" stroke="#64748b" stroke-width="5"/>
+    <circle cx="238" cy="356" r="10" fill="#facc15"/>
+
+    <rect x="28" y="396" width="364" height="72" rx="8" fill="#101923" stroke="#334155"/>
+    <text x="48" y="424" fill="#f8fafc" font-family="Segoe UI, Noto Sans TC, Arial, sans-serif" font-size="16">Filter amount slider</text>
+    <line x1="48" y1="448" x2="340" y2="448" stroke="#64748b" stroke-width="5"/>
+    <circle cx="314" cy="448" r="10" fill="#38bdf8"/>
+
+    <rect x="28" y="488" width="170" height="56" rx="8" fill="#071015" stroke="#22d3ee"/>
+    <text x="44" y="520" fill="#f8fafc" font-family="Segoe UI, Noto Sans TC, Arial, sans-serif" font-size="15">輸出預覽曲線</text>
+    <rect x="214" y="488" width="178" height="56" rx="8" fill="#101216" stroke="#94a3b8"/>
+    <text x="230" y="520" fill="#f8fafc" font-family="Segoe UI, Noto Sans TC, Arial, sans-serif" font-size="15">固定對比掃描</text>
+  </g>
+
+  <g transform="translate(552 144)">
+    <rect width="654" height="572" rx="18" fill="#0d151d" stroke="#334155" stroke-width="2"/>
+    <text x="30" y="48" fill="#e2e8f0" font-family="Segoe UI, Noto Sans TC, Arial, sans-serif" font-size="24" font-weight="700">右側參考/圖表區</text>
+
+    <rect x="32" y="78" width="590" height="202" rx="12" fill="#081119" stroke="#25637a"/>
+    <text x="56" y="112" fill="#f8fafc" font-family="Segoe UI, Noto Sans TC, Arial, sans-serif" font-size="18" font-weight="700">曲線圖或 GSDF-QC 圖樣</text>
+    <path d="M80 242 C150 202 220 174 320 154 C420 134 508 124 594 110" fill="none" stroke="#22d3ee" stroke-width="5"/>
+    <path d="M80 244 L594 118" fill="none" stroke="#64748b" stroke-width="3"/>
+    <text x="406" y="250" fill="#b8c7d4" font-family="Segoe UI, Noto Sans TC, Arial, sans-serif" font-size="14">active remap vs Standard sRGB</text>
+
+    <rect x="32" y="306" width="280" height="128" rx="12" fill="#101923" stroke="#22d3ee"/>
+    <text x="56" y="342" fill="#f8fafc" font-family="Segoe UI, Noto Sans TC, Arial, sans-serif" font-size="18" font-weight="700">CSDF 視覺線性圖樣</text>
+    <text x="56" y="374" fill="#cbd5e1" font-family="Segoe UI, Noto Sans TC, Arial, sans-serif" font-size="14">彩色 ramp、正弦調變、低對比標記</text>
+
+    <rect x="342" y="306" width="280" height="128" rx="12" fill="#101923" stroke="#22d3ee"/>
+    <text x="366" y="342" fill="#f8fafc" font-family="Segoe UI, Noto Sans TC, Arial, sans-serif" font-size="18" font-weight="700">CMY/RGB 連續漸層</text>
+    <text x="366" y="374" fill="#cbd5e1" font-family="Segoe UI, Noto Sans TC, Arial, sans-serif" font-size="14">Dither Beta 啟用時會在這裡可見</text>
+
+    <rect x="32" y="462" width="590" height="72" rx="12" fill="#111827" stroke="#475569"/>
+    <text x="56" y="492" fill="#f8fafc" font-family="Segoe UI, Noto Sans TC, Arial, sans-serif" font-size="18" font-weight="700">Dither Beta controls</text>
+    <text x="246" y="492" fill="#cbd5e1" font-family="Segoe UI, Noto Sans TC, Arial, sans-serif" font-size="15">開關、強度、Use color、Use noise</text>
+  </g>
+</svg>

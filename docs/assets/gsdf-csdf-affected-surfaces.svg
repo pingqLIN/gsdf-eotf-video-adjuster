@@ -18,8 +18,8 @@
     </g>
     <g transform="translate(28 196)">
       <rect width="480" height="62" rx="10" fill="#08202b" stroke="#1f8da7"/>
-      <text x="22" y="38" fill="#f8fafc" font-family="Segoe UI, Noto Sans TC, Arial, sans-serif" font-size="18" font-weight="600">輸出預覽條紋</text>
-      <text x="278" y="38" fill="#67e8f9" font-family="Consolas, monospace" font-size="15">active stripes</text>
+      <text x="22" y="38" fill="#f8fafc" font-family="Segoe UI, Noto Sans TC, Arial, sans-serif" font-size="18" font-weight="600">GSDF-QC 的 GSDF 輸出掃描</text>
+      <text x="278" y="38" fill="#67e8f9" font-family="Consolas, monospace" font-size="15">active scan</text>
     </g>
     <g transform="translate(28 274)">
       <rect width="480" height="62" rx="10" fill="#08202b" stroke="#1f8da7"/>
@@ -40,8 +40,8 @@
 
     <g transform="translate(28 136)">
       <rect width="480" height="72" rx="10" fill="#111827" stroke="#64748b"/>
-      <text x="22" y="34" fill="#f8fafc" font-family="Segoe UI, Noto Sans TC, Arial, sans-serif" font-size="18" font-weight="600">亮度校正條紋</text>
-      <text x="22" y="58" fill="#cbd5e1" font-family="Segoe UI, Noto Sans TC, Arial, sans-serif" font-size="14">固定低對比 code-value pair，不跟著 GSDF/CSDF table 移動</text>
+      <text x="22" y="34" fill="#f8fafc" font-family="Segoe UI, Noto Sans TC, Arial, sans-serif" font-size="18" font-weight="600">固定對比掃描</text>
+      <text x="22" y="58" fill="#cbd5e1" font-family="Segoe UI, Noto Sans TC, Arial, sans-serif" font-size="14">位於 GSDF 輸出掃描右側，不跟著 active table 移動</text>
     </g>
     <g transform="translate(28 232)">
       <rect width="480" height="72" rx="10" fill="#111827" stroke="#64748b"/>
