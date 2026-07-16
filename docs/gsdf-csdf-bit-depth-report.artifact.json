@@ -1,0 +1,2905 @@
+{
+  "surface": "report",
+  "manifest": {
+    "version": 1,
+    "surface": "report",
+    "title": "Adobe RGB GSDF/CSDF Bit-Depth and Gamma-Starting-Point Analysis",
+    "description": "Compares GSDF, CSDF, 8-bit, 10-bit, and Gamma compensation = 0 in the project current Adobe RGB model.",
+    "generatedAt": "2026-07-16T14:10:17Z",
+    "cards": [],
+    "charts": [
+      {
+        "id": "mapping_curve",
+        "title": "Output code mapping by input code",
+        "subtitle": "Adobe RGB, 0.1–100 nit, compensation 0; ideal floating-point values",
+        "type": "line",
+        "intent": "trend",
+        "dataset": "mapping_neutral",
+        "sourceId": "mapping_neutral_sql",
+        "encodings": {
+          "x": {
+            "field": "inputCode",
+            "type": "quantitative",
+            "label": "8-bit input code"
+          },
+          "y": {
+            "field": "outputCode",
+            "type": "quantitative",
+            "label": "Output code (normalized to 0–255)"
+          },
+          "color": {
+            "field": "series",
+            "type": "nominal",
+            "label": "Curve"
+          },
+          "lineStyle": {
+            "field": "series",
+            "type": "nominal",
+            "label": "Curve"
+          },
+          "tooltip": [
+            {
+              "field": "physicalNits",
+              "type": "quantitative",
+              "label": "Physical luminance (nit)"
+            },
+            {
+              "field": "jndIndex",
+              "type": "quantitative",
+              "label": "JND index"
+            }
+          ]
+        },
+        "comparisonContext": {
+          "grain": "256 input codes",
+          "unit": "normalized device code"
+        },
+        "palette": {
+          "kind": "categorical",
+          "name": "blue-orange-neutral"
+        },
+        "legend": {
+          "position": "bottom",
+          "sort": "spec"
+        },
+        "settings": {
+          "showPoints": "never",
+          "sort": "none"
+        },
+        "layout": "full"
+      },
+      {
+        "id": "jnd_curve",
+        "title": "Adjacent JND steps for GSDF",
+        "subtitle": "16-code-band averages for baseline, ideal float, hard 8-bit, and hard 10-bit",
+        "type": "line",
+        "intent": "trend",
+        "dataset": "jnd_gsdf",
+        "sourceId": "jnd_gsdf_sql",
+        "encodings": {
+          "x": {
+            "field": "inputTransition",
+            "type": "quantitative",
+            "label": "Input-step endpoint"
+          },
+          "y": {
+            "field": "jndStep",
+            "type": "quantitative",
+            "label": "JNDs per adjacent input step"
+          },
+          "color": {
+            "field": "series",
+            "type": "nominal",
+            "label": "Representation"
+          },
+          "lineStyle": {
+            "field": "series",
+            "type": "nominal",
+            "label": "Representation"
+          },
+          "tooltip": [
+            {
+              "field": "inputBand",
+              "type": "text",
+              "label": "Interval band"
+            },
+            {
+              "field": "bandJndMin",
+              "type": "quantitative",
+              "label": "Band JND min"
+            },
+            {
+              "field": "bandJndMax",
+              "type": "quantitative",
+              "label": "Band JND max"
+            },
+            {
+              "field": "zeroIntervals",
+              "type": "quantitative",
+              "label": "Zero intervals"
+            }
+          ]
+        },
+        "referenceLines": [
+          {
+            "axis": "y",
+            "value": 1,
+            "label": "1 JND",
+            "color": "neutral",
+            "lineStyle": "dashed"
+          }
+        ],
+        "palette": {
+          "kind": "categorical",
+          "name": "blue-orange-neutral"
+        },
+        "legend": {
+          "position": "bottom",
+          "sort": "spec"
+        },
+        "settings": {
+          "showPoints": "never",
+          "sort": "none"
+        },
+        "layout": "full"
+      },
+      {
+        "id": "unique_levels_chart",
+        "title": "Unique output levels after quantization",
+        "subtitle": "Every case uses all 256 input levels; axis starts at zero",
+        "type": "horizontalBar",
+        "intent": "comparison",
+        "dataset": "quantization_summary",
+        "sourceId": "quantization_summary_sql",
+        "encodings": {
+          "x": {
+            "field": "caseLabel",
+            "type": "nominal",
+            "label": "Case"
+          },
+          "y": {
+            "field": "uniqueLevels",
+            "type": "quantitative",
+            "label": "Unique output levels"
+          },
+          "tooltip": [
+            {
+              "field": "duplicateTransitions",
+              "type": "quantitative",
+              "label": "Merged steps"
+            },
+            {
+              "field": "jndSd",
+              "type": "quantitative",
+              "label": "JND-step standard deviation"
+            }
+          ]
+        },
+        "palette": {
+          "kind": "sequential",
+          "name": "blue"
+        },
+        "labels": {
+          "values": "none"
+        },
+        "settings": {
+          "sort": "descending",
+          "showValues": false,
+          "categoryLabelPolicy": "wrap"
+        },
+        "layout": "full"
+      },
+      {
+        "id": "jnd_sd_chart",
+        "title": "JND-step standard deviation after quantization",
+        "subtitle": "Lower is more perceptually uniform; axis starts at zero",
+        "type": "horizontalBar",
+        "intent": "comparison",
+        "dataset": "quantization_summary",
+        "sourceId": "quantization_summary_sql",
+        "encodings": {
+          "x": {
+            "field": "caseLabel",
+            "type": "nominal",
+            "label": "Case"
+          },
+          "y": {
+            "field": "jndSd",
+            "type": "quantitative",
+            "label": "JND-step standard deviation"
+          },
+          "tooltip": [
+            {
+              "field": "jndMean",
+              "type": "quantitative",
+              "label": "Mean JND step"
+            },
+            {
+              "field": "rmsJndTargetError",
+              "type": "quantitative",
+              "label": "Target JND RMSE"
+            }
+          ]
+        },
+        "palette": {
+          "kind": "sequential",
+          "name": "orange"
+        },
+        "labels": {
+          "values": "none"
+        },
+        "settings": {
+          "sort": "ascending",
+          "showValues": false,
+          "categoryLabelPolicy": "wrap"
+        },
+        "layout": "full"
+      },
+      {
+        "id": "plateau_chart",
+        "title": "8-bit plateau distribution by input-code band",
+        "subtitle": "Compensation 0; each bar counts merged adjacent inputs in the band",
+        "type": "bar",
+        "intent": "comparison",
+        "dataset": "plateau_bands",
+        "sourceId": "plateau_bands_sql",
+        "encodings": {
+          "x": {
+            "field": "band",
+            "type": "ordinal",
+            "label": "Input-code band"
+          },
+          "y": {
+            "field": "plateauCount",
+            "type": "quantitative",
+            "label": "Merged adjacent steps"
+          },
+          "color": {
+            "field": "formula",
+            "type": "nominal",
+            "label": "Formula"
+          },
+          "tooltip": [
+            {
+              "field": "distinctOutputLevels",
+              "type": "quantitative",
+              "label": "Unique output levels"
+            },
+            {
+              "field": "inputLevels",
+              "type": "quantitative",
+              "label": "Input levels"
+            }
+          ]
+        },
+        "palette": {
+          "kind": "categorical",
+          "name": "blue-orange"
+        },
+        "legend": {
+          "position": "bottom",
+          "sort": "spec"
+        },
+        "labels": {
+          "values": "none"
+        },
+        "settings": {
+          "groupMode": "grouped",
+          "sort": "none",
+          "showValues": false
+        },
+        "layout": "full"
+      },
+      {
+        "id": "gamma_sensitivity_chart",
+        "title": "Output-code sensitivity to gamma target",
+        "subtitle": "Compensation 0 (gammaTarget 2.2) versus forced gammaTarget 1.0",
+        "type": "line",
+        "intent": "trend",
+        "dataset": "gamma_sensitivity",
+        "sourceId": "gamma_sensitivity_sql",
+        "encodings": {
+          "x": {
+            "field": "inputCode",
+            "type": "quantitative",
+            "label": "8-bit input code"
+          },
+          "y": {
+            "field": "outputCode",
+            "type": "quantitative",
+            "label": "Output code (normalized to 0–255)"
+          },
+          "color": {
+            "field": "series",
+            "type": "nominal",
+            "label": "Case"
+          },
+          "lineStyle": {
+            "field": "series",
+            "type": "nominal",
+            "label": "Case"
+          },
+          "tooltip": [
+            {
+              "field": "physicalNits",
+              "type": "quantitative",
+              "label": "Physical luminance (nit)"
+            }
+          ]
+        },
+        "palette": {
+          "kind": "categorical",
+          "name": "blue-orange-neutral"
+        },
+        "legend": {
+          "position": "bottom",
+          "sort": "spec"
+        },
+        "settings": {
+          "showPoints": "never",
+          "sort": "none"
+        },
+        "layout": "full"
+      }
+    ],
+    "tables": [
+      {
+        "id": "summary_table",
+        "title": "Formula, Gamma, and bit-depth statistics",
+        "subtitle": "All 12 transfer cases; 255 adjacent intervals",
+        "dataset": "summary_metrics",
+        "sourceId": "summary_metrics_sql",
+        "defaultSort": {
+          "field": "caseLabel",
+          "direction": "asc"
+        },
+        "density": "dense",
+        "layout": "full",
+        "columns": [
+          {
+            "field": "caseLabel",
+            "label": "Case",
+            "type": "text",
+            "sizing": "content"
+          },
+          {
+            "field": "uniqueLevels",
+            "label": "Unique output levels",
+            "format": "number"
+          },
+          {
+            "field": "duplicateTransitions",
+            "label": "Merged adjacent steps",
+            "format": "number"
+          },
+          {
+            "field": "visibleTransitions",
+            "label": "Intervals ≥1 JND",
+            "format": "number"
+          },
+          {
+            "field": "meanNits",
+            "label": "Mean nit",
+            "format": "number"
+          },
+          {
+            "field": "midNits",
+            "label": "Input 128 nit",
+            "format": "number"
+          }
+        ]
+      },
+      {
+        "id": "jnd_detail_table",
+        "title": "JND-step distribution and target error",
+        "subtitle": "All 12 transfer cases; adjacent intervals in JND units",
+        "dataset": "summary_metrics",
+        "sourceId": "summary_metrics_sql",
+        "defaultSort": {
+          "field": "caseLabel",
+          "direction": "asc"
+        },
+        "density": "dense",
+        "layout": "full",
+        "columns": [
+          {
+            "field": "caseLabel",
+            "label": "Case",
+            "type": "text",
+            "sizing": "content"
+          },
+          {
+            "field": "jndSd",
+            "label": "JND-step standard deviation",
+            "format": "number"
+          },
+          {
+            "field": "jndCv",
+            "label": "JND CV",
+            "format": "number"
+          },
+          {
+            "field": "jndMin",
+            "label": "JND min",
+            "format": "number"
+          },
+          {
+            "field": "jndMax",
+            "label": "JND max",
+            "format": "number"
+          },
+          {
+            "field": "rmsJndTargetError",
+            "label": "Target JND RMSE",
+            "format": "number"
+          }
+        ]
+      },
+      {
+        "id": "brightness_table",
+        "title": "Physical luminance at representative input codes",
+        "subtitle": "Adobe RGB, compensation 0, default IPS 1000:1; values in nit",
+        "dataset": "brightness_samples",
+        "sourceId": "brightness_samples_sql",
+        "defaultSort": {
+          "field": "inputCode",
+          "direction": "asc"
+        },
+        "density": "spacious",
+        "layout": "full",
+        "columns": [
+          {
+            "field": "inputCode",
+            "label": "8-bit input code",
+            "format": "number"
+          },
+          {
+            "field": "baselineNits",
+            "label": "Baseline nit",
+            "format": "number"
+          },
+          {
+            "field": "gsdfIdealNits",
+            "label": "GSDF ideal nit",
+            "format": "number"
+          },
+          {
+            "field": "gsdf8Nits",
+            "label": "GSDF 8-bit nit",
+            "format": "number"
+          },
+          {
+            "field": "gsdf10Nits",
+            "label": "GSDF 10-bit nit",
+            "format": "number"
+          },
+          {
+            "field": "csdfIdealNits",
+            "label": "CSDF ideal nit",
+            "format": "number"
+          },
+          {
+            "field": "csdf8Nits",
+            "label": "CSDF 8-bit nit",
+            "format": "number"
+          },
+          {
+            "field": "csdf10Nits",
+            "label": "CSDF 10-bit nit",
+            "format": "number"
+          }
+        ]
+      }
+    ],
+    "sources": [
+      {
+        "id": "summary_metrics_sql",
+        "label": "Bit-depth analysis dataset: summary_metrics",
+        "path": "scripts/analyzeGsdfCsdfBitDepth.mjs"
+      },
+      {
+        "id": "mapping_neutral_sql",
+        "label": "Bit-depth analysis dataset: mapping_neutral",
+        "path": "scripts/analyzeGsdfCsdfBitDepth.mjs"
+      },
+      {
+        "id": "jnd_gsdf_sql",
+        "label": "Bit-depth analysis dataset: jnd_gsdf",
+        "path": "scripts/analyzeGsdfCsdfBitDepth.mjs"
+      },
+      {
+        "id": "gamma_sensitivity_sql",
+        "label": "Bit-depth analysis dataset: gamma_sensitivity",
+        "path": "scripts/analyzeGsdfCsdfBitDepth.mjs"
+      },
+      {
+        "id": "quantization_summary_sql",
+        "label": "Bit-depth analysis dataset: quantization_summary",
+        "path": "scripts/analyzeGsdfCsdfBitDepth.mjs"
+      },
+      {
+        "id": "plateau_bands_sql",
+        "label": "Bit-depth analysis dataset: plateau_bands",
+        "path": "scripts/analyzeGsdfCsdfBitDepth.mjs"
+      },
+      {
+        "id": "brightness_samples_sql",
+        "label": "Bit-depth analysis dataset: brightness_samples",
+        "path": "scripts/analyzeGsdfCsdfBitDepth.mjs"
+      },
+      {
+        "id": "headline_metrics_sql",
+        "label": "Bit-depth analysis dataset: headline_metrics",
+        "path": "scripts/analyzeGsdfCsdfBitDepth.mjs"
+      }
+    ],
+    "blocks": [
+      {
+        "id": "title",
+        "type": "markdown",
+        "body": "# Adobe RGB GSDF/CSDF Bit-Depth and Gamma-Starting-Point Analysis"
+      },
+      {
+        "id": "technical_summary",
+        "type": "markdown",
+        "body": "## Technical summary\n\n- **Ideal floating-point GSDF is perceptually uniform in the model.** Across 0.1–100 nit, the 255 input intervals average 1.8284 JND with only 0.0113 standard deviation.\n- **Hard 8-bit output weakens that result.** GSDF retains 225 unique output levels and merges 31 adjacent inputs; CSDF retains 227 levels and merges 29.\n- **10-bit preserves all 256 input levels.** GSDF and CSDF retain 256/256 unique levels with no plateaus; GSDF JND-step standard deviation falls to 0.2036.\n- **Gamma compensation = 0 does not create a separate linear-light curve.** It keeps gammaTarget and displayGamma at 2.2, so the P-value/code axis is identity with a maximum remap difference of 0.00000000. Forcing gammaTarget = 1.0 moves mid-gray from 13.48 to 36.87 nit for GSDF and from 16.00 to 39.98 nit for CSDF, but that is the UI +100 extreme rather than neutral compensation."
+      },
+      {
+        "id": "mapping_intro",
+        "type": "markdown",
+        "body": "## GSDF and CSDF redistribute luminance rather than adding 8-bit levels\n\nThe chart compares the ideal output code for the baseline, GSDF, and CSDF. GSDF compresses deep shadows through mid-tones into lower output codes and expands the highlights. CSDF adds the project-specific shadow bias and toe, so it is brighter than GSDF in the dark range. Adobe RGB does not change this neutral-gray remap; it changes color luma weights and the ICC source TRC."
+      },
+      {
+        "id": "mapping_chart",
+        "type": "chart",
+        "chartId": "mapping_curve",
+        "layout": "full"
+      },
+      {
+        "id": "jnd_intro",
+        "type": "markdown",
+        "body": "## 8-bit plateaus break the equal-JND target; 10-bit largely restores it\n\nIdeal GSDF is almost horizontal. Hard 8-bit introduces 31 zero-JND intervals and code-skip spikes. At 10-bit, no adjacent inputs merge and the distribution moves much closer to the ideal curve."
+      },
+      {
+        "id": "jnd_chart",
+        "type": "chart",
+        "chartId": "jnd_curve",
+        "layout": "full"
+      },
+      {
+        "id": "quant_intro",
+        "type": "markdown",
+        "body": "## 10-bit eliminates adjacent-input merging\n\nFor 256 input levels, 10-bit device code space is sufficient for every GSDF, CSDF, and Gamma scenario to retain 256 unique outputs. A nonlinear monotonic 8-bit remap cannot preserve all 256 unique integer outputs unless it collapses to identity."
+      },
+      {
+        "id": "unique_levels_chart_block",
+        "type": "chart",
+        "chartId": "unique_levels_chart",
+        "layout": "full"
+      },
+      {
+        "id": "jnd_sd_intro",
+        "type": "markdown",
+        "body": "## GSDF is most perceptually uniform at higher precision\n\nLower JND-step standard deviation means more uniform perceptual spacing. Ideal GSDF is 0.0113, hard 8-bit rises to 0.8263, and 10-bit returns to 0.2036. Ideal CSDF is 0.3100 because its deliberate shadow bias makes it a contrast-aware project variant rather than a strict equal-JND curve."
+      },
+      {
+        "id": "jnd_sd_chart_block",
+        "type": "chart",
+        "chartId": "jnd_sd_chart",
+        "layout": "full"
+      },
+      {
+        "id": "plateau_intro",
+        "type": "markdown",
+        "body": "## 8-bit merging is concentrated in shadows and dark mid-tones\n\nThe 31 GSDF plateaus are almost entirely below input code 128. Above 192, no adjacent inputs merge; highlights instead skip device codes to gain local contrast."
+      },
+      {
+        "id": "plateau_chart_block",
+        "type": "chart",
+        "chartId": "plateau_chart",
+        "layout": "full"
+      },
+      {
+        "id": "gamma_intro",
+        "type": "markdown",
+        "body": "## Compensation 0 is code/P-value identity, not a linear-light declaration\n\nThe current implementation warps the input code by gammaTarget/displayGamma before GSDF or CSDF. At compensation 0 the ratio is 1, so this report neutral curve is identical to the previous calculation. The forced gammaTarget = 1.0 sensitivity curve becomes much brighter, but it changes the pre-transfer code warp; sourceIsLinear is not an independent active source mode today."
+      },
+      {
+        "id": "gamma_chart_block",
+        "type": "chart",
+        "chartId": "gamma_sensitivity_chart",
+        "layout": "full"
+      },
+      {
+        "id": "exact_stats_intro",
+        "type": "markdown",
+        "body": "## Complete statistics preserve formula, Gamma mode, and bit-depth cuts\n\nThe table reports unique levels, plateaus, visible transitions, JND distribution, target error, and luminance for every requested scenario. Ideal rows evaluate the formula; 8/10-bit rows evaluate output quantization."
+      },
+      {
+        "id": "summary_table_block",
+        "type": "table",
+        "tableId": "summary_table",
+        "layout": "full"
+      },
+      {
+        "id": "jnd_detail_intro",
+        "type": "markdown",
+        "body": "## JND distribution exposes quantization error beyond the mean\n\nEqual mean JND does not imply equal uniformity. Standard deviation, coefficient of variation, minimum/maximum interval, and target RMSE distinguish ideal curves from plateaus and code-skip spikes."
+      },
+      {
+        "id": "jnd_detail_table_block",
+        "type": "table",
+        "tableId": "jnd_detail_table",
+        "layout": "full"
+      },
+      {
+        "id": "brightness_intro",
+        "type": "markdown",
+        "body": "## Representative codes show the physical-nit impact in shadows, gray, and highlights\n\nExact values complement the curve shapes. The 8-bit and 10-bit columns first quantize device codes, then decode them through the default 2.2 display gamma into the 0.1–100 nit range."
+      },
+      {
+        "id": "brightness_table_block",
+        "type": "table",
+        "tableId": "brightness_table",
+        "layout": "full"
+      },
+      {
+        "id": "scope",
+        "type": "markdown",
+        "body": "## Scope, data, and metric definitions\n\n- **Display model:** Adobe RGB, IPS 1000:1, Lmax 100 nit, effective black 0.1 nit, display gamma 2.2, Black/White 0/256, strength 100%.\n- **Population:** the complete 8-bit grayscale code range 0–255, comprising 256 samples and 255 adjacent intervals.\n- **GSDF:** current DICOM GSDF inverse interpolation over JND index.\n- **CSDF:** the project contrast-aware GSDF variant, not a DICOM-standardized color function.\n- **Visible interval:** modeled adjacent output ΔJND ≥ 1; this is a standard-observer model, not a measured individual result.\n- **Hard bit depth:** nearest-code rounding to 255 or 1023 followed by display-gamma decoding to physical luminance."
+      },
+      {
+        "id": "methodology",
+        "type": "markdown",
+        "body": "## Method and reproducibility\n\nThe analysis script bundles and calls the current [buildToneCurveSnapshot.ts](../src/color/buildToneCurveSnapshot.ts) and [perceptualLuminance.ts](../src/color/perceptualLuminance.ts); it does not duplicate a separate GSDF/CSDF implementation. Every scenario uses the same 256 input codes, obtains the ideal target EOTF and code remap, applies nearest-code 8/10-bit quantization, and then calculates adjacent intervals with the DICOM JND inverse.\n\nDICOM defines one JND as the luminance difference that an average observer can just perceive under specified conditions, and PS3.14 notes that discrete output levels limit contrast resolution. [DICOM PS3.14 definitions](https://dicom.nema.org/medical/dicom/current/output/chtml/part14/chapter_3.html) · [DICOM PS3.14 methodology](https://dicom.nema.org/medical/dicom/current/output/chtml/part14/sect_c.2.html)\n\nGenerated at: 2026-07-16T14:10:17Z"
+      },
+      {
+        "id": "limitations",
+        "type": "markdown",
+        "body": "## Limitations, uncertainty, and robustness checks\n\n- **VERIFIED:** current TypeScript model, extension mirror, Adobe RGB neutral-remap invariance, and nearest-code 8/10-bit statistics.\n- **INFERRED:** ΔJND ≥ 1 is treated as visible to the average observer; actual perception depends on viewing distance, ambient light, texture, and adaptation.\n- **UNKNOWN:** whether the browser compositor, GPU output, and panel add temporal/spatial dithering or FRC. If they do, real behavior lies between hard quantization and ideal float.\n- DICOM GSDF does not normatively define color-image rendition; Adobe RGB color behavior is a project extension.\n- Forced gammaTarget = 1.0 is a sensitivity proxy, not a replacement for source transfer metadata or a sourceIsLinear model branch.\n- The report baseline uses the extension neutral bypass as an exact identity. Calling the five-decimal strength = 0 snapshot round-trip directly produces up to 0.00142 code error; that is serialization precision, not a pre-transfer difference caused by Gamma compensation = 0."
+      },
+      {
+        "id": "recommendations",
+        "type": "markdown",
+        "body": "## Recommended implementation and validation order\n\n1. **Prefer a 10-bit or higher-precision output path.** It preserves all 256 input levels and materially lowers JND-step error in this model.\n2. **Retain Dither Beta for 8-bit, but do not describe it as restoring physical bit depth.** Noise can mask banding but cannot guarantee reconstruction of merged monotonic levels.\n3. **Label Gamma compensation = 0 as code/P-value neutral.** If linear-light sources are required, add an explicit source-transfer mode rather than treating gammaTarget = 1.0 as equivalent.\n4. **Validate with a photometer and grayscale ramps.** Measure actual DDL→nit and JND intervals across at least 0–31, 32–127, 128–191, and 192–255 before deciding whether 8-bit should enable dithering by default."
+      },
+      {
+        "id": "further_questions",
+        "type": "markdown",
+        "body": "## Further questions\n\n- Is the real Adobe RGB display path native 10-bit, 8-bit + FRC, or hard 8-bit?\n- Does Chromium or OS color management quantize or dither after the SVG filter?\n- Should Dither Beta remain fixed code noise or become LUT-quantization-aware blue-noise/temporal dithering?\n- Should color content use Adobe RGB luma JND, per-channel CSDF, or a controlled color-appearance model?"
+      }
+    ]
+  },
+  "snapshot": {
+    "version": 1,
+    "generatedAt": "2026-07-16T14:10:17Z",
+    "status": "ready",
+    "datasets": {
+      "summary_metrics": [
+        {
+          "caseLabel": "CSDF · Neutral · 10-bit",
+          "formula": "CSDF",
+          "formulaId": "CSDF",
+          "gammaMode": "Compensation 0 (P-value identity)",
+          "gammaModeId": "neutral",
+          "representation": "10-bit",
+          "representationId": "10-bit",
+          "uniqueLevels": 256,
+          "duplicateTransitions": 0,
+          "visibleTransitions": 255,
+          "subJndTransitions": 0,
+          "jndMean": 1.8284,
+          "jndSd": 0.3582,
+          "jndCv": 0.1959,
+          "jndMin": 1.2296,
+          "jndMax": 4.0868,
+          "rmsJndTargetError": 0.138,
+          "meanNits": 26.6739,
+          "midNits": 16.0251
+        },
+        {
+          "caseLabel": "CSDF · Neutral · 8-bit",
+          "formula": "CSDF",
+          "formulaId": "CSDF",
+          "gammaMode": "Compensation 0 (P-value identity)",
+          "gammaModeId": "neutral",
+          "representation": "8-bit",
+          "representationId": "8-bit",
+          "uniqueLevels": 227,
+          "duplicateTransitions": 29,
+          "visibleTransitions": 226,
+          "subJndTransitions": 29,
+          "jndMean": 1.8284,
+          "jndSd": 0.8582,
+          "jndCv": 0.4694,
+          "jndMin": 0,
+          "jndMax": 4.7661,
+          "rmsJndTargetError": 0.6017,
+          "meanNits": 26.6817,
+          "midNits": 16.1283
+        },
+        {
+          "caseLabel": "CSDF · Neutral · Ideal float",
+          "formula": "CSDF",
+          "formulaId": "CSDF",
+          "gammaMode": "Compensation 0 (P-value identity)",
+          "gammaModeId": "neutral",
+          "representation": "Ideal float",
+          "representationId": "ideal",
+          "uniqueLevels": 256,
+          "duplicateTransitions": 0,
+          "visibleTransitions": 255,
+          "subJndTransitions": 0,
+          "jndMean": 1.8284,
+          "jndSd": 0.31,
+          "jndCv": 0.1695,
+          "jndMin": 1.6849,
+          "jndMax": 4.0291,
+          "rmsJndTargetError": 0,
+          "meanNits": 26.6739,
+          "midNits": 15.9991
+        },
+        {
+          "caseLabel": "CSDF · γ1 proxy · 10-bit",
+          "formula": "CSDF",
+          "formulaId": "CSDF",
+          "gammaMode": "Forced gamma target 1.0",
+          "gammaModeId": "forced-gamma-1",
+          "representation": "10-bit",
+          "representationId": "10-bit",
+          "uniqueLevels": 256,
+          "duplicateTransitions": 0,
+          "visibleTransitions": 174,
+          "subJndTransitions": 81,
+          "jndMean": 1.8284,
+          "jndSd": 3.697,
+          "jndCv": 2.022,
+          "jndMin": 0.5763,
+          "jndMax": 55.0669,
+          "rmsJndTargetError": 0.1268,
+          "meanNits": 43.4218,
+          "midNits": 39.9925
+        },
+        {
+          "caseLabel": "CSDF · γ1 proxy · 8-bit",
+          "formula": "CSDF",
+          "formulaId": "CSDF",
+          "gammaMode": "Forced gamma target 1.0",
+          "gammaModeId": "forced-gamma-1",
+          "representation": "8-bit",
+          "representationId": "8-bit",
+          "uniqueLevels": 201,
+          "duplicateTransitions": 55,
+          "visibleTransitions": 200,
+          "subJndTransitions": 55,
+          "jndMean": 1.8284,
+          "jndSd": 3.7938,
+          "jndCv": 2.075,
+          "jndMin": 0,
+          "jndMax": 55.9674,
+          "rmsJndTargetError": 0.4749,
+          "meanNits": 43.4283,
+          "midNits": 39.9894
+        },
+        {
+          "caseLabel": "CSDF · γ1 proxy · Ideal float",
+          "formula": "CSDF",
+          "formulaId": "CSDF",
+          "gammaMode": "Forced gamma target 1.0",
+          "gammaModeId": "forced-gamma-1",
+          "representation": "Ideal float",
+          "representationId": "ideal",
+          "uniqueLevels": 256,
+          "duplicateTransitions": 0,
+          "visibleTransitions": 157,
+          "subJndTransitions": 98,
+          "jndMean": 1.8284,
+          "jndSd": 3.7052,
+          "jndCv": 2.0265,
+          "jndMin": 0.7727,
+          "jndMax": 55.38,
+          "rmsJndTargetError": 0,
+          "meanNits": 43.4224,
+          "midNits": 39.9821
+        },
+        {
+          "caseLabel": "GSDF · Neutral · 10-bit",
+          "formula": "GSDF",
+          "formulaId": "GSDF",
+          "gammaMode": "Compensation 0 (P-value identity)",
+          "gammaModeId": "neutral",
+          "representation": "10-bit",
+          "representationId": "10-bit",
+          "uniqueLevels": 256,
+          "duplicateTransitions": 0,
+          "visibleTransitions": 255,
+          "subJndTransitions": 0,
+          "jndMean": 1.8284,
+          "jndSd": 0.2036,
+          "jndCv": 0.1114,
+          "jndMin": 1.2654,
+          "jndMax": 2.3333,
+          "rmsJndTargetError": 0.1484,
+          "meanNits": 24.8476,
+          "midNits": 13.4648
+        },
+        {
+          "caseLabel": "GSDF · Neutral · 8-bit",
+          "formula": "GSDF",
+          "formulaId": "GSDF",
+          "gammaMode": "Compensation 0 (P-value identity)",
+          "gammaModeId": "neutral",
+          "representation": "8-bit",
+          "representationId": "8-bit",
+          "uniqueLevels": 225,
+          "duplicateTransitions": 31,
+          "visibleTransitions": 224,
+          "subJndTransitions": 31,
+          "jndMean": 1.8284,
+          "jndSd": 0.8263,
+          "jndCv": 0.4519,
+          "jndMin": 0,
+          "jndMax": 3.4233,
+          "rmsJndTargetError": 0.5744,
+          "meanNits": 24.8483,
+          "midNits": 13.4075
+        },
+        {
+          "caseLabel": "GSDF · Neutral · Ideal float",
+          "formula": "GSDF",
+          "formulaId": "GSDF",
+          "gammaMode": "Compensation 0 (P-value identity)",
+          "gammaModeId": "neutral",
+          "representation": "Ideal float",
+          "representationId": "ideal",
+          "uniqueLevels": 256,
+          "duplicateTransitions": 0,
+          "visibleTransitions": 255,
+          "subJndTransitions": 0,
+          "jndMean": 1.8284,
+          "jndSd": 0.0113,
+          "jndCv": 0.0062,
+          "jndMin": 1.7662,
+          "jndMax": 1.8916,
+          "rmsJndTargetError": 0,
+          "meanNits": 24.8471,
+          "midNits": 13.4796
+        },
+        {
+          "caseLabel": "GSDF · γ1 proxy · 10-bit",
+          "formula": "GSDF",
+          "formulaId": "GSDF",
+          "gammaMode": "Forced gamma target 1.0",
+          "gammaModeId": "forced-gamma-1",
+          "representation": "10-bit",
+          "representationId": "10-bit",
+          "uniqueLevels": 256,
+          "duplicateTransitions": 0,
+          "visibleTransitions": 189,
+          "subJndTransitions": 66,
+          "jndMean": 1.8284,
+          "jndSd": 2.6804,
+          "jndCv": 1.466,
+          "jndMin": 0.5802,
+          "jndMax": 37.5789,
+          "rmsJndTargetError": 0.1216,
+          "meanNits": 41.234,
+          "midNits": 36.934
+        },
+        {
+          "caseLabel": "GSDF · γ1 proxy · 8-bit",
+          "formula": "GSDF",
+          "formulaId": "GSDF",
+          "gammaMode": "Forced gamma target 1.0",
+          "gammaModeId": "forced-gamma-1",
+          "representation": "8-bit",
+          "representationId": "8-bit",
+          "uniqueLevels": 209,
+          "duplicateTransitions": 47,
+          "visibleTransitions": 208,
+          "subJndTransitions": 47,
+          "jndMean": 1.8284,
+          "jndSd": 2.7331,
+          "jndCv": 1.4948,
+          "jndMin": 0,
+          "jndMax": 37.0797,
+          "rmsJndTargetError": 0.5145,
+          "meanNits": 41.2463,
+          "midNits": 36.9222
+        },
+        {
+          "caseLabel": "GSDF · γ1 proxy · Ideal float",
+          "formula": "GSDF",
+          "formulaId": "GSDF",
+          "gammaMode": "Forced gamma target 1.0",
+          "gammaModeId": "forced-gamma-1",
+          "representation": "Ideal float",
+          "representationId": "ideal",
+          "uniqueLevels": 256,
+          "duplicateTransitions": 0,
+          "visibleTransitions": 182,
+          "subJndTransitions": 73,
+          "jndMean": 1.8284,
+          "jndSd": 2.6736,
+          "jndCv": 1.4623,
+          "jndMin": 0.8318,
+          "jndMax": 37.5328,
+          "rmsJndTargetError": 0,
+          "meanNits": 41.2375,
+          "midNits": 36.8732
+        }
+      ],
+      "mapping_neutral": [
+        {
+          "inputCode": 0,
+          "series": "Baseline",
+          "outputCode": 0,
+          "physicalNits": 0.1,
+          "jndIndex": 10.1443
+        },
+        {
+          "inputCode": 16,
+          "series": "Baseline",
+          "outputCode": 16,
+          "physicalNits": 0.32607,
+          "jndIndex": 34.279
+        },
+        {
+          "inputCode": 32,
+          "series": "Baseline",
+          "outputCode": 32,
+          "physicalNits": 1.13874,
+          "jndIndex": 76.9763
+        },
+        {
+          "inputCode": 48,
+          "series": "Baseline",
+          "outputCode": 48,
+          "physicalNits": 2.63459,
+          "jndIndex": 119.4665
+        },
+        {
+          "inputCode": 64,
+          "series": "Baseline",
+          "outputCode": 64,
+          "physicalNits": 4.8728,
+          "jndIndex": 159.4562
+        },
+        {
+          "inputCode": 80,
+          "series": "Baseline",
+          "outputCode": 80,
+          "physicalNits": 7.89785,
+          "jndIndex": 196.6996
+        },
+        {
+          "inputCode": 96,
+          "series": "Baseline",
+          "outputCode": 96,
+          "physicalNits": 11.74592,
+          "jndIndex": 231.3208
+        },
+        {
+          "inputCode": 112,
+          "series": "Baseline",
+          "outputCode": 112,
+          "physicalNits": 16.4477,
+          "jndIndex": 263.5344
+        },
+        {
+          "inputCode": 128,
+          "series": "Baseline",
+          "outputCode": 128,
+          "physicalNits": 22.03002,
+          "jndIndex": 293.5697
+        },
+        {
+          "inputCode": 144,
+          "series": "Baseline",
+          "outputCode": 144,
+          "physicalNits": 28.51676,
+          "jndIndex": 321.6459
+        },
+        {
+          "inputCode": 160,
+          "series": "Baseline",
+          "outputCode": 160,
+          "physicalNits": 35.92953,
+          "jndIndex": 347.9625
+        },
+        {
+          "inputCode": 176,
+          "series": "Baseline",
+          "outputCode": 176,
+          "physicalNits": 44.28806,
+          "jndIndex": 372.6974
+        },
+        {
+          "inputCode": 192,
+          "series": "Baseline",
+          "outputCode": 192,
+          "physicalNits": 53.6106,
+          "jndIndex": 396.008
+        },
+        {
+          "inputCode": 208,
+          "series": "Baseline",
+          "outputCode": 208,
+          "physicalNits": 63.91407,
+          "jndIndex": 418.0326
+        },
+        {
+          "inputCode": 224,
+          "series": "Baseline",
+          "outputCode": 224,
+          "physicalNits": 75.21432,
+          "jndIndex": 438.8924
+        },
+        {
+          "inputCode": 240,
+          "series": "Baseline",
+          "outputCode": 240,
+          "physicalNits": 87.52624,
+          "jndIndex": 458.6941
+        },
+        {
+          "inputCode": 255,
+          "series": "Baseline",
+          "outputCode": 255,
+          "physicalNits": 100,
+          "jndIndex": 476.3809
+        },
+        {
+          "inputCode": 0,
+          "series": "GSDF",
+          "outputCode": 0,
+          "physicalNits": 0.1,
+          "jndIndex": 10.1443
+        },
+        {
+          "inputCode": 16,
+          "series": "GSDF",
+          "outputCode": 18.021,
+          "physicalNits": 0.39371,
+          "jndIndex": 39.4127
+        },
+        {
+          "inputCode": 32,
+          "series": "GSDF",
+          "outputCode": 28.932,
+          "physicalNits": 0.93217,
+          "jndIndex": 68.645
+        },
+        {
+          "inputCode": 48,
+          "series": "GSDF",
+          "outputCode": 39.788,
+          "physicalNits": 1.77732,
+          "jndIndex": 97.9179
+        },
+        {
+          "inputCode": 64,
+          "series": "GSDF",
+          "outputCode": 51,
+          "physicalNits": 2.9961,
+          "jndIndex": 127.1697
+        },
+        {
+          "inputCode": 80,
+          "series": "GSDF",
+          "outputCode": 62.745,
+          "physicalNits": 4.66943,
+          "jndIndex": 156.4208
+        },
+        {
+          "inputCode": 96,
+          "series": "GSDF",
+          "outputCode": 75.138,
+          "physicalNits": 6.8932,
+          "jndIndex": 185.6693
+        },
+        {
+          "inputCode": 112,
+          "series": "GSDF",
+          "outputCode": 88.276,
+          "physicalNits": 9.78331,
+          "jndIndex": 214.9207
+        },
+        {
+          "inputCode": 128,
+          "series": "GSDF",
+          "outputCode": 102.25,
+          "physicalNits": 13.47961,
+          "jndIndex": 244.1796
+        },
+        {
+          "inputCode": 144,
+          "series": "GSDF",
+          "outputCode": 117.152,
+          "physicalNits": 18.14793,
+          "jndIndex": 273.4329
+        },
+        {
+          "inputCode": 160,
+          "series": "GSDF",
+          "outputCode": 133.079,
+          "physicalNits": 23.99009,
+          "jndIndex": 302.6844
+        },
+        {
+          "inputCode": 176,
+          "series": "GSDF",
+          "outputCode": 150.139,
+          "physicalNits": 31.24982,
+          "jndIndex": 331.9392
+        },
+        {
+          "inputCode": 192,
+          "series": "GSDF",
+          "outputCode": 168.438,
+          "physicalNits": 40.21784,
+          "jndIndex": 361.1916
+        },
+        {
+          "inputCode": 208,
+          "series": "GSDF",
+          "outputCode": 188.098,
+          "physicalNits": 51.2478,
+          "jndIndex": 390.4481
+        },
+        {
+          "inputCode": 224,
+          "series": "GSDF",
+          "outputCode": 209.25,
+          "physicalNits": 64.76027,
+          "jndIndex": 419.7017
+        },
+        {
+          "inputCode": 240,
+          "series": "GSDF",
+          "outputCode": 232.03,
+          "physicalNits": 81.26475,
+          "jndIndex": 448.9545
+        },
+        {
+          "inputCode": 255,
+          "series": "GSDF",
+          "outputCode": 255,
+          "physicalNits": 100,
+          "jndIndex": 476.3809
+        },
+        {
+          "inputCode": 0,
+          "series": "CSDF",
+          "outputCode": 0,
+          "physicalNits": 0.1,
+          "jndIndex": 10.1443
+        },
+        {
+          "inputCode": 16,
+          "series": "CSDF",
+          "outputCode": 24.115,
+          "physicalNits": 0.65744,
+          "jndIndex": 55.5768
+        },
+        {
+          "inputCode": 32,
+          "series": "CSDF",
+          "outputCode": 36.371,
+          "physicalNits": 1.47662,
+          "jndIndex": 88.7776
+        },
+        {
+          "inputCode": 48,
+          "series": "CSDF",
+          "outputCode": 47.879,
+          "physicalNits": 2.62048,
+          "jndIndex": 119.152
+        },
+        {
+          "inputCode": 64,
+          "series": "CSDF",
+          "outputCode": 59.443,
+          "physicalNits": 4.15694,
+          "jndIndex": 148.3469
+        },
+        {
+          "inputCode": 80,
+          "series": "CSDF",
+          "outputCode": 71.364,
+          "physicalNits": 6.16493,
+          "jndIndex": 176.9338
+        },
+        {
+          "inputCode": 96,
+          "series": "CSDF",
+          "outputCode": 83.798,
+          "physicalNits": 8.73536,
+          "jndIndex": 205.1457
+        },
+        {
+          "inputCode": 112,
+          "series": "CSDF",
+          "outputCode": 96.844,
+          "physicalNits": 11.97212,
+          "jndIndex": 233.0763
+        },
+        {
+          "inputCode": 128,
+          "series": "CSDF",
+          "outputCode": 110.593,
+          "physicalNits": 15.99909,
+          "jndIndex": 260.7909
+        },
+        {
+          "inputCode": 144,
+          "series": "CSDF",
+          "outputCode": 125.116,
+          "physicalNits": 20.95712,
+          "jndIndex": 288.3041
+        },
+        {
+          "inputCode": 160,
+          "series": "CSDF",
+          "outputCode": 140.495,
+          "physicalNits": 27.01706,
+          "jndIndex": 315.6517
+        },
+        {
+          "inputCode": 176,
+          "series": "CSDF",
+          "outputCode": 156.812,
+          "physicalNits": 34.37769,
+          "jndIndex": 342.8504
+        },
+        {
+          "inputCode": 192,
+          "series": "CSDF",
+          "outputCode": 174.168,
+          "physicalNits": 43.28178,
+          "jndIndex": 369.9383
+        },
+        {
+          "inputCode": 208,
+          "series": "CSDF",
+          "outputCode": 192.67,
+          "physicalNits": 54.02202,
+          "jndIndex": 396.9547
+        },
+        {
+          "inputCode": 224,
+          "series": "CSDF",
+          "outputCode": 212.451,
+          "physicalNits": 66.95708,
+          "jndIndex": 423.9479
+        },
+        {
+          "inputCode": 240,
+          "series": "CSDF",
+          "outputCode": 233.662,
+          "physicalNits": 82.52649,
+          "jndIndex": 450.9692
+        },
+        {
+          "inputCode": 255,
+          "series": "CSDF",
+          "outputCode": 255,
+          "physicalNits": 100,
+          "jndIndex": 476.3809
+        }
+      ],
+      "jnd_gsdf": [
+        {
+          "inputTransition": 16,
+          "inputBand": "1-16",
+          "series": "Baseline",
+          "jndStep": 1.50842,
+          "bandJndMin": 0.07804,
+          "bandJndMax": 2.46828,
+          "zeroIntervals": 0,
+          "intervalCount": 16
+        },
+        {
+          "inputTransition": 32,
+          "inputBand": "17-32",
+          "series": "Baseline",
+          "jndStep": 2.66858,
+          "bandJndMin": 2.5183,
+          "bandJndMax": 2.71805,
+          "zeroIntervals": 0,
+          "intervalCount": 16
+        },
+        {
+          "inputTransition": 48,
+          "inputBand": "33-48",
+          "series": "Baseline",
+          "jndStep": 2.65564,
+          "bandJndMin": 2.58902,
+          "bandJndMax": 2.70926,
+          "zeroIntervals": 0,
+          "intervalCount": 16
+        },
+        {
+          "inputTransition": 64,
+          "inputBand": "49-64",
+          "series": "Baseline",
+          "jndStep": 2.49936,
+          "bandJndMin": 2.41858,
+          "bandJndMax": 2.57885,
+          "zeroIntervals": 0,
+          "intervalCount": 16
+        },
+        {
+          "inputTransition": 80,
+          "inputBand": "65-80",
+          "series": "Baseline",
+          "jndStep": 2.32771,
+          "bandJndMin": 2.2489,
+          "bandJndMax": 2.40776,
+          "zeroIntervals": 0,
+          "intervalCount": 16
+        },
+        {
+          "inputTransition": 96,
+          "inputBand": "81-96",
+          "series": "Baseline",
+          "jndStep": 2.16383,
+          "bandJndMin": 2.09091,
+          "bandJndMax": 2.23863,
+          "zeroIntervals": 0,
+          "intervalCount": 16
+        },
+        {
+          "inputTransition": 112,
+          "inputBand": "97-112",
+          "series": "Baseline",
+          "jndStep": 2.01335,
+          "bandJndMin": 1.94717,
+          "bandJndMax": 2.0815,
+          "zeroIntervals": 0,
+          "intervalCount": 16
+        },
+        {
+          "inputTransition": 128,
+          "inputBand": "113-128",
+          "series": "Baseline",
+          "jndStep": 1.87721,
+          "bandJndMin": 1.81763,
+          "bandJndMax": 1.93867,
+          "zeroIntervals": 0,
+          "intervalCount": 16
+        },
+        {
+          "inputTransition": 144,
+          "inputBand": "129-144",
+          "series": "Baseline",
+          "jndStep": 1.75476,
+          "bandJndMin": 1.70125,
+          "bandJndMax": 1.80998,
+          "zeroIntervals": 0,
+          "intervalCount": 16
+        },
+        {
+          "inputTransition": 160,
+          "inputBand": "145-160",
+          "series": "Baseline",
+          "jndStep": 1.64478,
+          "bandJndMin": 1.59671,
+          "bandJndMax": 1.69438,
+          "zeroIntervals": 0,
+          "intervalCount": 16
+        },
+        {
+          "inputTransition": 176,
+          "inputBand": "161-176",
+          "series": "Baseline",
+          "jndStep": 1.54593,
+          "bandJndMin": 1.50267,
+          "bandJndMax": 1.59054,
+          "zeroIntervals": 0,
+          "intervalCount": 16
+        },
+        {
+          "inputTransition": 192,
+          "inputBand": "177-192",
+          "series": "Baseline",
+          "jndStep": 1.45691,
+          "bandJndMin": 1.41789,
+          "bandJndMax": 1.49712,
+          "zeroIntervals": 0,
+          "intervalCount": 16
+        },
+        {
+          "inputTransition": 208,
+          "inputBand": "193-208",
+          "series": "Baseline",
+          "jndStep": 1.37653,
+          "bandJndMin": 1.34123,
+          "bandJndMax": 1.41287,
+          "zeroIntervals": 0,
+          "intervalCount": 16
+        },
+        {
+          "inputTransition": 224,
+          "inputBand": "209-224",
+          "series": "Baseline",
+          "jndStep": 1.30374,
+          "bandJndMin": 1.2717,
+          "bandJndMax": 1.33668,
+          "zeroIntervals": 0,
+          "intervalCount": 16
+        },
+        {
+          "inputTransition": 240,
+          "inputBand": "225-240",
+          "series": "Baseline",
+          "jndStep": 1.23761,
+          "bandJndMin": 1.20844,
+          "bandJndMax": 1.26757,
+          "zeroIntervals": 0,
+          "intervalCount": 16
+        },
+        {
+          "inputTransition": 255,
+          "inputBand": "241-255",
+          "series": "Baseline",
+          "jndStep": 1.17912,
+          "bandJndMin": 1.15417,
+          "bandJndMax": 1.20469,
+          "zeroIntervals": 0,
+          "intervalCount": 15
+        },
+        {
+          "inputTransition": 16,
+          "inputBand": "1-16",
+          "series": "GSDF ideal",
+          "jndStep": 1.82928,
+          "bandJndMin": 1.76618,
+          "bandJndMax": 1.89165,
+          "zeroIntervals": 0,
+          "intervalCount": 16
+        },
+        {
+          "inputTransition": 32,
+          "inputBand": "17-32",
+          "series": "GSDF ideal",
+          "jndStep": 1.82702,
+          "bandJndMin": 1.77116,
+          "bandJndMax": 1.86458,
+          "zeroIntervals": 0,
+          "intervalCount": 16
+        },
+        {
+          "inputTransition": 48,
+          "inputBand": "33-48",
+          "series": "GSDF ideal",
+          "jndStep": 1.82956,
+          "bandJndMin": 1.80269,
+          "bandJndMax": 1.85234,
+          "zeroIntervals": 0,
+          "intervalCount": 16
+        },
+        {
+          "inputTransition": 64,
+          "inputBand": "49-64",
+          "series": "GSDF ideal",
+          "jndStep": 1.82823,
+          "bandJndMin": 1.81391,
+          "bandJndMax": 1.84238,
+          "zeroIntervals": 0,
+          "intervalCount": 16
+        },
+        {
+          "inputTransition": 80,
+          "inputBand": "65-80",
+          "series": "GSDF ideal",
+          "jndStep": 1.8282,
+          "bandJndMin": 1.8186,
+          "bandJndMax": 1.83855,
+          "zeroIntervals": 0,
+          "intervalCount": 16
+        },
+        {
+          "inputTransition": 96,
+          "inputBand": "81-96",
+          "series": "GSDF ideal",
+          "jndStep": 1.82803,
+          "bandJndMin": 1.81487,
+          "bandJndMax": 1.84203,
+          "zeroIntervals": 0,
+          "intervalCount": 16
+        },
+        {
+          "inputTransition": 112,
+          "inputBand": "97-112",
+          "series": "GSDF ideal",
+          "jndStep": 1.82821,
+          "bandJndMin": 1.82112,
+          "bandJndMax": 1.83435,
+          "zeroIntervals": 0,
+          "intervalCount": 16
+        },
+        {
+          "inputTransition": 128,
+          "inputBand": "113-128",
+          "series": "GSDF ideal",
+          "jndStep": 1.82868,
+          "bandJndMin": 1.82285,
+          "bandJndMax": 1.83509,
+          "zeroIntervals": 0,
+          "intervalCount": 16
+        },
+        {
+          "inputTransition": 144,
+          "inputBand": "129-144",
+          "series": "GSDF ideal",
+          "jndStep": 1.82833,
+          "bandJndMin": 1.82396,
+          "bandJndMax": 1.83329,
+          "zeroIntervals": 0,
+          "intervalCount": 16
+        },
+        {
+          "inputTransition": 160,
+          "inputBand": "145-160",
+          "series": "GSDF ideal",
+          "jndStep": 1.82822,
+          "bandJndMin": 1.82396,
+          "bandJndMax": 1.83153,
+          "zeroIntervals": 0,
+          "intervalCount": 16
+        },
+        {
+          "inputTransition": 176,
+          "inputBand": "161-176",
+          "series": "GSDF ideal",
+          "jndStep": 1.82842,
+          "bandJndMin": 1.82484,
+          "bandJndMax": 1.83228,
+          "zeroIntervals": 0,
+          "intervalCount": 16
+        },
+        {
+          "inputTransition": 192,
+          "inputBand": "177-192",
+          "series": "GSDF ideal",
+          "jndStep": 1.82828,
+          "bandJndMin": 1.82601,
+          "bandJndMax": 1.83121,
+          "zeroIntervals": 0,
+          "intervalCount": 16
+        },
+        {
+          "inputTransition": 208,
+          "inputBand": "193-208",
+          "series": "GSDF ideal",
+          "jndStep": 1.82853,
+          "bandJndMin": 1.82699,
+          "bandJndMax": 1.83031,
+          "zeroIntervals": 0,
+          "intervalCount": 16
+        },
+        {
+          "inputTransition": 224,
+          "inputBand": "209-224",
+          "series": "GSDF ideal",
+          "jndStep": 1.82835,
+          "bandJndMin": 1.82664,
+          "bandJndMax": 1.83001,
+          "zeroIntervals": 0,
+          "intervalCount": 16
+        },
+        {
+          "inputTransition": 240,
+          "inputBand": "225-240",
+          "series": "GSDF ideal",
+          "jndStep": 1.8283,
+          "bandJndMin": 1.82688,
+          "bandJndMax": 1.82936,
+          "zeroIntervals": 0,
+          "intervalCount": 16
+        },
+        {
+          "inputTransition": 255,
+          "inputBand": "241-255",
+          "series": "GSDF ideal",
+          "jndStep": 1.82843,
+          "bandJndMin": 1.82743,
+          "bandJndMax": 1.82937,
+          "zeroIntervals": 0,
+          "intervalCount": 15
+        },
+        {
+          "inputTransition": 16,
+          "inputBand": "1-16",
+          "series": "GSDF 8-bit",
+          "jndStep": 1.82583,
+          "bandJndMin": 0,
+          "bandJndMax": 2.56018,
+          "zeroIntervals": 2,
+          "intervalCount": 16
+        },
+        {
+          "inputTransition": 32,
+          "inputBand": "17-32",
+          "series": "GSDF 8-bit",
+          "jndStep": 1.84202,
+          "bandJndMin": 0,
+          "bandJndMax": 2.71805,
+          "zeroIntervals": 5,
+          "intervalCount": 16
+        },
+        {
+          "inputTransition": 48,
+          "inputBand": "33-48",
+          "series": "GSDF 8-bit",
+          "jndStep": 1.85337,
+          "bandJndMin": 0,
+          "bandJndMax": 2.71759,
+          "zeroIntervals": 5,
+          "intervalCount": 16
+        },
+        {
+          "inputTransition": 64,
+          "inputBand": "49-64",
+          "series": "GSDF 8-bit",
+          "jndStep": 1.79303,
+          "bandJndMin": 0,
+          "bandJndMax": 2.6552,
+          "zeroIntervals": 5,
+          "intervalCount": 16
+        },
+        {
+          "inputTransition": 80,
+          "inputBand": "65-80",
+          "series": "GSDF 8-bit",
+          "jndStep": 1.8666,
+          "bandJndMin": 0,
+          "bandJndMax": 2.54768,
+          "zeroIntervals": 4,
+          "intervalCount": 16
+        },
+        {
+          "inputTransition": 96,
+          "inputBand": "81-96",
+          "series": "GSDF 8-bit",
+          "jndStep": 1.76962,
+          "bandJndMin": 0,
+          "bandJndMax": 2.41858,
+          "zeroIntervals": 4,
+          "intervalCount": 16
+        },
+        {
+          "inputTransition": 112,
+          "inputBand": "97-112",
+          "series": "GSDF 8-bit",
+          "jndStep": 1.81087,
+          "bandJndMin": 0,
+          "bandJndMax": 2.29043,
+          "zeroIntervals": 3,
+          "intervalCount": 16
+        },
+        {
+          "inputTransition": 128,
+          "inputBand": "113-128",
+          "series": "GSDF 8-bit",
+          "jndStep": 1.83408,
+          "bandJndMin": 0,
+          "bandJndMax": 2.15833,
+          "zeroIntervals": 2,
+          "intervalCount": 16
+        },
+        {
+          "inputTransition": 144,
+          "inputBand": "129-144",
+          "series": "GSDF 8-bit",
+          "jndStep": 1.84207,
+          "bandJndMin": 0,
+          "bandJndMax": 2.02624,
+          "zeroIntervals": 1,
+          "intervalCount": 16
+        },
+        {
+          "inputTransition": 160,
+          "inputBand": "145-160",
+          "series": "GSDF 8-bit",
+          "jndStep": 1.83753,
+          "bandJndMin": 1.77991,
+          "bandJndMax": 1.89698,
+          "zeroIntervals": 0,
+          "intervalCount": 16
+        },
+        {
+          "inputTransition": 176,
+          "inputBand": "161-176",
+          "series": "GSDF 8-bit",
+          "jndStep": 1.82291,
+          "bandJndMin": 1.66073,
+          "bandJndMax": 3.42328,
+          "zeroIntervals": 0,
+          "intervalCount": 16
+        },
+        {
+          "inputTransition": 192,
+          "inputBand": "177-192",
+          "series": "GSDF 8-bit",
+          "jndStep": 1.80041,
+          "bandJndMin": 1.54846,
+          "bandJndMax": 3.2628,
+          "zeroIntervals": 0,
+          "intervalCount": 16
+        },
+        {
+          "inputTransition": 208,
+          "inputBand": "193-208",
+          "series": "GSDF 8-bit",
+          "jndStep": 1.86179,
+          "bandJndMin": 1.43828,
+          "bandJndMax": 3.07939,
+          "zeroIntervals": 0,
+          "intervalCount": 16
+        },
+        {
+          "inputTransition": 224,
+          "inputBand": "209-224",
+          "series": "GSDF 8-bit",
+          "jndStep": 1.81645,
+          "bandJndMin": 1.33668,
+          "bandJndMax": 2.85096,
+          "zeroIntervals": 0,
+          "intervalCount": 16
+        },
+        {
+          "inputTransition": 240,
+          "inputBand": "225-240",
+          "series": "GSDF 8-bit",
+          "jndStep": 1.84688,
+          "bandJndMin": 1.23934,
+          "bandJndMax": 2.65985,
+          "zeroIntervals": 0,
+          "intervalCount": 16
+        },
+        {
+          "inputTransition": 255,
+          "inputBand": "241-255",
+          "series": "GSDF 8-bit",
+          "jndStep": 1.83077,
+          "bandJndMin": 1.16115,
+          "bandJndMax": 2.46688,
+          "zeroIntervals": 0,
+          "intervalCount": 15
+        },
+        {
+          "inputTransition": 16,
+          "inputBand": "1-16",
+          "series": "GSDF 10-bit",
+          "jndStep": 1.81732,
+          "bandJndMin": 1.26544,
+          "bandJndMax": 2.3091,
+          "zeroIntervals": 0,
+          "intervalCount": 16
+        },
+        {
+          "inputTransition": 32,
+          "inputBand": "17-32",
+          "series": "GSDF 10-bit",
+          "jndStep": 1.83607,
+          "bandJndMin": 1.31932,
+          "bandJndMax": 2.03258,
+          "zeroIntervals": 0,
+          "intervalCount": 16
+        },
+        {
+          "inputTransition": 48,
+          "inputBand": "33-48",
+          "series": "GSDF 10-bit",
+          "jndStep": 1.84831,
+          "bandJndMin": 1.33614,
+          "bandJndMax": 2.03239,
+          "zeroIntervals": 0,
+          "intervalCount": 16
+        },
+        {
+          "inputTransition": 64,
+          "inputBand": "49-64",
+          "series": "GSDF 10-bit",
+          "jndStep": 1.82844,
+          "bandJndMin": 1.2964,
+          "bandJndMax": 1.98392,
+          "zeroIntervals": 0,
+          "intervalCount": 16
+        },
+        {
+          "inputTransition": 80,
+          "inputBand": "65-80",
+          "series": "GSDF 10-bit",
+          "jndStep": 1.82269,
+          "bandJndMin": 1.2709,
+          "bandJndMax": 1.90144,
+          "zeroIntervals": 0,
+          "intervalCount": 16
+        },
+        {
+          "inputTransition": 96,
+          "inputBand": "81-96",
+          "series": "GSDF 10-bit",
+          "jndStep": 1.80183,
+          "bandJndMin": 1.71941,
+          "bandJndMax": 2.33332,
+          "zeroIntervals": 0,
+          "intervalCount": 16
+        },
+        {
+          "inputTransition": 112,
+          "inputBand": "97-112",
+          "series": "GSDF 10-bit",
+          "jndStep": 1.83916,
+          "bandJndMin": 1.61866,
+          "bandJndMax": 2.28343,
+          "zeroIntervals": 0,
+          "intervalCount": 16
+        },
+        {
+          "inputTransition": 128,
+          "inputBand": "113-128",
+          "series": "GSDF 10-bit",
+          "jndStep": 1.82688,
+          "bandJndMin": 1.51979,
+          "bandJndMax": 2.14966,
+          "zeroIntervals": 0,
+          "intervalCount": 16
+        },
+        {
+          "inputTransition": 144,
+          "inputBand": "129-144",
+          "series": "GSDF 10-bit",
+          "jndStep": 1.83523,
+          "bandJndMin": 1.44159,
+          "bandJndMax": 2.01851,
+          "zeroIntervals": 0,
+          "intervalCount": 16
+        },
+        {
+          "inputTransition": 160,
+          "inputBand": "145-160",
+          "series": "GSDF 10-bit",
+          "jndStep": 1.83111,
+          "bandJndMin": 1.39424,
+          "bandJndMax": 2.24644,
+          "zeroIntervals": 0,
+          "intervalCount": 16
+        },
+        {
+          "inputTransition": 176,
+          "inputBand": "161-176",
+          "series": "GSDF 10-bit",
+          "jndStep": 1.81694,
+          "bandJndMin": 1.65546,
+          "bandJndMax": 2.17987,
+          "zeroIntervals": 0,
+          "intervalCount": 16
+        },
+        {
+          "inputTransition": 192,
+          "inputBand": "177-192",
+          "series": "GSDF 10-bit",
+          "jndStep": 1.84301,
+          "bandJndMin": 1.55563,
+          "bandJndMax": 2.06012,
+          "zeroIntervals": 0,
+          "intervalCount": 16
+        },
+        {
+          "inputTransition": 208,
+          "inputBand": "193-208",
+          "series": "GSDF 10-bit",
+          "jndStep": 1.83074,
+          "bandJndMin": 1.48734,
+          "bandJndMax": 2.16116,
+          "zeroIntervals": 0,
+          "intervalCount": 16
+        },
+        {
+          "inputTransition": 224,
+          "inputBand": "209-224",
+          "series": "GSDF 10-bit",
+          "jndStep": 1.81007,
+          "bandJndMin": 1.66589,
+          "bandJndMax": 2.09324,
+          "zeroIntervals": 0,
+          "intervalCount": 16
+        },
+        {
+          "inputTransition": 240,
+          "inputBand": "225-240",
+          "series": "GSDF 10-bit",
+          "jndStep": 1.84085,
+          "bandJndMin": 1.5749,
+          "bandJndMax": 1.98982,
+          "zeroIntervals": 0,
+          "intervalCount": 16
+        },
+        {
+          "inputTransition": 255,
+          "inputBand": "241-255",
+          "series": "GSDF 10-bit",
+          "jndStep": 1.82521,
+          "bandJndMin": 1.72747,
+          "bandJndMax": 2.06403,
+          "zeroIntervals": 0,
+          "intervalCount": 15
+        }
+      ],
+      "gamma_sensitivity": [
+        {
+          "inputCode": 0,
+          "series": "GSDF comp 0",
+          "outputCode": 0,
+          "physicalNits": 0.1
+        },
+        {
+          "inputCode": 16,
+          "series": "GSDF comp 0",
+          "outputCode": 18.021,
+          "physicalNits": 0.39371
+        },
+        {
+          "inputCode": 32,
+          "series": "GSDF comp 0",
+          "outputCode": 28.932,
+          "physicalNits": 0.93217
+        },
+        {
+          "inputCode": 48,
+          "series": "GSDF comp 0",
+          "outputCode": 39.788,
+          "physicalNits": 1.77732
+        },
+        {
+          "inputCode": 64,
+          "series": "GSDF comp 0",
+          "outputCode": 51,
+          "physicalNits": 2.9961
+        },
+        {
+          "inputCode": 80,
+          "series": "GSDF comp 0",
+          "outputCode": 62.745,
+          "physicalNits": 4.66943
+        },
+        {
+          "inputCode": 96,
+          "series": "GSDF comp 0",
+          "outputCode": 75.138,
+          "physicalNits": 6.8932
+        },
+        {
+          "inputCode": 112,
+          "series": "GSDF comp 0",
+          "outputCode": 88.276,
+          "physicalNits": 9.78331
+        },
+        {
+          "inputCode": 128,
+          "series": "GSDF comp 0",
+          "outputCode": 102.25,
+          "physicalNits": 13.47961
+        },
+        {
+          "inputCode": 144,
+          "series": "GSDF comp 0",
+          "outputCode": 117.152,
+          "physicalNits": 18.14793
+        },
+        {
+          "inputCode": 160,
+          "series": "GSDF comp 0",
+          "outputCode": 133.079,
+          "physicalNits": 23.99009
+        },
+        {
+          "inputCode": 176,
+          "series": "GSDF comp 0",
+          "outputCode": 150.139,
+          "physicalNits": 31.24982
+        },
+        {
+          "inputCode": 192,
+          "series": "GSDF comp 0",
+          "outputCode": 168.438,
+          "physicalNits": 40.21784
+        },
+        {
+          "inputCode": 208,
+          "series": "GSDF comp 0",
+          "outputCode": 188.098,
+          "physicalNits": 51.2478
+        },
+        {
+          "inputCode": 224,
+          "series": "GSDF comp 0",
+          "outputCode": 209.25,
+          "physicalNits": 64.76027
+        },
+        {
+          "inputCode": 240,
+          "series": "GSDF comp 0",
+          "outputCode": 232.03,
+          "physicalNits": 81.26475
+        },
+        {
+          "inputCode": 255,
+          "series": "GSDF comp 0",
+          "outputCode": 255,
+          "physicalNits": 100
+        },
+        {
+          "inputCode": 0,
+          "series": "GSDF γ1",
+          "outputCode": 0,
+          "physicalNits": 0.1
+        },
+        {
+          "inputCode": 16,
+          "series": "GSDF γ1",
+          "outputCode": 57.12,
+          "physicalNits": 3.81628
+        },
+        {
+          "inputCode": 32,
+          "series": "GSDF γ1",
+          "outputCode": 77.76,
+          "physicalNits": 7.42567
+        },
+        {
+          "inputCode": 48,
+          "series": "GSDF γ1",
+          "outputCode": 94.592,
+          "physicalNits": 11.37372
+        },
+        {
+          "inputCode": 64,
+          "series": "GSDF γ1",
+          "outputCode": 109.612,
+          "physicalNits": 15.69039
+        },
+        {
+          "inputCode": 80,
+          "series": "GSDF γ1",
+          "outputCode": 123.547,
+          "physicalNits": 20.38669
+        },
+        {
+          "inputCode": 96,
+          "series": "GSDF γ1",
+          "outputCode": 136.779,
+          "physicalNits": 25.4756
+        },
+        {
+          "inputCode": 112,
+          "series": "GSDF γ1",
+          "outputCode": 149.517,
+          "physicalNits": 30.9671
+        },
+        {
+          "inputCode": 128,
+          "series": "GSDF γ1",
+          "outputCode": 161.902,
+          "physicalNits": 36.87319
+        },
+        {
+          "inputCode": 144,
+          "series": "GSDF γ1",
+          "outputCode": 174.027,
+          "physicalNits": 43.20585
+        },
+        {
+          "inputCode": 160,
+          "series": "GSDF γ1",
+          "outputCode": 185.961,
+          "physicalNits": 49.97707
+        },
+        {
+          "inputCode": 176,
+          "series": "GSDF γ1",
+          "outputCode": 197.752,
+          "physicalNits": 57.20084
+        },
+        {
+          "inputCode": 192,
+          "series": "GSDF γ1",
+          "outputCode": 209.444,
+          "physicalNits": 64.89214
+        },
+        {
+          "inputCode": 208,
+          "series": "GSDF γ1",
+          "outputCode": 221.062,
+          "physicalNits": 73.06396
+        },
+        {
+          "inputCode": 224,
+          "series": "GSDF γ1",
+          "outputCode": 232.637,
+          "physicalNits": 81.73329
+        },
+        {
+          "inputCode": 240,
+          "series": "GSDF γ1",
+          "outputCode": 244.183,
+          "physicalNits": 90.9131
+        },
+        {
+          "inputCode": 255,
+          "series": "GSDF γ1",
+          "outputCode": 255,
+          "physicalNits": 100
+        },
+        {
+          "inputCode": 0,
+          "series": "CSDF comp 0",
+          "outputCode": 0,
+          "physicalNits": 0.1
+        },
+        {
+          "inputCode": 16,
+          "series": "CSDF comp 0",
+          "outputCode": 24.115,
+          "physicalNits": 0.65744
+        },
+        {
+          "inputCode": 32,
+          "series": "CSDF comp 0",
+          "outputCode": 36.371,
+          "physicalNits": 1.47662
+        },
+        {
+          "inputCode": 48,
+          "series": "CSDF comp 0",
+          "outputCode": 47.879,
+          "physicalNits": 2.62048
+        },
+        {
+          "inputCode": 64,
+          "series": "CSDF comp 0",
+          "outputCode": 59.443,
+          "physicalNits": 4.15694
+        },
+        {
+          "inputCode": 80,
+          "series": "CSDF comp 0",
+          "outputCode": 71.364,
+          "physicalNits": 6.16493
+        },
+        {
+          "inputCode": 96,
+          "series": "CSDF comp 0",
+          "outputCode": 83.798,
+          "physicalNits": 8.73536
+        },
+        {
+          "inputCode": 112,
+          "series": "CSDF comp 0",
+          "outputCode": 96.844,
+          "physicalNits": 11.97212
+        },
+        {
+          "inputCode": 128,
+          "series": "CSDF comp 0",
+          "outputCode": 110.593,
+          "physicalNits": 15.99909
+        },
+        {
+          "inputCode": 144,
+          "series": "CSDF comp 0",
+          "outputCode": 125.116,
+          "physicalNits": 20.95712
+        },
+        {
+          "inputCode": 160,
+          "series": "CSDF comp 0",
+          "outputCode": 140.495,
+          "physicalNits": 27.01706
+        },
+        {
+          "inputCode": 176,
+          "series": "CSDF comp 0",
+          "outputCode": 156.812,
+          "physicalNits": 34.37769
+        },
+        {
+          "inputCode": 192,
+          "series": "CSDF comp 0",
+          "outputCode": 174.168,
+          "physicalNits": 43.28178
+        },
+        {
+          "inputCode": 208,
+          "series": "CSDF comp 0",
+          "outputCode": 192.67,
+          "physicalNits": 54.02202
+        },
+        {
+          "inputCode": 224,
+          "series": "CSDF comp 0",
+          "outputCode": 212.451,
+          "physicalNits": 66.95708
+        },
+        {
+          "inputCode": 240,
+          "series": "CSDF comp 0",
+          "outputCode": 233.662,
+          "physicalNits": 82.52649
+        },
+        {
+          "inputCode": 255,
+          "series": "CSDF comp 0",
+          "outputCode": 255,
+          "physicalNits": 100
+        },
+        {
+          "inputCode": 0,
+          "series": "CSDF γ1",
+          "outputCode": 0,
+          "physicalNits": 0.1
+        },
+        {
+          "inputCode": 16,
+          "series": "CSDF γ1",
+          "outputCode": 65.68,
+          "physicalNits": 5.15294
+        },
+        {
+          "inputCode": 32,
+          "series": "CSDF γ1",
+          "outputCode": 86.409,
+          "physicalNits": 9.33875
+        },
+        {
+          "inputCode": 48,
+          "series": "CSDF γ1",
+          "outputCode": 103.076,
+          "physicalNits": 13.71837
+        },
+        {
+          "inputCode": 64,
+          "series": "CSDF γ1",
+          "outputCode": 117.784,
+          "physicalNits": 18.36272
+        },
+        {
+          "inputCode": 80,
+          "series": "CSDF γ1",
+          "outputCode": 131.31,
+          "physicalNits": 23.29678
+        },
+        {
+          "inputCode": 96,
+          "series": "CSDF γ1",
+          "outputCode": 144.044,
+          "physicalNits": 28.53654
+        },
+        {
+          "inputCode": 112,
+          "series": "CSDF γ1",
+          "outputCode": 156.221,
+          "physicalNits": 34.09397
+        },
+        {
+          "inputCode": 128,
+          "series": "CSDF γ1",
+          "outputCode": 167.986,
+          "physicalNits": 39.98208
+        },
+        {
+          "inputCode": 144,
+          "series": "CSDF γ1",
+          "outputCode": 179.441,
+          "physicalNits": 46.21084
+        },
+        {
+          "inputCode": 160,
+          "series": "CSDF γ1",
+          "outputCode": 190.663,
+          "physicalNits": 52.79425
+        },
+        {
+          "inputCode": 176,
+          "series": "CSDF γ1",
+          "outputCode": 201.713,
+          "physicalNits": 59.74729
+        },
+        {
+          "inputCode": 192,
+          "series": "CSDF γ1",
+          "outputCode": 212.632,
+          "physicalNits": 67.08195
+        },
+        {
+          "inputCode": 208,
+          "series": "CSDF γ1",
+          "outputCode": 223.459,
+          "physicalNits": 74.81621
+        },
+        {
+          "inputCode": 224,
+          "series": "CSDF γ1",
+          "outputCode": 234.225,
+          "physicalNits": 82.96505
+        },
+        {
+          "inputCode": 240,
+          "series": "CSDF γ1",
+          "outputCode": 244.956,
+          "physicalNits": 91.54646
+        },
+        {
+          "inputCode": 255,
+          "series": "CSDF γ1",
+          "outputCode": 255,
+          "physicalNits": 100
+        }
+      ],
+      "quantization_summary": [
+        {
+          "caseLabel": "CSDF · Neutral · 10-bit",
+          "formula": "CSDF",
+          "formulaId": "CSDF",
+          "gammaMode": "Compensation 0 (P-value identity)",
+          "gammaModeId": "neutral",
+          "representation": "10-bit",
+          "representationId": "10-bit",
+          "uniqueLevels": 256,
+          "duplicateTransitions": 0,
+          "visibleTransitions": 255,
+          "subJndTransitions": 0,
+          "jndMean": 1.8284,
+          "jndSd": 0.3582,
+          "jndCv": 0.1959,
+          "jndMin": 1.2296,
+          "jndMax": 4.0868,
+          "rmsJndTargetError": 0.138,
+          "meanNits": 26.6739,
+          "midNits": 16.0251
+        },
+        {
+          "caseLabel": "CSDF · Neutral · 8-bit",
+          "formula": "CSDF",
+          "formulaId": "CSDF",
+          "gammaMode": "Compensation 0 (P-value identity)",
+          "gammaModeId": "neutral",
+          "representation": "8-bit",
+          "representationId": "8-bit",
+          "uniqueLevels": 227,
+          "duplicateTransitions": 29,
+          "visibleTransitions": 226,
+          "subJndTransitions": 29,
+          "jndMean": 1.8284,
+          "jndSd": 0.8582,
+          "jndCv": 0.4694,
+          "jndMin": 0,
+          "jndMax": 4.7661,
+          "rmsJndTargetError": 0.6017,
+          "meanNits": 26.6817,
+          "midNits": 16.1283
+        },
+        {
+          "caseLabel": "CSDF · γ1 proxy · 10-bit",
+          "formula": "CSDF",
+          "formulaId": "CSDF",
+          "gammaMode": "Forced gamma target 1.0",
+          "gammaModeId": "forced-gamma-1",
+          "representation": "10-bit",
+          "representationId": "10-bit",
+          "uniqueLevels": 256,
+          "duplicateTransitions": 0,
+          "visibleTransitions": 174,
+          "subJndTransitions": 81,
+          "jndMean": 1.8284,
+          "jndSd": 3.697,
+          "jndCv": 2.022,
+          "jndMin": 0.5763,
+          "jndMax": 55.0669,
+          "rmsJndTargetError": 0.1268,
+          "meanNits": 43.4218,
+          "midNits": 39.9925
+        },
+        {
+          "caseLabel": "CSDF · γ1 proxy · 8-bit",
+          "formula": "CSDF",
+          "formulaId": "CSDF",
+          "gammaMode": "Forced gamma target 1.0",
+          "gammaModeId": "forced-gamma-1",
+          "representation": "8-bit",
+          "representationId": "8-bit",
+          "uniqueLevels": 201,
+          "duplicateTransitions": 55,
+          "visibleTransitions": 200,
+          "subJndTransitions": 55,
+          "jndMean": 1.8284,
+          "jndSd": 3.7938,
+          "jndCv": 2.075,
+          "jndMin": 0,
+          "jndMax": 55.9674,
+          "rmsJndTargetError": 0.4749,
+          "meanNits": 43.4283,
+          "midNits": 39.9894
+        },
+        {
+          "caseLabel": "GSDF · Neutral · 10-bit",
+          "formula": "GSDF",
+          "formulaId": "GSDF",
+          "gammaMode": "Compensation 0 (P-value identity)",
+          "gammaModeId": "neutral",
+          "representation": "10-bit",
+          "representationId": "10-bit",
+          "uniqueLevels": 256,
+          "duplicateTransitions": 0,
+          "visibleTransitions": 255,
+          "subJndTransitions": 0,
+          "jndMean": 1.8284,
+          "jndSd": 0.2036,
+          "jndCv": 0.1114,
+          "jndMin": 1.2654,
+          "jndMax": 2.3333,
+          "rmsJndTargetError": 0.1484,
+          "meanNits": 24.8476,
+          "midNits": 13.4648
+        },
+        {
+          "caseLabel": "GSDF · Neutral · 8-bit",
+          "formula": "GSDF",
+          "formulaId": "GSDF",
+          "gammaMode": "Compensation 0 (P-value identity)",
+          "gammaModeId": "neutral",
+          "representation": "8-bit",
+          "representationId": "8-bit",
+          "uniqueLevels": 225,
+          "duplicateTransitions": 31,
+          "visibleTransitions": 224,
+          "subJndTransitions": 31,
+          "jndMean": 1.8284,
+          "jndSd": 0.8263,
+          "jndCv": 0.4519,
+          "jndMin": 0,
+          "jndMax": 3.4233,
+          "rmsJndTargetError": 0.5744,
+          "meanNits": 24.8483,
+          "midNits": 13.4075
+        },
+        {
+          "caseLabel": "GSDF · γ1 proxy · 10-bit",
+          "formula": "GSDF",
+          "formulaId": "GSDF",
+          "gammaMode": "Forced gamma target 1.0",
+          "gammaModeId": "forced-gamma-1",
+          "representation": "10-bit",
+          "representationId": "10-bit",
+          "uniqueLevels": 256,
+          "duplicateTransitions": 0,
+          "visibleTransitions": 189,
+          "subJndTransitions": 66,
+          "jndMean": 1.8284,
+          "jndSd": 2.6804,
+          "jndCv": 1.466,
+          "jndMin": 0.5802,
+          "jndMax": 37.5789,
+          "rmsJndTargetError": 0.1216,
+          "meanNits": 41.234,
+          "midNits": 36.934
+        },
+        {
+          "caseLabel": "GSDF · γ1 proxy · 8-bit",
+          "formula": "GSDF",
+          "formulaId": "GSDF",
+          "gammaMode": "Forced gamma target 1.0",
+          "gammaModeId": "forced-gamma-1",
+          "representation": "8-bit",
+          "representationId": "8-bit",
+          "uniqueLevels": 209,
+          "duplicateTransitions": 47,
+          "visibleTransitions": 208,
+          "subJndTransitions": 47,
+          "jndMean": 1.8284,
+          "jndSd": 2.7331,
+          "jndCv": 1.4948,
+          "jndMin": 0,
+          "jndMax": 37.0797,
+          "rmsJndTargetError": 0.5145,
+          "meanNits": 41.2463,
+          "midNits": 36.9222
+        }
+      ],
+      "plateau_bands": [
+        {
+          "band": "0-31",
+          "formula": "GSDF",
+          "plateauCount": 7,
+          "distinctOutputLevels": 25,
+          "inputLevels": 32
+        },
+        {
+          "band": "32-63",
+          "formula": "GSDF",
+          "plateauCount": 10,
+          "distinctOutputLevels": 22,
+          "inputLevels": 32
+        },
+        {
+          "band": "64-127",
+          "formula": "GSDF",
+          "plateauCount": 13,
+          "distinctOutputLevels": 51,
+          "inputLevels": 64
+        },
+        {
+          "band": "128-191",
+          "formula": "GSDF",
+          "plateauCount": 1,
+          "distinctOutputLevels": 63,
+          "inputLevels": 64
+        },
+        {
+          "band": "192-223",
+          "formula": "GSDF",
+          "plateauCount": 0,
+          "distinctOutputLevels": 32,
+          "inputLevels": 32
+        },
+        {
+          "band": "224-255",
+          "formula": "GSDF",
+          "plateauCount": 0,
+          "distinctOutputLevels": 32,
+          "inputLevels": 32
+        },
+        {
+          "band": "0-31",
+          "formula": "CSDF",
+          "plateauCount": 4,
+          "distinctOutputLevels": 28,
+          "inputLevels": 32
+        },
+        {
+          "band": "32-63",
+          "formula": "CSDF",
+          "plateauCount": 8,
+          "distinctOutputLevels": 24,
+          "inputLevels": 32
+        },
+        {
+          "band": "64-127",
+          "formula": "CSDF",
+          "plateauCount": 12,
+          "distinctOutputLevels": 52,
+          "inputLevels": 64
+        },
+        {
+          "band": "128-191",
+          "formula": "CSDF",
+          "plateauCount": 3,
+          "distinctOutputLevels": 61,
+          "inputLevels": 64
+        },
+        {
+          "band": "192-223",
+          "formula": "CSDF",
+          "plateauCount": 0,
+          "distinctOutputLevels": 32,
+          "inputLevels": 32
+        },
+        {
+          "band": "224-255",
+          "formula": "CSDF",
+          "plateauCount": 0,
+          "distinctOutputLevels": 32,
+          "inputLevels": 32
+        }
+      ],
+      "brightness_samples": [
+        {
+          "inputCode": 0,
+          "baselineNits": 0.1,
+          "gsdfIdealNits": 0.1,
+          "gsdf8Nits": 0.1,
+          "gsdf10Nits": 0.1,
+          "csdfIdealNits": 0.1,
+          "csdf8Nits": 0.1,
+          "csdf10Nits": 0.1
+        },
+        {
+          "inputCode": 1,
+          "baselineNits": 0.10051,
+          "gsdfIdealNits": 0.11199,
+          "gsdf8Nits": 0.11071,
+          "gsdf10Nits": 0.11216,
+          "csdfIdealNits": 0.12797,
+          "csdf8Nits": 0.12613,
+          "csdf10Nits": 0.1284
+        },
+        {
+          "inputCode": 2,
+          "baselineNits": 0.10233,
+          "gsdfIdealNits": 0.12498,
+          "gsdf8Nits": 0.12613,
+          "gsdf10Nits": 0.12596,
+          "csdfIdealNits": 0.15794,
+          "csdf8Nits": 0.16375,
+          "csdf10Nits": 0.15954
+        },
+        {
+          "inputCode": 4,
+          "baselineNits": 0.11071,
+          "gsdfIdealNits": 0.15395,
+          "gsdf8Nits": 0.1492,
+          "gsdf10Nits": 0.15231,
+          "csdfIdealNits": 0.21788,
+          "csdf8Nits": 0.22005,
+          "csdf10Nits": 0.21928
+        },
+        {
+          "inputCode": 8,
+          "baselineNits": 0.1492,
+          "gsdfIdealNits": 0.21988,
+          "gsdf8Nits": 0.22005,
+          "gsdf10Nits": 0.21928,
+          "csdfIdealNits": 0.34975,
+          "csdf8Nits": 0.35832,
+          "csdf10Nits": 0.34843
+        },
+        {
+          "inputCode": 16,
+          "baselineNits": 0.32607,
+          "gsdfIdealNits": 0.39371,
+          "gsdf8Nits": 0.39294,
+          "gsdf10Nits": 0.39105,
+          "csdfIdealNits": 0.65744,
+          "csdf8Nits": 0.65162,
+          "csdf10Nits": 0.66071
+        },
+        {
+          "inputCode": 32,
+          "baselineNits": 1.13874,
+          "gsdfIdealNits": 0.93217,
+          "gsdf8Nits": 0.93647,
+          "gsdf10Nits": 0.93109,
+          "csdfIdealNits": 1.47662,
+          "csdf8Nits": 1.44599,
+          "csdf10Nits": 1.47853
+        },
+        {
+          "inputCode": 64,
+          "baselineNits": 4.8728,
+          "gsdfIdealNits": 2.9961,
+          "gsdf8Nits": 2.99622,
+          "gsdf10Nits": 3.00869,
+          "csdfIdealNits": 4.15694,
+          "csdf8Nits": 4.09072,
+          "csdf10Nits": 4.13932
+        },
+        {
+          "inputCode": 96,
+          "baselineNits": 11.74592,
+          "gsdfIdealNits": 6.8932,
+          "gsdf8Nits": 6.86569,
+          "gsdf10Nits": 6.87151,
+          "csdfIdealNits": 8.73536,
+          "csdf8Nits": 8.78144,
+          "csdf10Nits": 8.72552
+        },
+        {
+          "inputCode": 128,
+          "baselineNits": 22.03002,
+          "gsdfIdealNits": 13.47961,
+          "gsdf8Nits": 13.40753,
+          "gsdf10Nits": 13.46483,
+          "csdfIdealNits": 15.99909,
+          "csdf8Nits": 16.12831,
+          "csdf10Nits": 16.02508
+        },
+        {
+          "inputCode": 160,
+          "baselineNits": 35.92953,
+          "gsdfIdealNits": 23.99009,
+          "gsdf8Nits": 23.95892,
+          "gsdf10Nits": 24.00176,
+          "csdfIdealNits": 27.01706,
+          "csdf8Nits": 26.80907,
+          "csdf10Nits": 27.05586
+        },
+        {
+          "inputCode": 192,
+          "baselineNits": 53.6106,
+          "gsdfIdealNits": 40.21784,
+          "gsdf8Nits": 39.9894,
+          "gsdf10Nits": 40.25335,
+          "csdfIdealNits": 43.28178,
+          "csdf8Nits": 43.19089,
+          "csdf10Nits": 43.32041
+        },
+        {
+          "inputCode": 224,
+          "baselineNits": 75.21432,
+          "gsdfIdealNits": 64.76027,
+          "gsdf8Nits": 64.59097,
+          "gsdf10Nits": 64.68258,
+          "csdfIdealNits": 66.95708,
+          "csdf8Nits": 66.64509,
+          "csdf10Nits": 66.90457
+        },
+        {
+          "inputCode": 240,
+          "baselineNits": 87.52624,
+          "gsdfIdealNits": 81.26475,
+          "gsdf8Nits": 81.24292,
+          "gsdf10Nits": 81.29483,
+          "csdfIdealNits": 82.52649,
+          "csdf8Nits": 82.78981,
+          "csdf10Nits": 82.45049
+        },
+        {
+          "inputCode": 255,
+          "baselineNits": 100,
+          "gsdfIdealNits": 100,
+          "gsdf8Nits": 100,
+          "gsdf10Nits": 100,
+          "csdfIdealNits": 100,
+          "csdf8Nits": 100,
+          "csdf10Nits": 100
+        }
+      ],
+      "headline_metrics": [
+        {
+          "metricId": "gsdf8",
+          "uniqueLevels": 225,
+          "duplicateTransitions": 31,
+          "jndSd": 0.8263,
+          "maxRemapDelta": null
+        },
+        {
+          "metricId": "csdf8",
+          "uniqueLevels": 227,
+          "duplicateTransitions": 29,
+          "jndSd": 0.8582,
+          "maxRemapDelta": null
+        },
+        {
+          "metricId": "gsdf10",
+          "uniqueLevels": 256,
+          "duplicateTransitions": 0,
+          "jndSd": 0.2036,
+          "maxRemapDelta": null
+        },
+        {
+          "metricId": "gamma0",
+          "uniqueLevels": null,
+          "duplicateTransitions": null,
+          "jndSd": null,
+          "maxRemapDelta": 0
+        }
+      ]
+    }
+  },
+  "sources": [
+    {
+      "id": "summary_metrics_sql",
+      "label": "Bit-depth analysis dataset: summary_metrics",
+      "path": "scripts/analyzeGsdfCsdfBitDepth.mjs",
+      "query": {
+        "engine": "node:sqlite",
+        "language": "sql",
+        "sql": "SELECT * FROM summary_metrics ORDER BY caseLabel ASC",
+        "description": "Reads reviewed rows calculated by the current tone-curve model from the in-memory SQLite table summary_metrics.",
+        "executed_at": "2026-07-16T14:10:17Z",
+        "tables_used": [
+          "summary_metrics"
+        ]
+      }
+    },
+    {
+      "id": "mapping_neutral_sql",
+      "label": "Bit-depth analysis dataset: mapping_neutral",
+      "path": "scripts/analyzeGsdfCsdfBitDepth.mjs",
+      "query": {
+        "engine": "node:sqlite",
+        "language": "sql",
+        "sql": "SELECT * FROM mapping_neutral ORDER BY rowid ASC",
+        "description": "Reads reviewed rows calculated by the current tone-curve model from the in-memory SQLite table mapping_neutral.",
+        "executed_at": "2026-07-16T14:10:17Z",
+        "tables_used": [
+          "mapping_neutral"
+        ]
+      }
+    },
+    {
+      "id": "jnd_gsdf_sql",
+      "label": "Bit-depth analysis dataset: jnd_gsdf",
+      "path": "scripts/analyzeGsdfCsdfBitDepth.mjs",
+      "query": {
+        "engine": "node:sqlite",
+        "language": "sql",
+        "sql": "SELECT * FROM jnd_gsdf ORDER BY rowid ASC",
+        "description": "Reads reviewed rows calculated by the current tone-curve model from the in-memory SQLite table jnd_gsdf.",
+        "executed_at": "2026-07-16T14:10:17Z",
+        "tables_used": [
+          "jnd_gsdf"
+        ]
+      }
+    },
+    {
+      "id": "gamma_sensitivity_sql",
+      "label": "Bit-depth analysis dataset: gamma_sensitivity",
+      "path": "scripts/analyzeGsdfCsdfBitDepth.mjs",
+      "query": {
+        "engine": "node:sqlite",
+        "language": "sql",
+        "sql": "SELECT * FROM gamma_sensitivity ORDER BY rowid ASC",
+        "description": "Reads reviewed rows calculated by the current tone-curve model from the in-memory SQLite table gamma_sensitivity.",
+        "executed_at": "2026-07-16T14:10:17Z",
+        "tables_used": [
+          "gamma_sensitivity"
+        ]
+      }
+    },
+    {
+      "id": "quantization_summary_sql",
+      "label": "Bit-depth analysis dataset: quantization_summary",
+      "path": "scripts/analyzeGsdfCsdfBitDepth.mjs",
+      "query": {
+        "engine": "node:sqlite",
+        "language": "sql",
+        "sql": "SELECT * FROM quantization_summary ORDER BY caseLabel ASC",
+        "description": "Reads reviewed rows calculated by the current tone-curve model from the in-memory SQLite table quantization_summary.",
+        "executed_at": "2026-07-16T14:10:17Z",
+        "tables_used": [
+          "quantization_summary"
+        ]
+      }
+    },
+    {
+      "id": "plateau_bands_sql",
+      "label": "Bit-depth analysis dataset: plateau_bands",
+      "path": "scripts/analyzeGsdfCsdfBitDepth.mjs",
+      "query": {
+        "engine": "node:sqlite",
+        "language": "sql",
+        "sql": "SELECT * FROM plateau_bands ORDER BY rowid ASC",
+        "description": "Reads reviewed rows calculated by the current tone-curve model from the in-memory SQLite table plateau_bands.",
+        "executed_at": "2026-07-16T14:10:17Z",
+        "tables_used": [
+          "plateau_bands"
+        ]
+      }
+    },
+    {
+      "id": "brightness_samples_sql",
+      "label": "Bit-depth analysis dataset: brightness_samples",
+      "path": "scripts/analyzeGsdfCsdfBitDepth.mjs",
+      "query": {
+        "engine": "node:sqlite",
+        "language": "sql",
+        "sql": "SELECT * FROM brightness_samples ORDER BY inputCode ASC",
+        "description": "Reads reviewed rows calculated by the current tone-curve model from the in-memory SQLite table brightness_samples.",
+        "executed_at": "2026-07-16T14:10:17Z",
+        "tables_used": [
+          "brightness_samples"
+        ]
+      }
+    },
+    {
+      "id": "headline_metrics_sql",
+      "label": "Bit-depth analysis dataset: headline_metrics",
+      "path": "scripts/analyzeGsdfCsdfBitDepth.mjs",
+      "query": {
+        "engine": "node:sqlite",
+        "language": "sql",
+        "sql": "SELECT * FROM headline_metrics ORDER BY rowid ASC",
+        "description": "Reads reviewed rows calculated by the current tone-curve model from the in-memory SQLite table headline_metrics.",
+        "executed_at": "2026-07-16T14:10:17Z",
+        "tables_used": [
+          "headline_metrics"
+        ]
+      }
+    }
+  ]
+}
