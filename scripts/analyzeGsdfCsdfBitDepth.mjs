@@ -242,6 +242,8 @@ function buildCurve(snapshot, representation, luminanceToGsdfJnd) {
   const rmsJndTargetError = Math.sqrt(mean(jndIndex.map((value, index) => (value - idealJnd[index]) ** 2)));
   const averageJnd = mean(jndSteps);
   const jndSd = standardDeviation(jndSteps);
+  const visibleTransitions = jndSteps.filter((value) => value >= 1).length;
+  const subJndTransitions = jndSteps.length - visibleTransitions;
 
   return {
     representation: representation.id,
@@ -254,8 +256,9 @@ function buildCurve(snapshot, representation, luminanceToGsdfJnd) {
     metrics: {
       uniqueLevels,
       duplicateTransitions,
-      visibleTransitions: jndSteps.filter((value) => value >= 1).length,
-      subJndTransitions: jndSteps.filter((value) => value < 1).length,
+      visibleTransitions,
+      subJndTransitions,
+      visibleTransitionRatePct: round((visibleTransitions / jndSteps.length) * 100, 2),
       jndMean: round(averageJnd),
       jndSd: round(jndSd),
       jndCv: round(jndSd / averageJnd),
@@ -401,6 +404,10 @@ function translation(locale) {
       physicalNits: isZh ? '實體亮度（nit）' : 'Physical luminance (nit)',
     },
     generatedAtLabel: isZh ? '產生時間' : 'Generated at',
+    standardGamma22: isZh ? '標準 Gamma 2.2' : 'Standard gamma 2.2',
+    standardGamma22Mode: isZh
+      ? 'gammaTarget = displayGamma = 2.2'
+      : 'gammaTarget = displayGamma = 2.2',
   };
 }
 
@@ -427,20 +434,26 @@ function snapshotFor(analysis, gammaMode, formula) {
 function buildDatasets(analysis, t) {
   const summaryMetrics = [];
   for (const gammaMode of GAMMA_MODES) {
-    for (const formula of ['GSDF', 'CSDF']) {
+    const formulas = gammaMode.id === 'neutral' ? FORMULAS : ['GSDF', 'CSDF'];
+    for (const formula of formulas) {
       for (const representation of REPRESENTATIONS) {
         const curve = curveFor(analysis, gammaMode.id, formula, representation.id);
         const modeLabel = localizedMode(t, gammaMode.id);
         const formulaLabel = localizedFormula(t, formula);
         const representationLabel = localizedRepresentation(t, representation.id);
-        const compactModeLabel = gammaMode.id === 'neutral'
+        const standardGamma22 = formula === 'Baseline';
+        const compactModeLabel = standardGamma22
+          ? t.standardGamma22Mode
+          : gammaMode.id === 'neutral'
           ? (t.locale === 'zh-tw' ? '補償 0' : 'Neutral')
           : (t.locale === 'zh-tw' ? 'γ1 代理' : 'γ1 proxy');
         summaryMetrics.push({
-          caseLabel: `${formulaLabel} · ${compactModeLabel} · ${representationLabel}`,
-          formula: formulaLabel,
+          caseLabel: standardGamma22
+            ? `${t.standardGamma22} · ${representationLabel}`
+            : `${formulaLabel} · ${compactModeLabel} · ${representationLabel}`,
+          formula: standardGamma22 ? t.standardGamma22 : formulaLabel,
           formulaId: formula,
-          gammaMode: modeLabel,
+          gammaMode: standardGamma22 ? t.standardGamma22Mode : modeLabel,
           gammaModeId: gammaMode.id,
           representation: representationLabel,
           representationId: representation.id,
@@ -448,6 +461,7 @@ function buildDatasets(analysis, t) {
           duplicateTransitions: curve.metrics.duplicateTransitions,
           visibleTransitions: curve.metrics.visibleTransitions,
           subJndTransitions: curve.metrics.subJndTransitions,
+          visibleTransitionRatePct: curve.metrics.visibleTransitionRatePct,
           jndMean: curve.metrics.jndMean,
           jndSd: curve.metrics.jndSd,
           jndCv: curve.metrics.jndCv,
@@ -524,7 +538,8 @@ function buildDatasets(analysis, t) {
   }
 
   const quantizationSummary = summaryMetrics
-    .filter((row) => row.representationId === '8-bit' || row.representationId === '10-bit')
+    .filter((row) => row.formulaId !== 'Baseline'
+      && (row.representationId === '8-bit' || row.representationId === '10-bit'))
     .map((row) => ({ ...row }));
 
   const plateauBands = [];
@@ -616,6 +631,8 @@ function findSummary(datasets, formulaId, gammaModeId, representationId) {
 function buildNarrative(locale, analysis, datasets, generatedAt) {
   const zh = locale === 'zh-tw';
   const gsdfIdeal = findSummary(datasets, 'GSDF', 'neutral', 'ideal');
+  const standardGamma8 = findSummary(datasets, 'Baseline', 'neutral', '8-bit');
+  const standardGamma10 = findSummary(datasets, 'Baseline', 'neutral', '10-bit');
   const gsdf8 = findSummary(datasets, 'GSDF', 'neutral', '8-bit');
   const gsdf10 = findSummary(datasets, 'GSDF', 'neutral', '10-bit');
   const csdfIdeal = findSummary(datasets, 'CSDF', 'neutral', 'ideal');
@@ -630,17 +647,17 @@ function buildNarrative(locale, analysis, datasets, generatedAt) {
 
   if (zh) {
     return {
-      technicalSummary: `## 技術摘要\n\n- **理想浮點 GSDF 的感知均勻性成立。** 在 0.1–100 nit 範圍，255 個輸入間隔平均跨越 ${gsdfIdeal.jndMean.toFixed(4)} JND，標準差只有 ${gsdfIdeal.jndSd.toFixed(4)}。\n- **硬 8-bit 會削弱這項優勢。** GSDF 只留下 ${gsdf8.uniqueLevels} 個不同輸出階、合併 ${gsdf8.duplicateTransitions} 組相鄰輸入；CSDF 留下 ${csdf8.uniqueLevels} 階、合併 ${csdf8.duplicateTransitions} 組。\n- **10-bit 足以保留所有 256 個輸入階。** GSDF 與 CSDF 都有 ${gsdf10.uniqueLevels}/${csdf10.uniqueLevels} 個不同輸出階且沒有 plateau；GSDF 的 JND 階差標準差降到 ${gsdf10.jndSd.toFixed(4)}。\n- **Gamma compensation = 0 不會產生另一條「線性亮度」曲線。** 它令 gammaTarget 與 displayGamma 同為 2.2，因此 P-value/code 軸保持 identity，最大 remap 差為 ${analysis.identityDelta.toFixed(8)}；若強制 gammaTarget = 1.0，中灰亮度會由 GSDF ${neutralGsdfMid.toFixed(2)} nit 變為 ${forcedGsdfMid.toFixed(2)} nit、CSDF ${neutralCsdfMid.toFixed(2)} nit 變為 ${forcedCsdfMid.toFixed(2)} nit，但這等價於 UI +100 的極端補償，不是補償 0。`,
+      technicalSummary: `## 技術摘要\n\n- **標準 Gamma 2.2 已加入比較基準。** 硬 8-bit 保留 ${standardGamma8.uniqueLevels} 個裝置碼，但只有 ${standardGamma8.visibleTransitions}/255 個相鄰階差達到 ΔJND ≥ 1（${standardGamma8.visibleTransitionRatePct.toFixed(2)}%）；10-bit 在相同 256 階輸入下為 ${standardGamma10.visibleTransitions}/255（${standardGamma10.visibleTransitionRatePct.toFixed(2)}%）。\n- **理想浮點 GSDF 的感知均勻性成立。** 在 0.1–100 nit 範圍，255 個輸入間隔平均跨越 ${gsdfIdeal.jndMean.toFixed(4)} JND，標準差只有 ${gsdfIdeal.jndSd.toFixed(4)}。\n- **硬 8-bit 會削弱這項優勢。** GSDF 只留下 ${gsdf8.uniqueLevels} 個不同輸出階、合併 ${gsdf8.duplicateTransitions} 組相鄰輸入；CSDF 留下 ${csdf8.uniqueLevels} 階、合併 ${csdf8.duplicateTransitions} 組。\n- **10-bit 足以保留所有 256 個輸入階。** GSDF 與 CSDF 都有 ${gsdf10.uniqueLevels}/${csdf10.uniqueLevels} 個不同輸出階且沒有 plateau；GSDF 的 JND 階差標準差降到 ${gsdf10.jndSd.toFixed(4)}。\n- **Gamma compensation = 0 不會產生另一條「線性亮度」曲線。** 它令 gammaTarget 與 displayGamma 同為 2.2，因此 P-value/code 軸保持 identity，最大 remap 差為 ${analysis.identityDelta.toFixed(8)}；若強制 gammaTarget = 1.0，中灰亮度會由 GSDF ${neutralGsdfMid.toFixed(2)} nit 變為 ${forcedGsdfMid.toFixed(2)} nit、CSDF ${neutralCsdfMid.toFixed(2)} nit 變為 ${forcedCsdfMid.toFixed(2)} nit，但這等價於 UI +100 的極端補償，不是補償 0。`,
       mappingIntro: `## GSDF 與 CSDF 重新分配亮度，而不是增加 8-bit 階數\n\n下圖比較未套用 transfer、GSDF 與 CSDF 的理想輸出碼。GSDF 把深暗至中間調壓向較低輸出碼，再把亮部拉開；CSDF 加入專案自訂的 shadow bias 與 toe，暗部比 GSDF 更亮。Adobe RGB 不改變這條中性灰 remap 曲線；它影響彩色內容的 luma 權重與 ICC source TRC。`,
       jndIntro: `## 8-bit plateau 破壞 GSDF 的等 JND 目標，10-bit 大幅恢復\n\n理想 GSDF 幾乎是一條水平線；硬 8-bit 出現 ${gsdf8.duplicateTransitions} 個零 JND 階差與跳碼尖峰。10-bit 沒有相鄰輸入合併，雖仍有量化誤差，但階差分布明顯接近理想曲線。`,
       quantIntro: `## 10-bit 消除相鄰輸入合併\n\n在本次 256 階輸入下，10-bit 的 1024 個裝置碼足以讓 GSDF、CSDF 與兩種 Gamma 情境都保有 256 個唯一輸出。8-bit 的非線性單調 remap 則不可能同時保留 256 個唯一整數輸出，除非退化成 identity。`,
       jndSdIntro: `## GSDF 在高位深下最接近感知均勻\n\nJND 階差標準差越小，代表相鄰輸入在感知尺度上越均勻。理想 GSDF 為 ${gsdfIdeal.jndSd.toFixed(4)}，硬 8-bit 反而上升到 ${gsdf8.jndSd.toFixed(4)}；10-bit 降回 ${gsdf10.jndSd.toFixed(4)}。CSDF 的理想標準差為 ${csdfIdeal.jndSd.toFixed(4)}，因為它刻意加入暗部偏壓，所以不是嚴格等 JND 曲線。`,
       plateauIntro: `## 8-bit 合併主要集中在暗部與暗中間調\n\nplateau 並非平均分布。GSDF 的 ${gsdf8.duplicateTransitions} 組合併幾乎都落在輸入 0–127；192 以上沒有相鄰輸入合併，亮部以跳過部分裝置碼換取較大的局部對比。`,
       gammaIntro: `## 「補償 0」是 code/P-value identity，不是 linear-light 宣告\n\n目前程式先以 gammaTarget/displayGamma 比值調整輸入碼，再送進 GSDF／CSDF。補償 0 時比值為 1，所以結果就是本報告的 neutral 曲線，與前次計算相同。強制 gammaTarget = 1.0 的敏感度曲線顯著變亮，但它改變的是 transfer 前的 code warp；目前 sourceIsLinear 並沒有可用的獨立線性來源模式。`,
-      exactStatsIntro: `## 完整統計保留公式、Gamma 模式與位深切面\n\n下表提供每個情境的唯一階數、plateau、可見階差、JND 分布、理想目標誤差與亮度統計。理想浮點列用於評估公式本身；8/10-bit 列用於評估輸出量化。`,
-      jndDetailIntro: `## JND 分布揭示平均值以外的量化誤差\n\n相同的平均 JND 階差不代表相同的均勻性。標準差、變異係數、最小／最大階差與目標 RMSE 可區分理想曲線、plateau 與跳碼尖峰。`,
+      exactStatsIntro: `## 完整統計保留公式、Gamma 模式與位深切面\n\n下表加入標準 Gamma 2.2 的 ideal、8-bit 與 10-bit 基準列，並列出 ΔJND ≥ 1 的可辨識相鄰階差數、低於 1 JND 的階差數與可辨識率。其餘列保留 GSDF／CSDF 的唯一階數、plateau、亮度與量化統計。`,
+      jndDetailIntro: `## JND 分布揭示標準 Gamma 2.2 與感知曲線的差異\n\n相同的平均 JND 階差不代表相同的均勻性。標準 Gamma 2.2 基準列可直接和 GSDF／CSDF 比較；標準差、變異係數、最小／最大階差與目標 RMSE 可區分暗部低於門檻的階差、plateau 與跳碼尖峰。`,
       brightnessIntro: `## 代表性輸入碼顯示暗部、灰階與亮部的實際 nit 變化\n\n精確值能補足曲線圖的形狀判讀。8-bit 與 10-bit 欄位均先量化裝置碼，再依預設 2.2 display gamma 轉回 0.1–100 nit。`,
-      scope: `## 範圍、資料與指標定義\n\n- **顯示模型：** Adobe RGB、IPS 1000:1、Lmax 100 nit、有效黑位 0.1 nit、display gamma 2.2、Black/White 0/256、strength 100%。\n- **輸入母體：** 完整 8-bit 灰階碼 0–255，共 256 個樣本與 255 個相鄰階差。\n- **GSDF：** 依目前 DICOM GSDF 反函式在 JND index 間插值。\n- **CSDF：** 專案自訂的 contrast-aware GSDF 變體，不是 DICOM 規範的彩色標準。\n- **可見階差：** 模型中相鄰輸出的 ΔJND ≥ 1；這是標準觀察者模型，不是特定使用者或環境的實測。\n- **硬位深：** 將浮點輸出碼四捨五入到 255 或 1023，再以 display gamma 還原實體亮度。`,
+      scope: `## 範圍、資料與指標定義\n\n- **顯示模型：** Adobe RGB、IPS 1000:1、Lmax 100 nit、有效黑位 0.1 nit、display gamma 2.2、Black/White 0/256、strength 100%。\n- **標準 Gamma 2.2：** 不套用 GSDF／CSDF，gammaTarget 與 displayGamma 均為 2.2；8-bit 為輸入碼到裝置碼的 identity 基準。\n- **輸入母體：** 完整 8-bit 灰階碼 0–255，共 256 個樣本與 255 個相鄰階差。\n- **GSDF：** 依目前 DICOM GSDF 反函式在 JND index 間插值。\n- **CSDF：** 專案自訂的 contrast-aware GSDF 變體，不是 DICOM 規範的彩色標準。\n- **可辨識相鄰階差：** 模型中相鄰輸出的 ΔJND ≥ 1；可辨識率以符合門檻的階差數除以 255。這是標準觀察者模型，不是特定使用者或環境的實測。\n- **硬位深：** 將浮點輸出碼四捨五入到 255 或 1023，再以 display gamma 還原實體亮度。`,
       methodology: `## 計算方法與可重現性\n\n分析腳本直接 bundle 並呼叫目前的 [buildToneCurveSnapshot.ts](../src/color/buildToneCurveSnapshot.ts) 與 [perceptualLuminance.ts](../src/color/perceptualLuminance.ts)，沒有重新抄寫另一份 GSDF／CSDF 公式。每個情境都使用同一組 256 個輸入碼，先取得理想 target EOTF 與 code remap，再進行 8/10-bit nearest-code 量化，最後以 DICOM JND 反函式計算相鄰階差。\n\nDICOM 將一個 JND 定義為指定觀看條件下平均觀察者剛可察覺的亮度差；PS3.14 也說明離散輸出階數會限制 contrast resolution。[DICOM PS3.14 definitions](https://dicom.nema.org/medical/dicom/current/output/chtml/part14/chapter_3.html) · [DICOM PS3.14 methodology](https://dicom.nema.org/medical/dicom/current/output/chtml/part14/sect_c.2.html)\n\n報告時間：${generatedAt}`,
       limitations: `## 限制、未知與穩健性檢查\n\n- **VERIFIED：** TypeScript 模型、extension mirror、Adobe RGB 灰階 remap 不變性、8/10-bit nearest-code 統計。\n- **INFERRED：** ΔJND ≥ 1 被視為平均觀察者可辨識；實際感受仍受觀看距離、環境光、畫面紋理與 adaptation 影響。\n- **UNKNOWN：** 瀏覽器 compositor、GPU 輸出與面板是否使用內建 temporal/spatial dithering 或 FRC。若存在，實際結果會介於硬量化與理想浮點之間。\n- DICOM GSDF 對彩色影像沒有規範性要求；Adobe RGB 彩色內容的結果是專案設計延伸。\n- 強制 gammaTarget = 1.0 只是敏感度代理，不能替代真正的 source transfer metadata 或 sourceIsLinear 模型分支。\n- 報告 baseline 採 extension neutral bypass 的精確 identity。若單獨呼叫 5 位小數 snapshot 的 strength = 0 round-trip，最大 code 差為 ${analysis.roundedSnapshotIdentityDelta.toFixed(5)}；這是序列化精度效應，不是 Gamma compensation = 0 的前級差異。`,
       recommendations: `## 建議的實作與驗證順序\n\n1. **將 10-bit／高精度輸出列為首選路徑。** 本模型下它保留全部 256 個輸入階並顯著降低 JND 階差誤差。\n2. **8-bit 路徑保留 Dither Beta，但不要宣稱恢復真實位深。** 現行噪聲可遮蔽 banding，不能保證重建被合併的單調階差。\n3. **UI 將「Gamma compensation = 0」標示為 code/P-value neutral。** 若要支援線性光來源，應新增明確 source transfer 選項，而不是把 gammaTarget = 1.0 當作等價替代。\n4. **以實機 photometer 與灰階 ramp 驗證。** 至少量測 0–31、32–127、128–191、192–255 四區的實際 DDL→nit 與 JND 階差，再決定 8-bit 是否預設啟用 dithering。`,
@@ -649,17 +666,17 @@ function buildNarrative(locale, analysis, datasets, generatedAt) {
   }
 
   return {
-    technicalSummary: `## Technical summary\n\n- **Ideal floating-point GSDF is perceptually uniform in the model.** Across 0.1–100 nit, the 255 input intervals average ${gsdfIdeal.jndMean.toFixed(4)} JND with only ${gsdfIdeal.jndSd.toFixed(4)} standard deviation.\n- **Hard 8-bit output weakens that result.** GSDF retains ${gsdf8.uniqueLevels} unique output levels and merges ${gsdf8.duplicateTransitions} adjacent inputs; CSDF retains ${csdf8.uniqueLevels} levels and merges ${csdf8.duplicateTransitions}.\n- **10-bit preserves all 256 input levels.** GSDF and CSDF retain ${gsdf10.uniqueLevels}/${csdf10.uniqueLevels} unique levels with no plateaus; GSDF JND-step standard deviation falls to ${gsdf10.jndSd.toFixed(4)}.\n- **Gamma compensation = 0 does not create a separate linear-light curve.** It keeps gammaTarget and displayGamma at 2.2, so the P-value/code axis is identity with a maximum remap difference of ${analysis.identityDelta.toFixed(8)}. Forcing gammaTarget = 1.0 moves mid-gray from ${neutralGsdfMid.toFixed(2)} to ${forcedGsdfMid.toFixed(2)} nit for GSDF and from ${neutralCsdfMid.toFixed(2)} to ${forcedCsdfMid.toFixed(2)} nit for CSDF, but that is the UI +100 extreme rather than neutral compensation.`,
+    technicalSummary: `## Technical summary\n\n- **Standard gamma 2.2 is now included as the comparison baseline.** Hard 8-bit retains ${standardGamma8.uniqueLevels} device codes, but only ${standardGamma8.visibleTransitions}/255 adjacent intervals reach ΔJND ≥ 1 (${standardGamma8.visibleTransitionRatePct.toFixed(2)}%); 10-bit with the same 256 input levels reaches ${standardGamma10.visibleTransitions}/255 (${standardGamma10.visibleTransitionRatePct.toFixed(2)}%).\n- **Ideal floating-point GSDF is perceptually uniform in the model.** Across 0.1–100 nit, the 255 input intervals average ${gsdfIdeal.jndMean.toFixed(4)} JND with only ${gsdfIdeal.jndSd.toFixed(4)} standard deviation.\n- **Hard 8-bit output weakens that result.** GSDF retains ${gsdf8.uniqueLevels} unique output levels and merges ${gsdf8.duplicateTransitions} adjacent inputs; CSDF retains ${csdf8.uniqueLevels} levels and merges ${csdf8.duplicateTransitions}.\n- **10-bit preserves all 256 input levels.** GSDF and CSDF retain ${gsdf10.uniqueLevels}/${csdf10.uniqueLevels} unique levels with no plateaus; GSDF JND-step standard deviation falls to ${gsdf10.jndSd.toFixed(4)}.\n- **Gamma compensation = 0 does not create a separate linear-light curve.** It keeps gammaTarget and displayGamma at 2.2, so the P-value/code axis is identity with a maximum remap difference of ${analysis.identityDelta.toFixed(8)}. Forcing gammaTarget = 1.0 moves mid-gray from ${neutralGsdfMid.toFixed(2)} to ${forcedGsdfMid.toFixed(2)} nit for GSDF and from ${neutralCsdfMid.toFixed(2)} to ${forcedCsdfMid.toFixed(2)} nit for CSDF, but that is the UI +100 extreme rather than neutral compensation.`,
     mappingIntro: `## GSDF and CSDF redistribute luminance rather than adding 8-bit levels\n\nThe chart compares the ideal output code for the baseline, GSDF, and CSDF. GSDF compresses deep shadows through mid-tones into lower output codes and expands the highlights. CSDF adds the project-specific shadow bias and toe, so it is brighter than GSDF in the dark range. Adobe RGB does not change this neutral-gray remap; it changes color luma weights and the ICC source TRC.`,
     jndIntro: `## 8-bit plateaus break the equal-JND target; 10-bit largely restores it\n\nIdeal GSDF is almost horizontal. Hard 8-bit introduces ${gsdf8.duplicateTransitions} zero-JND intervals and code-skip spikes. At 10-bit, no adjacent inputs merge and the distribution moves much closer to the ideal curve.`,
     quantIntro: `## 10-bit eliminates adjacent-input merging\n\nFor 256 input levels, 10-bit device code space is sufficient for every GSDF, CSDF, and Gamma scenario to retain 256 unique outputs. A nonlinear monotonic 8-bit remap cannot preserve all 256 unique integer outputs unless it collapses to identity.`,
     jndSdIntro: `## GSDF is most perceptually uniform at higher precision\n\nLower JND-step standard deviation means more uniform perceptual spacing. Ideal GSDF is ${gsdfIdeal.jndSd.toFixed(4)}, hard 8-bit rises to ${gsdf8.jndSd.toFixed(4)}, and 10-bit returns to ${gsdf10.jndSd.toFixed(4)}. Ideal CSDF is ${csdfIdeal.jndSd.toFixed(4)} because its deliberate shadow bias makes it a contrast-aware project variant rather than a strict equal-JND curve.`,
     plateauIntro: `## 8-bit merging is concentrated in shadows and dark mid-tones\n\nThe ${gsdf8.duplicateTransitions} GSDF plateaus are almost entirely below input code 128. Above 192, no adjacent inputs merge; highlights instead skip device codes to gain local contrast.`,
     gammaIntro: `## Compensation 0 is code/P-value identity, not a linear-light declaration\n\nThe current implementation warps the input code by gammaTarget/displayGamma before GSDF or CSDF. At compensation 0 the ratio is 1, so this report neutral curve is identical to the previous calculation. The forced gammaTarget = 1.0 sensitivity curve becomes much brighter, but it changes the pre-transfer code warp; sourceIsLinear is not an independent active source mode today.`,
-    exactStatsIntro: `## Complete statistics preserve formula, Gamma mode, and bit-depth cuts\n\nThe table reports unique levels, plateaus, visible transitions, JND distribution, target error, and luminance for every requested scenario. Ideal rows evaluate the formula; 8/10-bit rows evaluate output quantization.`,
-    jndDetailIntro: `## JND distribution exposes quantization error beyond the mean\n\nEqual mean JND does not imply equal uniformity. Standard deviation, coefficient of variation, minimum/maximum interval, and target RMSE distinguish ideal curves from plateaus and code-skip spikes.`,
+    exactStatsIntro: `## Complete statistics preserve formula, Gamma mode, and bit-depth cuts\n\nThe table now includes standard gamma 2.2 ideal, 8-bit, and 10-bit baseline rows, with the number and rate of adjacent intervals at ΔJND ≥ 1 plus the count below 1 JND. The remaining rows preserve GSDF/CSDF unique-level, plateau, luminance, and quantization statistics.`,
+    jndDetailIntro: `## JND distribution separates standard gamma 2.2 from perceptual curves\n\nEqual mean JND does not imply equal uniformity. The standard gamma 2.2 baseline can be compared directly with GSDF and CSDF; standard deviation, coefficient of variation, minimum/maximum interval, and target RMSE distinguish sub-threshold shadow intervals from plateaus and code-skip spikes.`,
     brightnessIntro: `## Representative codes show the physical-nit impact in shadows, gray, and highlights\n\nExact values complement the curve shapes. The 8-bit and 10-bit columns first quantize device codes, then decode them through the default 2.2 display gamma into the 0.1–100 nit range.`,
-    scope: `## Scope, data, and metric definitions\n\n- **Display model:** Adobe RGB, IPS 1000:1, Lmax 100 nit, effective black 0.1 nit, display gamma 2.2, Black/White 0/256, strength 100%.\n- **Population:** the complete 8-bit grayscale code range 0–255, comprising 256 samples and 255 adjacent intervals.\n- **GSDF:** current DICOM GSDF inverse interpolation over JND index.\n- **CSDF:** the project contrast-aware GSDF variant, not a DICOM-standardized color function.\n- **Visible interval:** modeled adjacent output ΔJND ≥ 1; this is a standard-observer model, not a measured individual result.\n- **Hard bit depth:** nearest-code rounding to 255 or 1023 followed by display-gamma decoding to physical luminance.`,
+    scope: `## Scope, data, and metric definitions\n\n- **Display model:** Adobe RGB, IPS 1000:1, Lmax 100 nit, effective black 0.1 nit, display gamma 2.2, Black/White 0/256, strength 100%.\n- **Standard gamma 2.2:** no GSDF/CSDF transfer, with gammaTarget and displayGamma both set to 2.2; 8-bit is the identity input-code-to-device-code baseline.\n- **Population:** the complete 8-bit grayscale code range 0–255, comprising 256 samples and 255 adjacent intervals.\n- **GSDF:** current DICOM GSDF inverse interpolation over JND index.\n- **CSDF:** the project contrast-aware GSDF variant, not a DICOM-standardized color function.\n- **Discernible adjacent interval:** modeled output ΔJND ≥ 1; the rate divides qualifying intervals by 255. This is a standard-observer model, not a measured individual result.\n- **Hard bit depth:** nearest-code rounding to 255 or 1023 followed by display-gamma decoding to physical luminance.`,
     methodology: `## Method and reproducibility\n\nThe analysis script bundles and calls the current [buildToneCurveSnapshot.ts](../src/color/buildToneCurveSnapshot.ts) and [perceptualLuminance.ts](../src/color/perceptualLuminance.ts); it does not duplicate a separate GSDF/CSDF implementation. Every scenario uses the same 256 input codes, obtains the ideal target EOTF and code remap, applies nearest-code 8/10-bit quantization, and then calculates adjacent intervals with the DICOM JND inverse.\n\nDICOM defines one JND as the luminance difference that an average observer can just perceive under specified conditions, and PS3.14 notes that discrete output levels limit contrast resolution. [DICOM PS3.14 definitions](https://dicom.nema.org/medical/dicom/current/output/chtml/part14/chapter_3.html) · [DICOM PS3.14 methodology](https://dicom.nema.org/medical/dicom/current/output/chtml/part14/sect_c.2.html)\n\nGenerated at: ${generatedAt}`,
     limitations: `## Limitations, uncertainty, and robustness checks\n\n- **VERIFIED:** current TypeScript model, extension mirror, Adobe RGB neutral-remap invariance, and nearest-code 8/10-bit statistics.\n- **INFERRED:** ΔJND ≥ 1 is treated as visible to the average observer; actual perception depends on viewing distance, ambient light, texture, and adaptation.\n- **UNKNOWN:** whether the browser compositor, GPU output, and panel add temporal/spatial dithering or FRC. If they do, real behavior lies between hard quantization and ideal float.\n- DICOM GSDF does not normatively define color-image rendition; Adobe RGB color behavior is a project extension.\n- Forced gammaTarget = 1.0 is a sensitivity proxy, not a replacement for source transfer metadata or a sourceIsLinear model branch.\n- The report baseline uses the extension neutral bypass as an exact identity. Calling the five-decimal strength = 0 snapshot round-trip directly produces up to ${analysis.roundedSnapshotIdentityDelta.toFixed(5)} code error; that is serialization precision, not a pre-transfer difference caused by Gamma compensation = 0.`,
     recommendations: `## Recommended implementation and validation order\n\n1. **Prefer a 10-bit or higher-precision output path.** It preserves all 256 input levels and materially lowers JND-step error in this model.\n2. **Retain Dither Beta for 8-bit, but do not describe it as restoring physical bit depth.** Noise can mask banding but cannot guarantee reconstruction of merged monotonic levels.\n3. **Label Gamma compensation = 0 as code/P-value neutral.** If linear-light sources are required, add an explicit source-transfer mode rather than treating gammaTarget = 1.0 as equivalent.\n4. **Validate with a photometer and grayscale ramps.** Measure actual DDL→nit and JND intervals across at least 0–31, 32–127, 128–191, and 192–255 before deciding whether 8-bit should enable dithering by default.`,
@@ -817,7 +834,7 @@ function buildArtifact(locale, generatedAt, analysis) {
     {
       id: 'summary_table',
       title: zh ? '公式、Gamma 與位深統計' : 'Formula, Gamma, and bit-depth statistics',
-      subtitle: zh ? '所有 12 個 transfer 情境；255 個相鄰階差' : 'All 12 transfer cases; 255 adjacent intervals',
+      subtitle: zh ? '標準 Gamma 2.2 三列加 12 個 transfer 情境；每列 255 個相鄰階差' : 'Three standard-gamma-2.2 rows plus 12 transfer cases; 255 adjacent intervals per row',
       dataset: 'summary_metrics',
       sourceId: sourceIdForDataset('summary_metrics'),
       defaultSort: { field: 'caseLabel', direction: 'asc' },
@@ -828,6 +845,8 @@ function buildArtifact(locale, generatedAt, analysis) {
         { field: 'uniqueLevels', label: t.labels.uniqueLevels, format: 'number' },
         { field: 'duplicateTransitions', label: t.labels.plateaus, format: 'number' },
         { field: 'visibleTransitions', label: zh ? '≥1 JND 階差' : 'Intervals ≥1 JND', format: 'number' },
+        { field: 'subJndTransitions', label: zh ? '<1 JND 階差' : 'Intervals <1 JND', format: 'number' },
+        { field: 'visibleTransitionRatePct', label: zh ? '可辨識率 %' : 'Discernible rate %', format: 'number' },
         { field: 'meanNits', label: zh ? '平均 nit' : 'Mean nit', format: 'number' },
         { field: 'midNits', label: zh ? '輸入 128 nit' : 'Input 128 nit', format: 'number' },
       ],
@@ -835,7 +854,7 @@ function buildArtifact(locale, generatedAt, analysis) {
     {
       id: 'jnd_detail_table',
       title: zh ? 'JND 階差分布與目標誤差' : 'JND-step distribution and target error',
-      subtitle: zh ? '所有 12 個 transfer 情境；相鄰階差以 JND 為單位' : 'All 12 transfer cases; adjacent intervals in JND units',
+      subtitle: zh ? '標準 Gamma 2.2 三列加 12 個 transfer 情境；相鄰階差以 JND 為單位' : 'Three standard-gamma-2.2 rows plus 12 transfer cases; adjacent intervals in JND units',
       dataset: 'summary_metrics',
       sourceId: sourceIdForDataset('summary_metrics'),
       defaultSort: { field: 'caseLabel', direction: 'asc' },
@@ -843,6 +862,7 @@ function buildArtifact(locale, generatedAt, analysis) {
       layout: 'full',
       columns: [
         { field: 'caseLabel', label: t.labels.case, type: 'text', sizing: 'content' },
+        { field: 'jndMean', label: zh ? 'JND 平均' : 'JND mean', format: 'number' },
         { field: 'jndSd', label: t.labels.jndSd, format: 'number' },
         { field: 'jndCv', label: 'JND CV', format: 'number' },
         { field: 'jndMin', label: zh ? 'JND 最小' : 'JND min', format: 'number' },
@@ -861,7 +881,7 @@ function buildArtifact(locale, generatedAt, analysis) {
       layout: 'full',
       columns: [
         { field: 'inputCode', label: t.labels.inputCode, format: 'number' },
-        { field: 'baselineNits', label: zh ? 'Baseline nit' : 'Baseline nit', format: 'number' },
+        { field: 'baselineNits', label: zh ? '標準 Gamma 2.2 nit' : 'Standard gamma 2.2 nit', format: 'number' },
         { field: 'gsdfIdealNits', label: zh ? 'GSDF 理想 nit' : 'GSDF ideal nit', format: 'number' },
         { field: 'gsdf8Nits', label: 'GSDF 8-bit nit', format: 'number' },
         { field: 'gsdf10Nits', label: 'GSDF 10-bit nit', format: 'number' },
@@ -950,6 +970,7 @@ async function main() {
   writeFileSync(outputPath, `${JSON.stringify(artifact, null, 2)}\n`, 'utf8');
 
   const gsdf8 = curveFor(analysis, 'neutral', 'GSDF', '8-bit').metrics;
+  const standardGamma8 = curveFor(analysis, 'neutral', 'Baseline', '8-bit').metrics;
   const csdf8 = curveFor(analysis, 'neutral', 'CSDF', '8-bit').metrics;
   const gsdf10 = curveFor(analysis, 'neutral', 'GSDF', '10-bit').metrics;
   console.log(JSON.stringify({
@@ -961,6 +982,7 @@ async function main() {
     roundedSnapshotIdentityDelta: analysis.roundedSnapshotIdentityDelta,
     adobeVsSrgbRemapDelta: analysis.adobeVsSrgbRemapDelta,
     jndRange: analysis.jndRange,
+    standardGamma8,
     gsdf8,
     csdf8,
     gsdf10,

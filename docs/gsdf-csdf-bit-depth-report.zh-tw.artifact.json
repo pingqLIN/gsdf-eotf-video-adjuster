@@ -5,7 +5,7 @@
     "surface": "report",
     "title": "Adobe RGB GSDF／CSDF 位深與 Gamma 起點分析",
     "description": "比較專案目前 Adobe RGB 模型下的 GSDF、CSDF、8-bit、10-bit 與 Gamma compensation = 0。",
-    "generatedAt": "2026-07-16T14:10:17Z",
+    "generatedAt": "2026-07-16T14:57:40.535Z",
     "cards": [],
     "charts": [
       {
@@ -346,7 +346,7 @@
       {
         "id": "summary_table",
         "title": "公式、Gamma 與位深統計",
-        "subtitle": "所有 12 個 transfer 情境；255 個相鄰階差",
+        "subtitle": "標準 Gamma 2.2 三列加 12 個 transfer 情境；每列 255 個相鄰階差",
         "dataset": "summary_metrics",
         "sourceId": "summary_metrics_sql",
         "defaultSort": {
@@ -378,6 +378,16 @@
             "format": "number"
           },
           {
+            "field": "subJndTransitions",
+            "label": "<1 JND 階差",
+            "format": "number"
+          },
+          {
+            "field": "visibleTransitionRatePct",
+            "label": "可辨識率 %",
+            "format": "number"
+          },
+          {
             "field": "meanNits",
             "label": "平均 nit",
             "format": "number"
@@ -392,7 +402,7 @@
       {
         "id": "jnd_detail_table",
         "title": "JND 階差分布與目標誤差",
-        "subtitle": "所有 12 個 transfer 情境；相鄰階差以 JND 為單位",
+        "subtitle": "標準 Gamma 2.2 三列加 12 個 transfer 情境；相鄰階差以 JND 為單位",
         "dataset": "summary_metrics",
         "sourceId": "summary_metrics_sql",
         "defaultSort": {
@@ -407,6 +417,11 @@
             "label": "情境",
             "type": "text",
             "sizing": "content"
+          },
+          {
+            "field": "jndMean",
+            "label": "JND 平均",
+            "format": "number"
           },
           {
             "field": "jndSd",
@@ -455,7 +470,7 @@
           },
           {
             "field": "baselineNits",
-            "label": "Baseline nit",
+            "label": "標準 Gamma 2.2 nit",
             "format": "number"
           },
           {
@@ -542,7 +557,7 @@
       {
         "id": "technical_summary",
         "type": "markdown",
-        "body": "## 技術摘要\n\n- **理想浮點 GSDF 的感知均勻性成立。** 在 0.1–100 nit 範圍，255 個輸入間隔平均跨越 1.8284 JND，標準差只有 0.0113。\n- **硬 8-bit 會削弱這項優勢。** GSDF 只留下 225 個不同輸出階、合併 31 組相鄰輸入；CSDF 留下 227 階、合併 29 組。\n- **10-bit 足以保留所有 256 個輸入階。** GSDF 與 CSDF 都有 256/256 個不同輸出階且沒有 plateau；GSDF 的 JND 階差標準差降到 0.2036。\n- **Gamma compensation = 0 不會產生另一條「線性亮度」曲線。** 它令 gammaTarget 與 displayGamma 同為 2.2，因此 P-value/code 軸保持 identity，最大 remap 差為 0.00000000；若強制 gammaTarget = 1.0，中灰亮度會由 GSDF 13.48 nit 變為 36.87 nit、CSDF 16.00 nit 變為 39.98 nit，但這等價於 UI +100 的極端補償，不是補償 0。"
+        "body": "## 技術摘要\n\n- **標準 Gamma 2.2 已加入比較基準。** 硬 8-bit 保留 256 個裝置碼，但只有 250/255 個相鄰階差達到 ΔJND ≥ 1（98.04%）；10-bit 在相同 256 階輸入下為 250/255（98.04%）。\n- **理想浮點 GSDF 的感知均勻性成立。** 在 0.1–100 nit 範圍，255 個輸入間隔平均跨越 1.8284 JND，標準差只有 0.0113。\n- **硬 8-bit 會削弱這項優勢。** GSDF 只留下 225 個不同輸出階、合併 31 組相鄰輸入；CSDF 留下 227 階、合併 29 組。\n- **10-bit 足以保留所有 256 個輸入階。** GSDF 與 CSDF 都有 256/256 個不同輸出階且沒有 plateau；GSDF 的 JND 階差標準差降到 0.2036。\n- **Gamma compensation = 0 不會產生另一條「線性亮度」曲線。** 它令 gammaTarget 與 displayGamma 同為 2.2，因此 P-value/code 軸保持 identity，最大 remap 差為 0.00000000；若強制 gammaTarget = 1.0，中灰亮度會由 GSDF 13.48 nit 變為 36.87 nit、CSDF 16.00 nit 變為 39.98 nit，但這等價於 UI +100 的極端補償，不是補償 0。"
       },
       {
         "id": "mapping_intro",
@@ -613,7 +628,7 @@
       {
         "id": "exact_stats_intro",
         "type": "markdown",
-        "body": "## 完整統計保留公式、Gamma 模式與位深切面\n\n下表提供每個情境的唯一階數、plateau、可見階差、JND 分布、理想目標誤差與亮度統計。理想浮點列用於評估公式本身；8/10-bit 列用於評估輸出量化。"
+        "body": "## 完整統計保留公式、Gamma 模式與位深切面\n\n下表加入標準 Gamma 2.2 的 ideal、8-bit 與 10-bit 基準列，並列出 ΔJND ≥ 1 的可辨識相鄰階差數、低於 1 JND 的階差數與可辨識率。其餘列保留 GSDF／CSDF 的唯一階數、plateau、亮度與量化統計。"
       },
       {
         "id": "summary_table_block",
@@ -624,7 +639,7 @@
       {
         "id": "jnd_detail_intro",
         "type": "markdown",
-        "body": "## JND 分布揭示平均值以外的量化誤差\n\n相同的平均 JND 階差不代表相同的均勻性。標準差、變異係數、最小／最大階差與目標 RMSE 可區分理想曲線、plateau 與跳碼尖峰。"
+        "body": "## JND 分布揭示標準 Gamma 2.2 與感知曲線的差異\n\n相同的平均 JND 階差不代表相同的均勻性。標準 Gamma 2.2 基準列可直接和 GSDF／CSDF 比較；標準差、變異係數、最小／最大階差與目標 RMSE 可區分暗部低於門檻的階差、plateau 與跳碼尖峰。"
       },
       {
         "id": "jnd_detail_table_block",
@@ -646,12 +661,12 @@
       {
         "id": "scope",
         "type": "markdown",
-        "body": "## 範圍、資料與指標定義\n\n- **顯示模型：** Adobe RGB、IPS 1000:1、Lmax 100 nit、有效黑位 0.1 nit、display gamma 2.2、Black/White 0/256、strength 100%。\n- **輸入母體：** 完整 8-bit 灰階碼 0–255，共 256 個樣本與 255 個相鄰階差。\n- **GSDF：** 依目前 DICOM GSDF 反函式在 JND index 間插值。\n- **CSDF：** 專案自訂的 contrast-aware GSDF 變體，不是 DICOM 規範的彩色標準。\n- **可見階差：** 模型中相鄰輸出的 ΔJND ≥ 1；這是標準觀察者模型，不是特定使用者或環境的實測。\n- **硬位深：** 將浮點輸出碼四捨五入到 255 或 1023，再以 display gamma 還原實體亮度。"
+        "body": "## 範圍、資料與指標定義\n\n- **顯示模型：** Adobe RGB、IPS 1000:1、Lmax 100 nit、有效黑位 0.1 nit、display gamma 2.2、Black/White 0/256、strength 100%。\n- **標準 Gamma 2.2：** 不套用 GSDF／CSDF，gammaTarget 與 displayGamma 均為 2.2；8-bit 為輸入碼到裝置碼的 identity 基準。\n- **輸入母體：** 完整 8-bit 灰階碼 0–255，共 256 個樣本與 255 個相鄰階差。\n- **GSDF：** 依目前 DICOM GSDF 反函式在 JND index 間插值。\n- **CSDF：** 專案自訂的 contrast-aware GSDF 變體，不是 DICOM 規範的彩色標準。\n- **可辨識相鄰階差：** 模型中相鄰輸出的 ΔJND ≥ 1；可辨識率以符合門檻的階差數除以 255。這是標準觀察者模型，不是特定使用者或環境的實測。\n- **硬位深：** 將浮點輸出碼四捨五入到 255 或 1023，再以 display gamma 還原實體亮度。"
       },
       {
         "id": "methodology",
         "type": "markdown",
-        "body": "## 計算方法與可重現性\n\n分析腳本直接 bundle 並呼叫目前的 [buildToneCurveSnapshot.ts](../src/color/buildToneCurveSnapshot.ts) 與 [perceptualLuminance.ts](../src/color/perceptualLuminance.ts)，沒有重新抄寫另一份 GSDF／CSDF 公式。每個情境都使用同一組 256 個輸入碼，先取得理想 target EOTF 與 code remap，再進行 8/10-bit nearest-code 量化，最後以 DICOM JND 反函式計算相鄰階差。\n\nDICOM 將一個 JND 定義為指定觀看條件下平均觀察者剛可察覺的亮度差；PS3.14 也說明離散輸出階數會限制 contrast resolution。[DICOM PS3.14 definitions](https://dicom.nema.org/medical/dicom/current/output/chtml/part14/chapter_3.html) · [DICOM PS3.14 methodology](https://dicom.nema.org/medical/dicom/current/output/chtml/part14/sect_c.2.html)\n\n報告時間：2026-07-16T14:10:17Z"
+        "body": "## 計算方法與可重現性\n\n分析腳本直接 bundle 並呼叫目前的 [buildToneCurveSnapshot.ts](../src/color/buildToneCurveSnapshot.ts) 與 [perceptualLuminance.ts](../src/color/perceptualLuminance.ts)，沒有重新抄寫另一份 GSDF／CSDF 公式。每個情境都使用同一組 256 個輸入碼，先取得理想 target EOTF 與 code remap，再進行 8/10-bit nearest-code 量化，最後以 DICOM JND 反函式計算相鄰階差。\n\nDICOM 將一個 JND 定義為指定觀看條件下平均觀察者剛可察覺的亮度差；PS3.14 也說明離散輸出階數會限制 contrast resolution。[DICOM PS3.14 definitions](https://dicom.nema.org/medical/dicom/current/output/chtml/part14/chapter_3.html) · [DICOM PS3.14 methodology](https://dicom.nema.org/medical/dicom/current/output/chtml/part14/sect_c.2.html)\n\n報告時間：2026-07-16T14:57:40.535Z"
       },
       {
         "id": "limitations",
@@ -672,7 +687,7 @@
   },
   "snapshot": {
     "version": 1,
-    "generatedAt": "2026-07-16T14:10:17Z",
+    "generatedAt": "2026-07-16T14:57:40.535Z",
     "status": "ready",
     "datasets": {
       "summary_metrics": [
@@ -688,6 +703,7 @@
           "duplicateTransitions": 0,
           "visibleTransitions": 174,
           "subJndTransitions": 81,
+          "visibleTransitionRatePct": 68.24,
           "jndMean": 1.8284,
           "jndSd": 3.697,
           "jndCv": 2.022,
@@ -709,6 +725,7 @@
           "duplicateTransitions": 55,
           "visibleTransitions": 200,
           "subJndTransitions": 55,
+          "visibleTransitionRatePct": 78.43,
           "jndMean": 1.8284,
           "jndSd": 3.7938,
           "jndCv": 2.075,
@@ -730,6 +747,7 @@
           "duplicateTransitions": 0,
           "visibleTransitions": 157,
           "subJndTransitions": 98,
+          "visibleTransitionRatePct": 61.57,
           "jndMean": 1.8284,
           "jndSd": 3.7052,
           "jndCv": 2.0265,
@@ -751,6 +769,7 @@
           "duplicateTransitions": 0,
           "visibleTransitions": 255,
           "subJndTransitions": 0,
+          "visibleTransitionRatePct": 100,
           "jndMean": 1.8284,
           "jndSd": 0.3582,
           "jndCv": 0.1959,
@@ -772,6 +791,7 @@
           "duplicateTransitions": 29,
           "visibleTransitions": 226,
           "subJndTransitions": 29,
+          "visibleTransitionRatePct": 88.63,
           "jndMean": 1.8284,
           "jndSd": 0.8582,
           "jndCv": 0.4694,
@@ -793,6 +813,7 @@
           "duplicateTransitions": 0,
           "visibleTransitions": 255,
           "subJndTransitions": 0,
+          "visibleTransitionRatePct": 100,
           "jndMean": 1.8284,
           "jndSd": 0.31,
           "jndCv": 0.1695,
@@ -814,6 +835,7 @@
           "duplicateTransitions": 0,
           "visibleTransitions": 189,
           "subJndTransitions": 66,
+          "visibleTransitionRatePct": 74.12,
           "jndMean": 1.8284,
           "jndSd": 2.6804,
           "jndCv": 1.466,
@@ -835,6 +857,7 @@
           "duplicateTransitions": 47,
           "visibleTransitions": 208,
           "subJndTransitions": 47,
+          "visibleTransitionRatePct": 81.57,
           "jndMean": 1.8284,
           "jndSd": 2.7331,
           "jndCv": 1.4948,
@@ -856,6 +879,7 @@
           "duplicateTransitions": 0,
           "visibleTransitions": 182,
           "subJndTransitions": 73,
+          "visibleTransitionRatePct": 71.37,
           "jndMean": 1.8284,
           "jndSd": 2.6736,
           "jndCv": 1.4623,
@@ -877,6 +901,7 @@
           "duplicateTransitions": 0,
           "visibleTransitions": 255,
           "subJndTransitions": 0,
+          "visibleTransitionRatePct": 100,
           "jndMean": 1.8284,
           "jndSd": 0.2036,
           "jndCv": 0.1114,
@@ -898,6 +923,7 @@
           "duplicateTransitions": 31,
           "visibleTransitions": 224,
           "subJndTransitions": 31,
+          "visibleTransitionRatePct": 87.84,
           "jndMean": 1.8284,
           "jndSd": 0.8263,
           "jndCv": 0.4519,
@@ -919,6 +945,7 @@
           "duplicateTransitions": 0,
           "visibleTransitions": 255,
           "subJndTransitions": 0,
+          "visibleTransitionRatePct": 100,
           "jndMean": 1.8284,
           "jndSd": 0.0113,
           "jndCv": 0.0062,
@@ -927,6 +954,72 @@
           "rmsJndTargetError": 0,
           "meanNits": 24.8471,
           "midNits": 13.4796
+        },
+        {
+          "caseLabel": "標準 Gamma 2.2 · 10-bit",
+          "formula": "標準 Gamma 2.2",
+          "formulaId": "Baseline",
+          "gammaMode": "gammaTarget = displayGamma = 2.2",
+          "gammaModeId": "neutral",
+          "representation": "10-bit",
+          "representationId": "10-bit",
+          "uniqueLevels": 256,
+          "duplicateTransitions": 0,
+          "visibleTransitions": 250,
+          "subJndTransitions": 5,
+          "visibleTransitionRatePct": 98.04,
+          "jndMean": 1.8284,
+          "jndSd": 0.5312,
+          "jndCv": 0.2905,
+          "jndMin": 0.0775,
+          "jndMax": 3.2871,
+          "rmsJndTargetError": 0.1425,
+          "meanNits": 31.3952,
+          "midNits": 22.0765
+        },
+        {
+          "caseLabel": "標準 Gamma 2.2 · 8-bit",
+          "formula": "標準 Gamma 2.2",
+          "formulaId": "Baseline",
+          "gammaMode": "gammaTarget = displayGamma = 2.2",
+          "gammaModeId": "neutral",
+          "representation": "8-bit",
+          "representationId": "8-bit",
+          "uniqueLevels": 256,
+          "duplicateTransitions": 0,
+          "visibleTransitions": 250,
+          "subJndTransitions": 5,
+          "visibleTransitionRatePct": 98.04,
+          "jndMean": 1.8284,
+          "jndSd": 0.5274,
+          "jndCv": 0.2885,
+          "jndMin": 0.078,
+          "jndMax": 2.7181,
+          "rmsJndTargetError": 0,
+          "meanNits": 31.3922,
+          "midNits": 22.03
+        },
+        {
+          "caseLabel": "標準 Gamma 2.2 · 理想浮點",
+          "formula": "標準 Gamma 2.2",
+          "formulaId": "Baseline",
+          "gammaMode": "gammaTarget = displayGamma = 2.2",
+          "gammaModeId": "neutral",
+          "representation": "理想浮點",
+          "representationId": "ideal",
+          "uniqueLevels": 256,
+          "duplicateTransitions": 0,
+          "visibleTransitions": 250,
+          "subJndTransitions": 5,
+          "visibleTransitionRatePct": 98.04,
+          "jndMean": 1.8284,
+          "jndSd": 0.5274,
+          "jndCv": 0.2885,
+          "jndMin": 0.078,
+          "jndMax": 2.7181,
+          "rmsJndTargetError": 0,
+          "meanNits": 31.3922,
+          "midNits": 22.03
         }
       ],
       "mapping_neutral": [
@@ -2353,6 +2446,7 @@
           "duplicateTransitions": 0,
           "visibleTransitions": 174,
           "subJndTransitions": 81,
+          "visibleTransitionRatePct": 68.24,
           "jndMean": 1.8284,
           "jndSd": 3.697,
           "jndCv": 2.022,
@@ -2374,6 +2468,7 @@
           "duplicateTransitions": 55,
           "visibleTransitions": 200,
           "subJndTransitions": 55,
+          "visibleTransitionRatePct": 78.43,
           "jndMean": 1.8284,
           "jndSd": 3.7938,
           "jndCv": 2.075,
@@ -2395,6 +2490,7 @@
           "duplicateTransitions": 0,
           "visibleTransitions": 255,
           "subJndTransitions": 0,
+          "visibleTransitionRatePct": 100,
           "jndMean": 1.8284,
           "jndSd": 0.3582,
           "jndCv": 0.1959,
@@ -2416,6 +2512,7 @@
           "duplicateTransitions": 29,
           "visibleTransitions": 226,
           "subJndTransitions": 29,
+          "visibleTransitionRatePct": 88.63,
           "jndMean": 1.8284,
           "jndSd": 0.8582,
           "jndCv": 0.4694,
@@ -2437,6 +2534,7 @@
           "duplicateTransitions": 0,
           "visibleTransitions": 189,
           "subJndTransitions": 66,
+          "visibleTransitionRatePct": 74.12,
           "jndMean": 1.8284,
           "jndSd": 2.6804,
           "jndCv": 1.466,
@@ -2458,6 +2556,7 @@
           "duplicateTransitions": 47,
           "visibleTransitions": 208,
           "subJndTransitions": 47,
+          "visibleTransitionRatePct": 81.57,
           "jndMean": 1.8284,
           "jndSd": 2.7331,
           "jndCv": 1.4948,
@@ -2479,6 +2578,7 @@
           "duplicateTransitions": 0,
           "visibleTransitions": 255,
           "subJndTransitions": 0,
+          "visibleTransitionRatePct": 100,
           "jndMean": 1.8284,
           "jndSd": 0.2036,
           "jndCv": 0.1114,
@@ -2500,6 +2600,7 @@
           "duplicateTransitions": 31,
           "visibleTransitions": 224,
           "subJndTransitions": 31,
+          "visibleTransitionRatePct": 87.84,
           "jndMean": 1.8284,
           "jndSd": 0.8263,
           "jndCv": 0.4519,
@@ -2790,7 +2891,7 @@
         "language": "sql",
         "sql": "SELECT * FROM summary_metrics ORDER BY caseLabel ASC",
         "description": "從記憶體 SQLite 資料表 summary_metrics 讀取由目前 tone-curve 模型計算的已審查資料。",
-        "executed_at": "2026-07-16T14:10:17Z",
+        "executed_at": "2026-07-16T14:57:40.535Z",
         "tables_used": [
           "summary_metrics"
         ]
@@ -2805,7 +2906,7 @@
         "language": "sql",
         "sql": "SELECT * FROM mapping_neutral ORDER BY rowid ASC",
         "description": "從記憶體 SQLite 資料表 mapping_neutral 讀取由目前 tone-curve 模型計算的已審查資料。",
-        "executed_at": "2026-07-16T14:10:17Z",
+        "executed_at": "2026-07-16T14:57:40.535Z",
         "tables_used": [
           "mapping_neutral"
         ]
@@ -2820,7 +2921,7 @@
         "language": "sql",
         "sql": "SELECT * FROM jnd_gsdf ORDER BY rowid ASC",
         "description": "從記憶體 SQLite 資料表 jnd_gsdf 讀取由目前 tone-curve 模型計算的已審查資料。",
-        "executed_at": "2026-07-16T14:10:17Z",
+        "executed_at": "2026-07-16T14:57:40.535Z",
         "tables_used": [
           "jnd_gsdf"
         ]
@@ -2835,7 +2936,7 @@
         "language": "sql",
         "sql": "SELECT * FROM gamma_sensitivity ORDER BY rowid ASC",
         "description": "從記憶體 SQLite 資料表 gamma_sensitivity 讀取由目前 tone-curve 模型計算的已審查資料。",
-        "executed_at": "2026-07-16T14:10:17Z",
+        "executed_at": "2026-07-16T14:57:40.535Z",
         "tables_used": [
           "gamma_sensitivity"
         ]
@@ -2850,7 +2951,7 @@
         "language": "sql",
         "sql": "SELECT * FROM quantization_summary ORDER BY caseLabel ASC",
         "description": "從記憶體 SQLite 資料表 quantization_summary 讀取由目前 tone-curve 模型計算的已審查資料。",
-        "executed_at": "2026-07-16T14:10:17Z",
+        "executed_at": "2026-07-16T14:57:40.535Z",
         "tables_used": [
           "quantization_summary"
         ]
@@ -2865,7 +2966,7 @@
         "language": "sql",
         "sql": "SELECT * FROM plateau_bands ORDER BY rowid ASC",
         "description": "從記憶體 SQLite 資料表 plateau_bands 讀取由目前 tone-curve 模型計算的已審查資料。",
-        "executed_at": "2026-07-16T14:10:17Z",
+        "executed_at": "2026-07-16T14:57:40.535Z",
         "tables_used": [
           "plateau_bands"
         ]
@@ -2880,7 +2981,7 @@
         "language": "sql",
         "sql": "SELECT * FROM brightness_samples ORDER BY inputCode ASC",
         "description": "從記憶體 SQLite 資料表 brightness_samples 讀取由目前 tone-curve 模型計算的已審查資料。",
-        "executed_at": "2026-07-16T14:10:17Z",
+        "executed_at": "2026-07-16T14:57:40.535Z",
         "tables_used": [
           "brightness_samples"
         ]
@@ -2895,7 +2996,7 @@
         "language": "sql",
         "sql": "SELECT * FROM headline_metrics ORDER BY rowid ASC",
         "description": "從記憶體 SQLite 資料表 headline_metrics 讀取由目前 tone-curve 模型計算的已審查資料。",
-        "executed_at": "2026-07-16T14:10:17Z",
+        "executed_at": "2026-07-16T14:57:40.535Z",
         "tables_used": [
           "headline_metrics"
         ]

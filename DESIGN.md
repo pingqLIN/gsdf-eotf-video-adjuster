@@ -13,6 +13,7 @@ The first-screen priority is operation:
 - switch between Basic, Advanced, and Diagnostic tabs without losing context
 - run the Diagnostic web-camera luminance probe as a rough visual meter
 - open the project-owned continuous frequency resolution reference and live curve only through the upper-right side-panel control
+- keep the compact hard 8-bit JND comparison inside that reference side panel so it remains visible beside the render area without covering the inspected content
 
 ## Reference Boundary
 
@@ -68,6 +69,8 @@ Sliders must feel like physical faders:
 - fixed value column to avoid layout jitter
 
 The full GSDF-QC view must stay content-accurate. Visual polish can refine framing, labels, and control chrome, but the pattern structure remains project-owned.
+
+The hard 8-bit JND comparison is diagnostic, not an active transfer preset. It must show both retained non-zero-step uniformity and the all-input-step result including merged intervals; a lower retained-step standard deviation must never be presented without its merge count.
 
 ## Quality Checks
 

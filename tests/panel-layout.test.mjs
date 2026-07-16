@@ -9,6 +9,7 @@ const videoBackgroundSource = readFileSync(new URL('../src/components/VideoBackg
 const contentSource = readFileSync(new URL('../extension/content.js', import.meta.url), 'utf8');
 const diagnosticProbeSource = readFileSync(new URL('../src/components/DiagnosticCameraProbe.tsx', import.meta.url), 'utf8');
 const chartSource = readFileSync(new URL('../src/components/GSDFChart.tsx', import.meta.url), 'utf8');
+const hard8ReferenceSource = readFileSync(new URL('../src/components/Hard8JndReference.tsx', import.meta.url), 'utf8');
 const cameraProbeSource = readFileSync(new URL('../src/diagnostics/cameraProbe.ts', import.meta.url), 'utf8');
 const luminanceEstimatorSource = readFileSync(new URL('../src/diagnostics/luminanceEstimator.ts', import.meta.url), 'utf8');
 const i18nIndexSource = readFileSync(new URL('../src/i18n/index.ts', import.meta.url), 'utf8');
@@ -56,6 +57,7 @@ test('reference pattern and curve open from the right side panel', () => {
   assert.match(panelSource, /sidePanelOpen/);
   assert.match(panelSource, /sidePanelMode/);
   assert.match(panelSource, /ReferenceSidePanel/);
+  assert.match(panelSource, /<Hard8JndReference messages=\{messages\} \/>/);
   assert.match(panelSource, /PanelRightOpen/);
   assert.match(panelSource, /PanelRightClose/);
   assert.match(panelSource, /messages\.panel\.toggleSidePanel/);
@@ -205,6 +207,12 @@ test('panel keeps project-owned GSDF pattern and chart logic', () => {
   assert.match(chartSource, /name=\{optimizedCurveLabel\}/);
   assert.match(i18nMessagesSource, /csdfOptimized: 'CSDF remap'/);
   assert.match(i18nLocalesSource, /csdfOptimized: 'CSDF 重映射'/);
+  assert.match(hard8ReferenceSource, /optimizeHard8JndDeviceLevels/);
+  assert.match(hard8ReferenceSource, /current\.nonzeroJndStepSd/);
+  assert.match(hard8ReferenceSource, /optimized\.allJndStepSd/);
+  assert.match(hard8ReferenceSource, /hard8ReferenceChartAria/);
+  assert.match(i18nMessagesSource, /hard8ReferenceTitle: 'Hard 8-bit JND reference'/);
+  assert.match(i18nLocalesSource, /hard8ReferenceTitle: '硬 8-bit JND 參考'/);
   assert.match(panelSource, /gsdfPipeline: value === 'gsdf' && prev\.transferFormula !== 'gsdf'[\s\S]*DEFAULT_APP_SETTINGS\.gsdfPipeline/);
   assert.match(i18nMessagesSource, /gsdfPipelineTitle: 'GSDF pipeline'/);
   assert.match(panelSource, /buildLumaChromaMatrices/);
@@ -632,6 +640,9 @@ test('visual language keeps the precision-panel styling hooks', () => {
   assert.match(cssSource, /\.gsdf-side-panel-divider/);
   assert.match(cssSource, /cursor: col-resize/);
   assert.match(cssSource, /\.gsdf-reference-panel/);
+  assert.match(cssSource, /\.gsdf-hard8-reference__chart/);
+  assert.match(cssSource, /\.gsdf-hard8-reference__line--optimized/);
+  assert.match(cssSource, /\.gsdf-panel\.theme-light \.gsdf-hard8-reference/);
   assert.match(cssSource, /\.gsdf-diagnostic-placeholder/);
   assert.match(cssSource, /\.gsdf-camera-probe/);
   assert.match(cssSource, /\.gsdf-camera-preview/);
@@ -678,11 +689,13 @@ test('design docs describe tabs, camera diagnostics, and side panel rather than 
   assert.match(designSource, /rough estimates/);
   assert.match(designSource, /upper-right side-panel control/);
   assert.match(designSource, /side-panel open\/closed states/);
+  assert.match(designSource, /hard 8-bit JND comparison is diagnostic/);
   assert.match(designZhTwSource, /基本、進階、診斷頁籤/);
   assert.match(designZhTwSource, /Web 相機亮度偵測/);
   assert.match(designZhTwSource, /粗略估計/);
   assert.match(designZhTwSource, /右上角側邊欄控制/);
   assert.match(designZhTwSource, /側邊欄開啟\/關閉狀態/);
+  assert.match(designZhTwSource, /硬 8-bit JND 比較屬於診斷參考/);
   assert.doesNotMatch(designSource, /A, B, and C|compact, split, and expanded work modes/);
   assert.doesNotMatch(designZhTwSource, /A、B、C|精簡、左右分欄、完整展開模式/);
 });

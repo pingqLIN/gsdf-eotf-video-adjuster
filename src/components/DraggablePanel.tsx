@@ -58,6 +58,7 @@ import {
 } from '../types';
 import { localeNames, localeShortNames, supportedLocales, type Messages, type SupportedLocale } from '../i18n';
 import { DiagnosticCameraProbe } from './DiagnosticCameraProbe';
+import { Hard8JndReference } from './Hard8JndReference';
 
 const GSDFChart = React.lazy(() => import('./GSDFChart').then((module) => ({ default: module.GSDFChart })));
 
@@ -3197,6 +3198,9 @@ function ReferenceSidePanel({
       <p className="shrink-0 border-b border-white/10 px-3 py-3 text-[12px] leading-5 text-zinc-400">
         {messages.panel.referenceSummaryBody}
       </p>
+      <div className="shrink-0 border-b border-white/10 p-3">
+        <Hard8JndReference messages={messages} />
+      </div>
       {mode !== 'chart' && displayScaleStatus.hasScaleWarning && !displayScaleWarningDismissed && (
         <div className="shrink-0 border-b border-white/10 p-3">
           <ReferenceDisplayScaleWarning
