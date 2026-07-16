@@ -10,7 +10,8 @@ The first-screen priority is operation:
 
 - enable or bypass the EOTF/GSDF effect
 - adjust target luminance, gamma compensation, and filter amount
-- switch between Basic, Advanced, and Diagnostic tabs without losing context
+- switch between Basic, Advanced, Levels, and Diagnostic tabs without losing context
+- preview and explicitly apply a hard 8-bit JND level redistribution from the Levels tab without resetting unrelated image settings
 - run the Diagnostic web-camera luminance probe as a rough visual meter
 - open the project-owned continuous frequency resolution reference and live curve only through the upper-right side-panel control
 - keep the compact hard 8-bit JND comparison inside that reference side panel so it remains visible beside the render area without covering the inspected content
@@ -70,7 +71,7 @@ Sliders must feel like physical faders:
 
 The full GSDF-QC view must stay content-accurate. Visual polish can refine framing, labels, and control chrome, but the pattern structure remains project-owned.
 
-The hard 8-bit JND comparison is diagnostic, not an active transfer preset. It must show both retained non-zero-step uniformity and the all-input-step result including merged intervals; a lower retained-step standard deviation must never be presented without its merge count.
+The compact hard 8-bit JND side-panel comparison is diagnostic. The dedicated Levels tab may explicitly apply the constrained redistribution, but it must remain visibly reversible and must not reset Lmax, Gamma, gamut, route, or unrelated image controls. Both surfaces must show retained non-zero-step uniformity and the all-input-step result including merged intervals; a lower retained-step standard deviation must never be presented without its merge count.
 
 ## Quality Checks
 
@@ -78,7 +79,7 @@ Before shipping a UI change:
 
 - run the TypeScript/build checks for the extension
 - verify the rendered panel in a browser, not just by reading code
-- check Basic, Advanced, Diagnostic, and the side-panel open/closed states where the change affects panel structure
+- check Basic, Advanced, Levels, Diagnostic, and the side-panel open/closed states where the change affects panel structure
 - for the camera luminance probe, keep camera data local and label results as rough estimates rather than colorimeter, DICOM, or CSDF validation
 - confirm text does not collide with controls at compact width
 - confirm dark and light themes keep visible button boundaries

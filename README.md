@@ -112,6 +112,7 @@ No cloud API key is required. The extension runs locally in the browser and shou
 | Feature | Description |
 |---|---|
 | **JND-oriented GSDF table** | DICOM PS3.14 luminance/JND relationship adapted into a browser SVG component-transfer table |
+| **Hard 8-bit JND level optimization** | Reallocates the active route's 256 device codes under a selectable retained-level budget, with current/optimized transfer and adjacent-JND curves before applying |
 | **Gamma pre-compensation** | `gammaTarget` applied before GSDF — keeps the rescue layer anchored to a familiar video-viewing baseline |
 | **Global filter amount** | `0%` keeps the gamma-adjusted signal, `100%` applies the full GSDF table, intermediate values blend between them |
 | **Logarithmic luminance slider** | Finer control at lower luminance targets — practical for dim viewing and low-contrast footage |
@@ -120,7 +121,7 @@ No cloud API key is required. The extension runs locally in the browser and shou
 
 | Area | Description |
 |---|---|
-| **A mode** | Default single panel — status, luminance, gamma, filter amount, stripe preview, and basic/advanced tabs |
+| **A mode** | Default single panel — status plus Basic, Advanced, Levels, and Diagnostic tabs |
 | **B mode** | Split panel — basic controls and advanced image controls visible side by side |
 | **C mode** | Expanded workspace — controls on the left, GSDF-QC pattern and chart views in the center |
 | **Theme and language** | Dark/light panel themes plus English, Traditional Chinese, Simplified Chinese, and Japanese UI strings |
@@ -183,7 +184,8 @@ No global keyboard shortcuts are registered yet. The extension is controlled fro
 |---|---|
 | **Effect switch** | Enable or disable the active video correction |
 | **A / B / C layout switch** | Choose compact, split, or expanded inspection workspace |
-| **Basic / Advanced tabs** | Switch between core tone controls and image-level refinements in A mode |
+| **Basic / Advanced / Levels / Diagnostic tabs** | Switch between tone controls, image refinements, hard 8-bit JND redistribution, and inspection tools |
+| **Optimize levels** | Match the retained-level budget to the current GSDF/CSDF route, apply the constrained table, and open the Levels tab without resetting unrelated settings |
 | **Language selector** | Change UI language without rebuilding the extension |
 | **Theme button** | Switch between dark and light panel styling |
 | **Element picker** | Inspect whether a clicked page element can be handled as an HTML video target |

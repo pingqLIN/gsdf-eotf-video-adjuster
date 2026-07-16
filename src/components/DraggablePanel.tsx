@@ -59,10 +59,12 @@ import {
 import { localeNames, localeShortNames, supportedLocales, type Messages, type SupportedLocale } from '../i18n';
 import { DiagnosticCameraProbe } from './DiagnosticCameraProbe';
 import { Hard8JndReference } from './Hard8JndReference';
+import { Hard8JndOptimizationPanel } from './Hard8JndOptimizationPanel';
+import { buildHard8JndOptimizationModel } from '../color/hard8JndOptimization';
 
 const GSDFChart = React.lazy(() => import('./GSDFChart').then((module) => ({ default: module.GSDFChart })));
 
-type PanelTab = 'basic' | 'advanced' | 'diagnostic';
+type PanelTab = 'basic' | 'advanced' | 'optimization' | 'diagnostic';
 type PanelTheme = 'dark' | 'light';
 type SidePanelMode = 'pattern' | 'linearity' | 'bidirectional' | 'chart';
 type InspectionMode = SidePanelMode | null;
@@ -1492,26 +1494,36 @@ function PanelTabSwitch({
     <div
       role="tablist"
       aria-label={messages.panel.panelTabs}
-      className="gsdf-tab-switch relative grid h-8 min-w-[184px] max-w-[212px] flex-1 grid-cols-3 rounded-md border border-white/10 bg-[#080b0f] p-1"
+      className="gsdf-tab-switch relative grid h-8 min-w-[236px] max-w-[292px] flex-1 grid-cols-4 rounded-md border border-white/10 bg-[#080b0f] p-1"
       data-no-drag
     >
       <span
-        className={`pointer-events-none absolute top-1 bottom-1 left-1 w-[calc(33.333%-4px)] rounded bg-zinc-100 shadow transition-transform ${
-          value === 'advanced' ? 'translate-x-[calc(100%+4px)]' : value === 'diagnostic' ? 'translate-x-[calc(200%+8px)]' : 'translate-x-0'
+        className={`pointer-events-none absolute top-1 bottom-1 left-1 w-[calc(25%-4px)] rounded bg-zinc-100 shadow transition-transform ${
+          value === 'advanced'
+            ? 'translate-x-[calc(100%+4px)]'
+            : value === 'optimization'
+              ? 'translate-x-[calc(200%+8px)]'
+              : value === 'diagnostic'
+                ? 'translate-x-[calc(300%+12px)]'
+                : 'translate-x-0'
         }`}
       />
-      {(['basic', 'advanced', 'diagnostic'] as PanelTab[]).map((tab) => {
+      {(['basic', 'advanced', 'optimization', 'diagnostic'] as PanelTab[]).map((tab) => {
         const selected = value === tab;
         const title = tab === 'basic'
           ? messages.panel.switchToBasic
           : tab === 'advanced'
             ? messages.panel.switchToAdvanced
-            : messages.panel.switchToDiagnostic;
+            : tab === 'optimization'
+              ? messages.panel.switchToOptimization
+              : messages.panel.switchToDiagnostic;
         const label = tab === 'basic'
           ? messages.panel.basicTab
           : tab === 'advanced'
             ? messages.panel.advancedTab
-            : messages.panel.diagnosticTab;
+            : tab === 'optimization'
+              ? messages.panel.optimizationTab
+              : messages.panel.diagnosticTab;
         return (
           <button
             key={tab}
@@ -3199,7 +3211,7 @@ function ReferenceSidePanel({
         {messages.panel.referenceSummaryBody}
       </p>
       <div className="shrink-0 border-b border-white/10 p-3">
-        <Hard8JndReference messages={messages} />
+        <Hard8JndReference settings={settings} messages={messages} />
       </div>
       {mode !== 'chart' && displayScaleStatus.hasScaleWarning && !displayScaleWarningDismissed && (
         <div className="shrink-0 border-b border-white/10 p-3">
@@ -3434,28 +3446,15 @@ export function DraggablePanel({
     setSettings((prev) => ({ ...prev, enabled: !prev.enabled }));
   };
 
-  const applyOptimizedPreset = () => {
+  const applyOptimizedLevels = () => {
+    const model = buildHard8JndOptimizationModel(settings, settings.hard8JndLevelCount);
     setSettings((prev) => ({
       ...prev,
-      ...getRecommendedImageDefaults(100),
       enabled: true,
-      lmax: 100,
-      displayGamma: DEFAULT_APP_SETTINGS.displayGamma,
-      gammaTarget: DEFAULT_APP_SETTINGS.displayGamma,
-      sourceIsLinear: false,
-      transferFormula: DEFAULT_APP_SETTINGS.transferFormula,
-      gsdfPipeline: DEFAULT_APP_SETTINGS.gsdfPipeline,
-      strength: DEFAULT_APP_SETTINGS.strength,
-      fineSharpness: DEFAULT_APP_SETTINGS.fineSharpness,
-      mediumSharpness: DEFAULT_APP_SETTINGS.mediumSharpness,
-      temperature: DEFAULT_APP_SETTINGS.temperature,
-      grayscale: DEFAULT_APP_SETTINGS.grayscale,
-      dither: DEFAULT_APP_SETTINGS.dither,
-      ditherStrength: DEFAULT_APP_SETTINGS.ditherStrength,
-      ditherColor: DEFAULT_APP_SETTINGS.ditherColor,
-      ditherNoise: DEFAULT_APP_SETTINGS.ditherNoise,
-      hue: DEFAULT_APP_SETTINGS.hue,
+      hard8JndOptimizationEnabled: true,
+      hard8JndLevelCount: model.recommendedLevelCount,
     }));
+    setActiveTab('optimization');
   };
 
   const setLmaxWithLinkedDefaults = (nextLmax: number) => {
@@ -4265,7 +4264,7 @@ export function DraggablePanel({
                 <div className="gsdf-header-action-stack">
                   <button
                     type="button"
-                    onClick={applyOptimizedPreset}
+                    onClick={applyOptimizedLevels}
                     title={messages.panel.optimizePresetTitle}
                     className="gsdf-quick-action flex h-10 min-w-[96px] items-center justify-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-[11px] font-semibold text-zinc-200 transition-colors hover:text-zinc-50"
                   >
@@ -4297,6 +4296,9 @@ export function DraggablePanel({
               </div>
               <div hidden={activeTab !== 'advanced'} aria-hidden={activeTab !== 'advanced'}>
                 {renderAdvancedPanel()}
+              </div>
+              <div hidden={activeTab !== 'optimization'} aria-hidden={activeTab !== 'optimization'}>
+                <Hard8JndOptimizationPanel settings={settings} setSettings={setSettings} messages={messages} />
               </div>
               <div hidden={activeTab !== 'diagnostic'} aria-hidden={activeTab !== 'diagnostic'}>
                 {renderDiagnosticPlaceholder()}

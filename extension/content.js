@@ -28,7 +28,9 @@ const DEFAULT_SETTINGS = {
   ditherStrength: 2,
   ditherColor: false,
   ditherNoise: true,
-  hue: 0
+  hue: 0,
+  hard8JndOptimizationEnabled: false,
+  hard8JndLevelCount: 225
 };
 
 const LUMINANCE_MIN_NITS = 10;
@@ -50,6 +52,9 @@ const TEMPERATURE_MIN_K = -1000;
 const TEMPERATURE_MAX_K = 1000;
 const DITHER_STRENGTH_MIN = 1;
 const DITHER_STRENGTH_MAX = 5;
+const HARD8_JND_LEVEL_MIN = 128;
+const HARD8_JND_LEVEL_MAX = 256;
+const DEFAULT_HARD8_JND_LEVELS = 225;
 const LUMINANCE_LOG_RANGE = Math.log(LUMINANCE_MAX_NITS / LUMINANCE_MIN_NITS);
 const GSDF_DISPLAY_LMIN_NITS = 0.05;
 const GSDF_JND_MIN = 1;
@@ -285,6 +290,15 @@ function normalizeTransferFormula(value) {
 
 function normalizeGsdfPipeline(value) {
   return value === 'rgb' ? 'rgb' : DEFAULT_SETTINGS.gsdfPipeline;
+}
+
+function normalizeHard8JndLevelCount(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return DEFAULT_HARD8_JND_LEVELS;
+  }
+
+  return Math.round(Math.max(HARD8_JND_LEVEL_MIN, Math.min(HARD8_JND_LEVEL_MAX, numeric)));
 }
 
 function hasNewImageControlSchema(settings) {
@@ -553,8 +567,108 @@ function buildGsdfTableValues(settings = currentSettings, tableSize = GSDF_TABLE
   return buildToneCurveSnapshot(settings, { tableSize }).codeRemapNorm;
 }
 
+function buildHard8DeviceJndIndex(snapshot) {
+  const maximumCode = GSDF_TABLE_SIZE - 1;
+  const luminanceSpan = snapshot.metadata.displayWhiteNits - snapshot.metadata.displayBlackNits;
+
+  return Array.from({ length: GSDF_TABLE_SIZE }, (_, code) => {
+    const normalizedCode = code / maximumCode;
+    const luminance = snapshot.metadata.displayBlackNits
+      + luminanceSpan * (normalizedCode ** snapshot.metadata.displayGamma);
+    return luminanceToGsdfJnd(luminance);
+  });
+}
+
+function optimizeHard8JndDeviceLevels(deviceJndIndex, uniqueLevelCount) {
+  const deviceLevelCount = deviceJndIndex.length;
+  const lastDeviceCode = deviceLevelCount - 1;
+  const targetJndStep = (
+    deviceJndIndex[lastDeviceCode] - deviceJndIndex[0]
+  ) / (uniqueLevelCount - 1);
+  let previousCosts = new Float64Array(deviceLevelCount);
+  previousCosts.fill(Number.POSITIVE_INFINITY);
+  previousCosts[0] = 0;
+  const parents = Array.from(
+    { length: uniqueLevelCount },
+    () => new Int16Array(deviceLevelCount).fill(-1)
+  );
+
+  for (let selectedIndex = 1; selectedIndex < uniqueLevelCount; selectedIndex += 1) {
+    const nextCosts = new Float64Array(deviceLevelCount);
+    nextCosts.fill(Number.POSITIVE_INFINITY);
+    const minimumCode = selectedIndex;
+    const remainingSelections = uniqueLevelCount - 1 - selectedIndex;
+    const maximumCode = lastDeviceCode - remainingSelections;
+
+    for (let code = minimumCode; code <= maximumCode; code += 1) {
+      let bestCost = Number.POSITIVE_INFINITY;
+      let bestPreviousCode = -1;
+
+      for (let previousCode = selectedIndex - 1; previousCode < code; previousCode += 1) {
+        const previousCost = previousCosts[previousCode];
+        if (!Number.isFinite(previousCost)) {
+          continue;
+        }
+
+        const jndStep = deviceJndIndex[code] - deviceJndIndex[previousCode];
+        const candidateCost = previousCost + (jndStep - targetJndStep) ** 2;
+        if (candidateCost < bestCost) {
+          bestCost = candidateCost;
+          bestPreviousCode = previousCode;
+        }
+      }
+
+      nextCosts[code] = bestCost;
+      parents[selectedIndex][code] = bestPreviousCode;
+    }
+
+    previousCosts = nextCosts;
+  }
+
+  const selectedCodes = new Array(uniqueLevelCount);
+  let code = lastDeviceCode;
+  selectedCodes[uniqueLevelCount - 1] = code;
+  for (let selectedIndex = uniqueLevelCount - 1; selectedIndex > 0; selectedIndex -= 1) {
+    code = parents[selectedIndex][code];
+    selectedCodes[selectedIndex - 1] = code;
+  }
+
+  return selectedCodes;
+}
+
+function expandHard8JndLevelsToInputMapping(selectedDeviceCodes, inputLevelCount = GSDF_TABLE_SIZE) {
+  return Array.from({ length: inputLevelCount }, (_, inputIndex) => {
+    const selectedIndex = Math.round(
+      (inputIndex * (selectedDeviceCodes.length - 1)) / (inputLevelCount - 1)
+    );
+    return selectedDeviceCodes[selectedIndex];
+  });
+}
+
+function buildHard8JndOptimizedTableValues(settings = currentSettings) {
+  const normalized = normalizeSettings(settings);
+  const snapshot = buildToneCurveSnapshot(normalized, {
+    tableSize: GSDF_TABLE_SIZE,
+    displayPreset: DEFAULT_DISPLAY_PRESET_ID,
+    digits: 8
+  });
+  const deviceJndIndex = buildHard8DeviceJndIndex(snapshot);
+  const selectedCodes = optimizeHard8JndDeviceLevels(
+    deviceJndIndex,
+    normalized.hard8JndLevelCount
+  );
+
+  return expandHard8JndLevelsToInputMapping(selectedCodes)
+    .map((code) => Number((code / (GSDF_TABLE_SIZE - 1)).toFixed(8)));
+}
+
 function buildActiveTransferTableValues(settings = currentSettings, tableSize = GSDF_TABLE_SIZE) {
-  return buildGsdfTableValues(settings, tableSize);
+  const normalized = normalizeSettings(settings);
+  if (!normalized.hard8JndOptimizationEnabled || tableSize !== GSDF_TABLE_SIZE) {
+    return buildGsdfTableValues(normalized, tableSize);
+  }
+
+  return buildHard8JndOptimizedTableValues(normalized);
 }
 
 function normalizeSettings(settings = {}) {
@@ -595,7 +709,9 @@ function normalizeSettings(settings = {}) {
     ditherStrength: Math.round(clampNumber(settings.ditherStrength, DITHER_STRENGTH_MIN, DITHER_STRENGTH_MAX, DEFAULT_SETTINGS.ditherStrength)),
     ditherColor: settings.ditherColor === true,
     ditherNoise: settings.ditherNoise !== false,
-    hue: clampNumber(settings.hue, -30, 30, DEFAULT_SETTINGS.hue)
+    hue: clampNumber(settings.hue, -30, 30, DEFAULT_SETTINGS.hue),
+    hard8JndOptimizationEnabled: settings.hard8JndOptimizationEnabled === true,
+    hard8JndLevelCount: normalizeHard8JndLevelCount(settings.hard8JndLevelCount)
   };
 
   if (normalized.whitePoint <= normalized.blackPoint) {
@@ -1818,6 +1934,7 @@ if (window.__GSDF_EOTF_TEST__) {
   window.__gsdfEotfTestHooks = {
     buildManagedFilterChain,
     buildActiveTransferTableValues,
+    buildHard8JndOptimizedTableValues,
     buildToneCurveSnapshot,
     buildGsdfTableValues,
     classifyPickedElement,

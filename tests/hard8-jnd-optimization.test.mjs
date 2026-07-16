@@ -127,3 +127,61 @@ test('allowing one merge lowers retained-step SD but not the all-input-step obje
   assert.ok(oneMerge.nonzeroJndStepSd < identity.nonzeroJndStepSd);
   assert.ok(oneMerge.allJndStepSd > identity.allJndStepSd);
 });
+
+test('dynamic optimization model follows current luminance, gamma, route, and level budget', async () => {
+  const optimization = await loadBundledModule('../src/color/hard8JndOptimization.ts');
+  const baseSettings = {
+    lmax: 100,
+    gammaTarget: 2.2,
+    displayGamma: 2.2,
+    displayGamut: 'adobe-rgb',
+    transferFormula: 'gsdf',
+    strength: 100,
+    blackPoint: 0,
+    whitePoint: 256,
+  };
+  const gsdf225 = optimization.buildHard8JndOptimizationModel(baseSettings, 225);
+  const csdf210 = optimization.buildHard8JndOptimizationModel({
+    ...baseSettings,
+    lmax: 300,
+    displayGamma: 2.4,
+    transferFormula: 'csdf',
+  }, 210);
+
+  assert.equal(gsdf225.levelCount, 225);
+  assert.equal(gsdf225.optimized.uniqueLevels, 225);
+  assert.equal(gsdf225.optimized.mergedTransitions, 31);
+  assert.equal(gsdf225.transferFormula, 'gsdf');
+  assertApproximately(gsdf225.displayBlackNits, 0.1);
+  assert.equal(csdf210.levelCount, 210);
+  assert.equal(csdf210.optimized.uniqueLevels, 210);
+  assert.equal(csdf210.optimized.mergedTransitions, 46);
+  assert.equal(csdf210.transferFormula, 'csdf');
+  assert.equal(csdf210.displayGamma, 2.4);
+  assertApproximately(csdf210.displayBlackNits, 0.3);
+  assert.notDeepEqual(csdf210.optimizedCodeRemapNorm, gsdf225.optimizedCodeRemapNorm);
+});
+
+test('active transfer applies and removes the persisted hard 8-bit optimization', async () => {
+  const types = await loadBundledModule('../src/types.ts');
+  const settings = {
+    ...types.DEFAULT_APP_SETTINGS,
+    enabled: true,
+    transferFormula: 'gsdf',
+    displayGamut: 'adobe-rgb',
+    hard8JndLevelCount: 225,
+  };
+  const original = types.buildActiveTransferTableValues({
+    ...settings,
+    hard8JndOptimizationEnabled: false,
+  });
+  const optimized = types.buildActiveTransferTableValues({
+    ...settings,
+    hard8JndOptimizationEnabled: true,
+  });
+
+  assert.equal(new Set(optimized.map((value) => Math.round(value * 255))).size, 225);
+  assert.notDeepEqual(optimized, original);
+  assert.equal(optimized[0], 0);
+  assert.equal(optimized.at(-1), 1);
+});

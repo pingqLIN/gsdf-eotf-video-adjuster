@@ -10,6 +10,7 @@ const contentSource = readFileSync(new URL('../extension/content.js', import.met
 const diagnosticProbeSource = readFileSync(new URL('../src/components/DiagnosticCameraProbe.tsx', import.meta.url), 'utf8');
 const chartSource = readFileSync(new URL('../src/components/GSDFChart.tsx', import.meta.url), 'utf8');
 const hard8ReferenceSource = readFileSync(new URL('../src/components/Hard8JndReference.tsx', import.meta.url), 'utf8');
+const hard8OptimizationPanelSource = readFileSync(new URL('../src/components/Hard8JndOptimizationPanel.tsx', import.meta.url), 'utf8');
 const cameraProbeSource = readFileSync(new URL('../src/diagnostics/cameraProbe.ts', import.meta.url), 'utf8');
 const luminanceEstimatorSource = readFileSync(new URL('../src/diagnostics/luminanceEstimator.ts', import.meta.url), 'utf8');
 const i18nIndexSource = readFileSync(new URL('../src/i18n/index.ts', import.meta.url), 'utf8');
@@ -18,16 +19,20 @@ const i18nLocalesSource = readFileSync(new URL('../src/i18n/locales.ts', import.
 const designSource = readFileSync(new URL('../DESIGN.md', import.meta.url), 'utf8');
 const designZhTwSource = readFileSync(new URL('../DESIGN.zh-tw.md', import.meta.url), 'utf8');
 
-test('control panel uses Basic Advanced Diagnostic tabs instead of A B C modes', () => {
-  assert.match(panelSource, /type PanelTab = 'basic' \| 'advanced' \| 'diagnostic'/);
-  assert.match(panelSource, /\(\['basic', 'advanced', 'diagnostic'\] as PanelTab\[\]\)/);
+test('control panel uses Basic Advanced Levels Diagnostic tabs instead of A B C modes', () => {
+  assert.match(panelSource, /type PanelTab = 'basic' \| 'advanced' \| 'optimization' \| 'diagnostic'/);
+  assert.match(panelSource, /\(\['basic', 'advanced', 'optimization', 'diagnostic'\] as PanelTab\[\]\)/);
+  assert.match(panelSource, /messages\.panel\.optimizationTab/);
+  assert.match(panelSource, /messages\.panel\.switchToOptimization/);
   assert.match(panelSource, /messages\.panel\.diagnosticTab/);
   assert.match(panelSource, /messages\.panel\.switchToDiagnostic/);
   assert.match(panelSource, /renderDiagnosticPlaceholder/);
   assert.match(panelSource, /DiagnosticCameraProbe settings=\{settings\} setSettings=\{setSettings\} messages=\{messages\}/);
   assert.match(panelSource, /hidden=\{activeTab !== 'basic'\}/);
   assert.match(panelSource, /hidden=\{activeTab !== 'advanced'\}/);
+  assert.match(panelSource, /hidden=\{activeTab !== 'optimization'\}/);
   assert.match(panelSource, /hidden=\{activeTab !== 'diagnostic'\}/);
+  assert.match(panelSource, /<Hard8JndOptimizationPanel settings=\{settings\} setSettings=\{setSettings\} messages=\{messages\} \/>/);
   assert.match(panelSource, /role="tablist"/);
   assert.match(panelSource, /role="tab"/);
   assert.match(panelSource, /aria-selected=\{selected\}/);
@@ -57,7 +62,7 @@ test('reference pattern and curve open from the right side panel', () => {
   assert.match(panelSource, /sidePanelOpen/);
   assert.match(panelSource, /sidePanelMode/);
   assert.match(panelSource, /ReferenceSidePanel/);
-  assert.match(panelSource, /<Hard8JndReference messages=\{messages\} \/>/);
+  assert.match(panelSource, /<Hard8JndReference settings=\{settings\} messages=\{messages\} \/>/);
   assert.match(panelSource, /PanelRightOpen/);
   assert.match(panelSource, /PanelRightClose/);
   assert.match(panelSource, /messages\.panel\.toggleSidePanel/);
@@ -207,7 +212,7 @@ test('panel keeps project-owned GSDF pattern and chart logic', () => {
   assert.match(chartSource, /name=\{optimizedCurveLabel\}/);
   assert.match(i18nMessagesSource, /csdfOptimized: 'CSDF remap'/);
   assert.match(i18nLocalesSource, /csdfOptimized: 'CSDF 重映射'/);
-  assert.match(hard8ReferenceSource, /optimizeHard8JndDeviceLevels/);
+  assert.match(hard8ReferenceSource, /buildHard8JndOptimizationModel/);
   assert.match(hard8ReferenceSource, /current\.nonzeroJndStepSd/);
   assert.match(hard8ReferenceSource, /optimized\.allJndStepSd/);
   assert.match(hard8ReferenceSource, /hard8ReferenceChartAria/);
@@ -314,9 +319,9 @@ test('panel keeps project-owned GSDF pattern and chart logic', () => {
   assert.match(panelSource, /import\('\.\/GSDFChart'\)/);
 });
 
-test('optimize preset keeps the display EOTF neutral gamma baseline', () => {
+test('optimize action applies the route-matched hard 8-bit level budget and opens its tab', () => {
   const optimizeBlock = panelSource.slice(
-    panelSource.indexOf('const applyOptimizedPreset = () =>'),
+    panelSource.indexOf('const applyOptimizedLevels = () =>'),
     panelSource.indexOf('const setLmaxWithLinkedDefaults ='),
   );
 
@@ -328,17 +333,16 @@ test('optimize preset keeps the display EOTF neutral gamma baseline', () => {
   assert.match(panelSource, /function gammaCorrectionToAlignedSliderValue/);
   assert.match(panelSource, /function alignedSliderValueToGammaCorrection/);
   assert.match(panelSource, /function gammaTargetToAlignedSliderValue/);
-  assert.match(optimizeBlock, /displayGamma: DEFAULT_APP_SETTINGS\.displayGamma/);
-  assert.match(optimizeBlock, /gammaTarget: DEFAULT_APP_SETTINGS\.displayGamma/);
-  assert.match(optimizeBlock, /transferFormula: DEFAULT_APP_SETTINGS\.transferFormula/);
-  assert.match(optimizeBlock, /gsdfPipeline: DEFAULT_APP_SETTINGS\.gsdfPipeline/);
-  assert.match(optimizeBlock, /strength: DEFAULT_APP_SETTINGS\.strength/);
-  assert.match(optimizeBlock, /sourceIsLinear: false/);
-  assert.match(optimizeBlock, /fineSharpness: DEFAULT_APP_SETTINGS\.fineSharpness/);
-  assert.match(optimizeBlock, /mediumSharpness: DEFAULT_APP_SETTINGS\.mediumSharpness/);
-  assert.doesNotMatch(optimizeBlock, /gammaTarget:\s*1\b/);
-  assert.match(i18nMessagesSource, /display EOTF neutral gamma/);
-  assert.match(i18nLocalesSource, /顯示 EOTF 中性 gamma/);
+  assert.match(optimizeBlock, /buildHard8JndOptimizationModel\(settings, settings\.hard8JndLevelCount\)/);
+  assert.match(optimizeBlock, /hard8JndOptimizationEnabled: true/);
+  assert.match(optimizeBlock, /hard8JndLevelCount: model\.recommendedLevelCount/);
+  assert.match(optimizeBlock, /setActiveTab\('optimization'\)/);
+  assert.doesNotMatch(optimizeBlock, /lmax: 100|gammaTarget: DEFAULT_APP_SETTINGS|transferFormula: DEFAULT_APP_SETTINGS/);
+  assert.match(hard8OptimizationPanelSource, /hard8JndOptimizationEnabled: true/);
+  assert.match(hard8OptimizationPanelSource, /hard8JndOptimizationEnabled: false/);
+  assert.match(hard8OptimizationPanelSource, /hard8OptimizationApply/);
+  assert.match(i18nMessagesSource, /optimizePreset: 'Optimize levels'/);
+  assert.match(i18nLocalesSource, /optimizePreset: '最佳階數'/);
 });
 
 test('basic and advanced tools expose the revised correction controls', () => {
@@ -643,6 +647,10 @@ test('visual language keeps the precision-panel styling hooks', () => {
   assert.match(cssSource, /\.gsdf-hard8-reference__chart/);
   assert.match(cssSource, /\.gsdf-hard8-reference__line--optimized/);
   assert.match(cssSource, /\.gsdf-panel\.theme-light \.gsdf-hard8-reference/);
+  assert.match(cssSource, /\.gsdf-jnd-workbench__level-control/);
+  assert.match(cssSource, /\.gsdf-jnd-workbench__chart--jnd/);
+  assert.match(cssSource, /\.gsdf-panel\.theme-light \.gsdf-primary-pane/);
+  assert.match(cssSource, /\.gsdf-panel\.theme-light \.gsdf-jnd-workbench/);
   assert.match(cssSource, /\.gsdf-diagnostic-placeholder/);
   assert.match(cssSource, /\.gsdf-camera-probe/);
   assert.match(cssSource, /\.gsdf-camera-preview/);
@@ -683,19 +691,19 @@ test('English UI strings do not contain CJK characters', () => {
   assert.doesNotMatch(i18nMessagesSource, /calibratedSimulation/);
 });
 
-test('design docs describe tabs, camera diagnostics, and side panel rather than obsolete A B C modes', () => {
-  assert.match(designSource, /Basic, Advanced, and Diagnostic tabs/);
+test('design docs describe the Levels tab, camera diagnostics, and side panel rather than obsolete A B C modes', () => {
+  assert.match(designSource, /Basic, Advanced, Levels, and Diagnostic tabs/);
   assert.match(designSource, /Diagnostic web-camera luminance probe/);
   assert.match(designSource, /rough estimates/);
   assert.match(designSource, /upper-right side-panel control/);
   assert.match(designSource, /side-panel open\/closed states/);
-  assert.match(designSource, /hard 8-bit JND comparison is diagnostic/);
-  assert.match(designZhTwSource, /基本、進階、診斷頁籤/);
+  assert.match(designSource, /dedicated Levels tab may explicitly apply/);
+  assert.match(designZhTwSource, /基本、進階、階數、診斷頁籤/);
   assert.match(designZhTwSource, /Web 相機亮度偵測/);
   assert.match(designZhTwSource, /粗略估計/);
   assert.match(designZhTwSource, /右上角側邊欄控制/);
   assert.match(designZhTwSource, /側邊欄開啟\/關閉狀態/);
-  assert.match(designZhTwSource, /硬 8-bit JND 比較屬於診斷參考/);
+  assert.match(designZhTwSource, /專用的階數頁籤可以明確套用/);
   assert.doesNotMatch(designSource, /A, B, and C|compact, split, and expanded work modes/);
   assert.doesNotMatch(designZhTwSource, /A、B、C|精簡、左右分欄、完整展開模式/);
 });

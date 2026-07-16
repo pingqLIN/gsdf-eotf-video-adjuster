@@ -16,6 +16,16 @@ export type {
 import { linearToGamma } from './color/curveMath';
 import { VIRTUAL_GAMUT_PRESETS } from './color/gamutPresets';
 import {
+  buildHard8JndOptimizationModel,
+  DEFAULT_HARD8_JND_LEVELS,
+  normalizeHard8JndLevelCount,
+} from './color/hard8JndOptimization';
+export {
+  DEFAULT_HARD8_JND_LEVELS,
+  HARD8_JND_LEVEL_MAX,
+  HARD8_JND_LEVEL_MIN,
+} from './color/hard8JndOptimization';
+import {
   GSDF_DISPLAY_LMIN_NITS,
   gsdfJndToLuminance as calculateGsdfJndToLuminance,
   gsdfTargetLuminanceNorm,
@@ -44,6 +54,8 @@ export interface AppSettings {
   ditherColor: boolean;
   ditherNoise: boolean;
   hue: number;
+  hard8JndOptimizationEnabled: boolean;
+  hard8JndLevelCount: number;
 }
 
 export type GsdfCurveMode = 'relative';
@@ -129,6 +141,8 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   ditherColor: false,
   ditherNoise: true,
   hue: 0,
+  hard8JndOptimizationEnabled: false,
+  hard8JndLevelCount: DEFAULT_HARD8_JND_LEVELS,
 };
 
 function clampNumber(value: unknown, min: number, max: number, fallback: number): number {
@@ -323,7 +337,15 @@ export function buildGsdfTableValues(settings: Partial<AppSettings>, tableSize =
 }
 
 export function buildActiveTransferTableValues(settings: Partial<AppSettings>, tableSize = 256): number[] {
-  return buildGsdfTableValues(settings, tableSize);
+  const normalized = normalizeAppSettings(settings);
+  if (!normalized.hard8JndOptimizationEnabled || tableSize !== TONE_LEVEL_COUNT) {
+    return buildGsdfTableValues(normalized, tableSize);
+  }
+
+  return buildHard8JndOptimizationModel(
+    normalized,
+    normalized.hard8JndLevelCount,
+  ).optimizedCodeRemapNorm;
 }
 
 export interface GSDFStripeRow {
@@ -438,6 +460,8 @@ export function normalizeAppSettings(value: Partial<AppSettings> | null | undefi
     ditherColor: settings.ditherColor === true,
     ditherNoise: settings.ditherNoise !== false,
     hue: clampNumber(settings.hue, -30, 30, DEFAULT_APP_SETTINGS.hue),
+    hard8JndOptimizationEnabled: settings.hard8JndOptimizationEnabled === true,
+    hard8JndLevelCount: normalizeHard8JndLevelCount(settings.hard8JndLevelCount),
   };
 
   if (normalized.whitePoint <= normalized.blackPoint) {

@@ -1,6 +1,15 @@
 import { luminanceToGsdfJnd } from './perceptualLuminance';
+import {
+  buildToneCurveSnapshot,
+  type ToneCurveSettings,
+  type ToneTransferFormula,
+} from './buildToneCurveSnapshot';
 
 const JND_ZERO_EPSILON = 1e-9;
+
+export const HARD8_JND_LEVEL_MIN = 128;
+export const HARD8_JND_LEVEL_MAX = 256;
+export const DEFAULT_HARD8_JND_LEVELS = 225;
 
 export interface Hard8DisplayModel {
   blackNits: number;
@@ -22,6 +31,21 @@ export interface Hard8JndStatistics {
   nonzeroJndStepMin: number;
   nonzeroJndStepMax: number;
   jndSteps: number[];
+}
+
+export interface Hard8JndOptimizationModel {
+  current: Hard8JndStatistics;
+  optimized: Hard8JndStatistics;
+  currentCodeRemapNorm: number[];
+  optimizedCodeRemapNorm: number[];
+  selectedDeviceCodes: number[];
+  levelCount: number;
+  recommendedLevelCount: number;
+  transferFormula: ToneTransferFormula;
+  displayGamut: string;
+  displayBlackNits: number;
+  displayWhiteNits: number;
+  displayGamma: number;
 }
 
 function mean(values: number[]): number {
@@ -51,6 +75,15 @@ function assertFiniteIncreasingJndIndex(deviceJndIndex: number[]): void {
       throw new Error('The device JND index must be strictly increasing.');
     }
   }
+}
+
+export function normalizeHard8JndLevelCount(value: unknown): number {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return DEFAULT_HARD8_JND_LEVELS;
+  }
+
+  return Math.round(Math.max(HARD8_JND_LEVEL_MIN, Math.min(HARD8_JND_LEVEL_MAX, numeric)));
 }
 
 export function buildHard8DeviceJndIndex({
@@ -301,4 +334,45 @@ export function expandHard8JndLevelsToInputMapping(
     );
     return selectedDeviceCodes[selectedIndex];
   });
+}
+
+export function buildHard8JndOptimizationModel(
+  settings: Partial<ToneCurveSettings>,
+  requestedLevelCount: unknown = DEFAULT_HARD8_JND_LEVELS,
+): Hard8JndOptimizationModel {
+  const snapshot = buildToneCurveSnapshot(settings, {
+    tableSize: 256,
+    displayPreset: 'ips-1000',
+    digits: 8,
+  });
+  const deviceJndIndex = buildHard8DeviceJndIndex({
+    blackNits: snapshot.metadata.displayBlackNits,
+    whiteNits: snapshot.metadata.displayWhiteNits,
+    displayGamma: snapshot.metadata.displayGamma,
+  });
+  const currentDeviceCodes = snapshot.codeRemapNorm.map((value) => Math.round(value * 255));
+  const current = analyzeHard8DeviceCodeMapping(currentDeviceCodes, deviceJndIndex);
+  const levelCount = normalizeHard8JndLevelCount(requestedLevelCount);
+  const selectedDeviceCodes = optimizeHard8JndDeviceLevels(deviceJndIndex, levelCount);
+  const optimizedDeviceCodes = expandHard8JndLevelsToInputMapping(selectedDeviceCodes, 256);
+  const optimized = analyzeHard8DeviceCodeMapping(optimizedDeviceCodes, deviceJndIndex);
+  const toNormalizedCode = (code: number) => Number((code / 255).toFixed(8));
+
+  return {
+    current,
+    optimized,
+    currentCodeRemapNorm: currentDeviceCodes.map(toNormalizedCode),
+    optimizedCodeRemapNorm: optimizedDeviceCodes.map(toNormalizedCode),
+    selectedDeviceCodes,
+    levelCount,
+    recommendedLevelCount: Math.max(
+      HARD8_JND_LEVEL_MIN,
+      Math.min(HARD8_JND_LEVEL_MAX, current.uniqueLevels),
+    ),
+    transferFormula: snapshot.metadata.transferFormula,
+    displayGamut: snapshot.metadata.displayGamut,
+    displayBlackNits: snapshot.metadata.displayBlackNits,
+    displayWhiteNits: snapshot.metadata.displayWhiteNits,
+    displayGamma: snapshot.metadata.displayGamma,
+  };
 }

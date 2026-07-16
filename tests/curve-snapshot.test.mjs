@@ -8,6 +8,7 @@ import { build as esbuildBuild } from 'esbuild';
 
 const contentSource = readFileSync(new URL('../extension/content.js', import.meta.url), 'utf8');
 let toneModulePromise;
+let typesModulePromise;
 
 async function loadToneModule() {
   toneModulePromise ??= esbuildBuild({
@@ -25,6 +26,24 @@ async function loadToneModule() {
   });
 
   return toneModulePromise;
+}
+
+async function loadTypesModule() {
+  typesModulePromise ??= esbuildBuild({
+    entryPoints: [fileURLToPath(new URL('../src/types.ts', import.meta.url))],
+    bundle: true,
+    write: false,
+    format: 'esm',
+    platform: 'node',
+    target: 'es2022',
+    logLevel: 'silent',
+  }).then((result) => {
+    const source = result.outputFiles[0].text;
+    const encoded = Buffer.from(source).toString('base64');
+    return import(`data:text/javascript;base64,${encoded}`);
+  });
+
+  return typesModulePromise;
 }
 
 function createContentContext() {
@@ -228,4 +247,28 @@ test('content script mirror matches the bundled TypeScript tone curve snapshot',
     buildToneCurveSnapshot(settings, { tableSize: 64 }).codeRemapNorm,
   );
   assert.deepEqual(JSON.parse(JSON.stringify(contentSnapshot.metadata)), tsSnapshot.metadata);
+});
+
+test('content script mirror matches the active hard 8-bit optimized transfer', async () => {
+  const types = await loadTypesModule();
+  const hooks = loadContentHooks();
+  const settings = {
+    ...types.DEFAULT_APP_SETTINGS,
+    enabled: true,
+    lmax: 160,
+    displayGamma: 2.4,
+    gammaTarget: 2.2,
+    transferFormula: 'gsdf',
+    displayGamut: 'adobe-rgb',
+    hard8JndOptimizationEnabled: true,
+    hard8JndLevelCount: 218,
+  };
+  const tsTable = types.buildActiveTransferTableValues(settings);
+  const contentTable = Array.from(hooks.buildActiveTransferTableValues(settings));
+
+  assert.equal(maxDifference(tsTable, contentTable), 0);
+  assert.equal(new Set(contentTable.map((value) => Math.round(value * 255))).size, 218);
+  const normalized = hooks.normalizeSettings(settings);
+  assert.equal(normalized.hard8JndOptimizationEnabled, true);
+  assert.equal(normalized.hard8JndLevelCount, 218);
 });
