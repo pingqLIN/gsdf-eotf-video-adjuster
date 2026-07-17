@@ -10,11 +10,12 @@ The first-screen priority is operation:
 
 - enable or bypass the EOTF/GSDF effect
 - adjust target luminance, gamma compensation, and filter amount
-- switch between Basic, Advanced, Levels, and Diagnostic tabs without losing context
+- move through the Tune, Finish, and Levels workflow without losing context
 - preview and explicitly apply a hard 8-bit JND level redistribution from the Levels tab without resetting unrelated image settings
-- run the Diagnostic web-camera luminance probe as a rough visual meter
 - open the project-owned continuous frequency resolution reference and live curve only through the upper-right side-panel control
 - keep the compact hard 8-bit JND comparison inside that reference side panel so it remains visible beside the render area without covering the inspected content
+
+The redesigned main panel intentionally does not expose camera luminance estimation or element picking. The web-camera luminance probe remains available only through its standalone route as a rough visual meter, and the extension retains target-picker compatibility outside the primary control surface.
 
 ## Reference Boundary
 
@@ -79,7 +80,7 @@ Before shipping a UI change:
 
 - run the TypeScript/build checks for the extension
 - verify the rendered panel in a browser, not just by reading code
-- check Basic, Advanced, Levels, Diagnostic, and the side-panel open/closed states where the change affects panel structure
-- for the camera luminance probe, keep camera data local and label results as rough estimates rather than colorimeter, DICOM, or CSDF validation
+- check Tune, Finish, Levels, and the side-panel open/closed states where the change affects panel structure
+- when changing the standalone camera luminance probe, keep camera data local and label results as rough estimates rather than colorimeter, DICOM, or CSDF validation
 - confirm text does not collide with controls at compact width
 - confirm dark and light themes keep visible button boundaries

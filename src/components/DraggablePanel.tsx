@@ -11,7 +11,6 @@ import {
   Maximize2,
   Minus,
   Moon,
-  MousePointer2,
   PanelRightClose,
   PanelRightOpen,
   Palette,
@@ -57,14 +56,13 @@ import {
   WHITE_CLIP_TONE_MIN,
 } from '../types';
 import { localeNames, localeShortNames, supportedLocales, type Messages, type SupportedLocale } from '../i18n';
-import { DiagnosticCameraProbe } from './DiagnosticCameraProbe';
 import { Hard8JndReference } from './Hard8JndReference';
 import { Hard8JndOptimizationPanel } from './Hard8JndOptimizationPanel';
 import { buildHard8JndOptimizationModel } from '../color/hard8JndOptimization';
 
 const GSDFChart = React.lazy(() => import('./GSDFChart').then((module) => ({ default: module.GSDFChart })));
 
-type PanelTab = 'basic' | 'advanced' | 'optimization' | 'diagnostic';
+type PanelTab = 'basic' | 'advanced' | 'optimization';
 type PanelTheme = 'dark' | 'light';
 type SidePanelMode = 'pattern' | 'linearity' | 'bidirectional' | 'chart';
 type InspectionMode = SidePanelMode | null;
@@ -130,23 +128,6 @@ interface DraggablePanelProps {
   onExtensionDrag?: (deltaX: number, deltaY: number) => void;
   onExtensionResize?: (deltaWidth: number, deltaHeight: number) => void;
   onExtensionClose?: () => void;
-}
-
-interface TargetPickResult {
-  support: 'picking' | 'supported' | 'likely' | 'limited' | 'unsupported' | 'cancelled';
-  reason: string;
-  selected: string;
-  target: {
-    label: string;
-    rendered: boolean;
-    readyState: number;
-    paused: boolean;
-    muted: boolean;
-    width: number;
-    height: number;
-    videoWidth: number;
-    videoHeight: number;
-  } | null;
 }
 
 interface ReferenceRenderSize {
@@ -1494,36 +1475,30 @@ function PanelTabSwitch({
     <div
       role="tablist"
       aria-label={messages.panel.panelTabs}
-      className="gsdf-tab-switch relative grid h-8 min-w-[236px] max-w-[292px] flex-1 grid-cols-4 rounded-md border border-white/10 bg-[#080b0f] p-1"
+      className="gsdf-tab-switch relative grid h-8 min-w-[220px] max-w-[292px] flex-1 grid-cols-3 rounded-md border border-white/10 bg-[#080b0f] p-1"
       data-no-drag
     >
       <span
-        className={`pointer-events-none absolute top-1 bottom-1 left-1 w-[calc(25%-4px)] rounded bg-zinc-100 shadow transition-transform ${
+        className={`pointer-events-none absolute top-1 bottom-1 left-1 w-[calc(33.333%-4px)] rounded bg-zinc-100 shadow transition-transform ${
           value === 'advanced'
             ? 'translate-x-[calc(100%+4px)]'
             : value === 'optimization'
               ? 'translate-x-[calc(200%+8px)]'
-              : value === 'diagnostic'
-                ? 'translate-x-[calc(300%+12px)]'
-                : 'translate-x-0'
+              : 'translate-x-0'
         }`}
       />
-      {(['basic', 'advanced', 'optimization', 'diagnostic'] as PanelTab[]).map((tab) => {
+      {(['basic', 'advanced', 'optimization'] as PanelTab[]).map((tab) => {
         const selected = value === tab;
         const title = tab === 'basic'
           ? messages.panel.switchToBasic
           : tab === 'advanced'
             ? messages.panel.switchToAdvanced
-            : tab === 'optimization'
-              ? messages.panel.switchToOptimization
-              : messages.panel.switchToDiagnostic;
+            : messages.panel.switchToOptimization;
         const label = tab === 'basic'
           ? messages.panel.basicTab
           : tab === 'advanced'
             ? messages.panel.advancedTab
-            : tab === 'optimization'
-              ? messages.panel.optimizationTab
-              : messages.panel.diagnosticTab;
+            : messages.panel.optimizationTab;
         return (
           <button
             key={tab}
@@ -3367,6 +3342,61 @@ function TextScaleControls({
   );
 }
 
+function PanelUtilityMenu({
+  locale,
+  messages,
+  panelTheme,
+  panelTextScale,
+  onLocaleChange,
+  onPanelThemeChange,
+  onTextScaleDecrease,
+  onTextScaleIncrease,
+}: {
+  locale: SupportedLocale;
+  messages: Messages;
+  panelTheme: PanelTheme;
+  panelTextScale: number;
+  onLocaleChange: (locale: SupportedLocale) => void;
+  onPanelThemeChange: () => void;
+  onTextScaleDecrease: () => void;
+  onTextScaleIncrease: () => void;
+}) {
+  return (
+    <details className="gsdf-utility-menu relative" data-no-drag>
+      <summary
+        title={messages.panel.panelUtilities}
+        aria-label={messages.panel.panelUtilities}
+        className="gsdf-icon-button flex h-8 w-8 cursor-pointer list-none items-center justify-center rounded-md border border-white/10 bg-[#0b0d10] text-zinc-400 transition-colors hover:bg-white/[0.06] hover:text-zinc-100"
+      >
+        <Settings size={14} />
+      </summary>
+      <div className="gsdf-utility-menu__popover">
+        <div className="gsdf-utility-menu__section">
+          <span className="gsdf-utility-menu__label">{messages.panel.textSize}</span>
+          <TextScaleControls
+            value={panelTextScale}
+            messages={messages}
+            onDecrease={onTextScaleDecrease}
+            onIncrease={onTextScaleIncrease}
+          />
+        </div>
+        <div className="gsdf-utility-menu__section">
+          <span className="gsdf-utility-menu__label">{messages.language.label}</span>
+          <LanguageSelector locale={locale} messages={messages} onLocaleChange={onLocaleChange} />
+        </div>
+        <button
+          type="button"
+          onClick={onPanelThemeChange}
+          className="gsdf-utility-menu__theme gsdf-text-button"
+        >
+          {panelTheme === 'light' ? <Moon size={14} /> : <Sun size={14} />}
+          <span>{panelTheme === 'light' ? messages.panel.switchToDark : messages.panel.switchToLight}</span>
+        </button>
+      </div>
+    </details>
+  );
+}
+
 export function DraggablePanel({
   settings,
   setSettings,
@@ -3391,26 +3421,12 @@ export function DraggablePanel({
   const [panelClosed, setPanelClosed] = React.useState(false);
   const [standaloneInspectionSize, setStandaloneInspectionSize] = React.useState(() => getDefaultInspectionSize());
   const [standalonePanelSize, setStandalonePanelSize] = React.useState(() => getDefaultPanelSize());
-  const [targetPickResult, setTargetPickResult] = React.useState<TargetPickResult | null>(null);
   const [panelTheme, setPanelTheme] = React.useState<PanelTheme>(() => {
     const savedTheme = localStorage.getItem(PANEL_THEME_STORAGE_KEY);
     return savedTheme === 'light' ? 'light' : 'dark';
   });
   const [panelTextScale, setPanelTextScale] = React.useState(getInitialPanelTextScale);
   useExpandedOverlayViewport(inspectionMode !== null || sidePanelOpen);
-
-  React.useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
-      if (event.source !== window.parent || event.data?.type !== 'GSDF_TARGET_PICK_RESULT') {
-        return;
-      }
-
-      setTargetPickResult(event.data.payload as TargetPickResult);
-    };
-
-    window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
-  }, []);
 
   React.useEffect(() => {
     if (typeof window === 'undefined') {
@@ -3568,10 +3584,16 @@ export function DraggablePanel({
       return;
     }
 
-    setStandalonePanelSize((current) => clampStandalonePanelSize({
-      width: sidePanelOpen ? Math.max(current.width, PANEL_SIDE_PANEL_WIDTH) : Math.min(current.width, PANEL_DEFAULT_WIDTH),
-      height: current.height,
-    }, sidePanelOpen));
+    const syncStandalonePanelSize = () => {
+      setStandalonePanelSize((current) => clampStandalonePanelSize({
+        width: sidePanelOpen ? Math.max(current.width, PANEL_SIDE_PANEL_WIDTH) : Math.min(current.width, PANEL_DEFAULT_WIDTH),
+        height: current.height,
+      }, sidePanelOpen));
+    };
+
+    syncStandalonePanelSize();
+    window.addEventListener('resize', syncStandalonePanelSize);
+    return () => window.removeEventListener('resize', syncStandalonePanelSize);
   }, [extensionMode, inspectionMode, sidePanelOpen]);
 
   React.useEffect(() => {
@@ -3588,12 +3610,12 @@ export function DraggablePanel({
   const renderCurvePanel = (className = '', title = messages.panel.curvePanel) => (
     <section className={`gsdf-control-block gsdf-control-group gsdf-control-group--curve gsdf-basic-curve-block ${className}`}>
       <div className="gsdf-chart-frame min-h-0 rounded-md border border-white/10 bg-[#080b0f] p-2">
-        <React.Suspense fallback={<div className="h-[177px]" />}>
+        <React.Suspense fallback={<div className="h-[150px]" />}>
           <GSDFChart
             settings={settings}
             panelTheme={panelTheme}
             messages={messages}
-            className="h-[177px]"
+            className="h-[150px]"
             toolbarLeading={(
               <div className="gsdf-chart-title-lockup">
                 <span className="gsdf-control-icon flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-white/[0.05] text-zinc-200">
@@ -3873,106 +3895,6 @@ export function DraggablePanel({
     );
   };
 
-  const requestTargetPick = () => {
-    if (!extensionMode || !window.parent || window.parent === window) {
-      setTargetPickResult({
-        support: 'limited',
-        reason: '元素選取需要在 Chrome 擴充注入頁面的 iframe 中執行；本機獨立頁只能顯示診斷介面。',
-        selected: 'standalone app',
-        target: null,
-      });
-      return;
-    }
-
-    setTargetPickResult({
-      support: 'picking',
-      reason: '請把滑鼠移到頁面元素上並點一下；按 Escape 可取消。',
-      selected: 'none',
-      target: null,
-    });
-    window.parent.postMessage({ type: 'GSDF_TARGET_PICK_REQUEST' }, '*');
-  };
-
-  const renderTargetPickResult = () => {
-    if (!targetPickResult) {
-      return null;
-    }
-
-    const supportTone = targetPickResult.support === 'supported'
-      ? 'border-emerald-300/35 bg-emerald-300/10 text-emerald-100'
-      : targetPickResult.support === 'likely' || targetPickResult.support === 'limited' || targetPickResult.support === 'picking'
-        ? 'border-amber-300/35 bg-amber-300/10 text-amber-100'
-        : 'border-red-300/35 bg-red-400/10 text-red-100';
-
-    return (
-      <div className={`rounded-md border p-3 text-[11px] leading-5 ${supportTone}`}>
-        <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
-          <span className="font-semibold uppercase tracking-normal">{targetPickResult.support}</span>
-          <span className="font-mono text-[10px] opacity-80">{targetPickResult.selected}</span>
-        </div>
-        <div>{targetPickResult.reason}</div>
-        {targetPickResult.target && (
-          <div className="mt-2 grid gap-1 rounded-md border border-white/10 bg-black/20 p-2 font-mono text-[10px] text-zinc-200">
-            <div>target: {targetPickResult.target.label}</div>
-            <div>rendered: {String(targetPickResult.target.rendered)} · readyState: {targetPickResult.target.readyState}</div>
-            <div>css: {targetPickResult.target.width}x{targetPickResult.target.height} · video: {targetPickResult.target.videoWidth}x{targetPickResult.target.videoHeight}</div>
-            <div>paused: {String(targetPickResult.target.paused)} · muted: {String(targetPickResult.target.muted)}</div>
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  const renderDiagnosticPlaceholder = () => (
-    <div className="space-y-3">
-      <DiagnosticCameraProbe settings={settings} setSettings={setSettings} messages={messages} />
-      <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
-          onClick={requestTargetPick}
-          className="gsdf-text-button flex h-9 items-center gap-2 rounded-md border border-white/10 px-3 text-[11px] font-semibold text-zinc-200 transition-colors hover:text-zinc-50"
-        >
-          <MousePointer2 size={13} />
-          選取元素
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            setSidePanelMode('pattern');
-            setSidePanelOpen(true);
-          }}
-          className="gsdf-text-button flex h-9 items-center gap-2 rounded-md border border-white/10 px-3 text-[11px] font-semibold text-zinc-200 transition-colors hover:text-zinc-50"
-        >
-          <Grid3X3 size={13} />
-          {messages.panel.referencePanel}
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            setSidePanelMode('linearity');
-            setSidePanelOpen(true);
-          }}
-          className="gsdf-text-button flex h-9 items-center gap-2 rounded-md border border-white/10 px-3 text-[11px] font-semibold text-zinc-200 transition-colors hover:text-zinc-50"
-        >
-          <Palette size={13} />
-          {messages.panel.colorLinearityPanel}
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            setSidePanelMode('chart');
-            setSidePanelOpen(true);
-          }}
-          className="gsdf-text-button flex h-9 items-center gap-2 rounded-md border border-white/10 px-3 text-[11px] font-semibold text-zinc-200 transition-colors hover:text-zinc-50"
-        >
-          <BarChart3 size={13} />
-          {messages.panel.curvePanel}
-        </button>
-      </div>
-      {renderTargetPickResult()}
-    </div>
-  );
-
   const handleHeaderPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (isInteractiveDragTarget(e.target)) {
       return;
@@ -4112,9 +4034,8 @@ export function DraggablePanel({
   };
   const sidePanelGridStyle = sidePanelOpen
     ? ({
-        '--gsdf-primary-pane-fr': `${Number((1 - sidePanelRatio).toFixed(3))}fr`,
-        '--gsdf-reference-pane-fr': `${sidePanelRatio}fr`,
-      } as React.CSSProperties & Record<'--gsdf-primary-pane-fr' | '--gsdf-reference-pane-fr', string>)
+        '--gsdf-reference-pane-ratio': String(sidePanelRatio),
+      } as React.CSSProperties & Record<'--gsdf-reference-pane-ratio', string>)
     : undefined;
   const panelSizeClass = inspectionMode
     ? `${extensionMode ? 'relative h-screen w-screen max-h-screen' : 'absolute h-[720px] max-h-[calc(100vh-16px)] w-[960px] max-w-[calc(100vw-16px)]'}`
@@ -4162,7 +4083,7 @@ export function DraggablePanel({
         />
       ) : (
         <>
-          <div className="gsdf-panel-header select-none space-y-3 border-b border-white/10 bg-[#181c21] px-4 py-2.5">
+          <div className="gsdf-panel-header select-none space-y-2.5 border-b border-white/10 bg-[#181c21] px-4 py-2.5">
             <div className="gsdf-panel-title-row flex items-center gap-3">
               <div className="flex min-w-0 flex-1 items-center gap-3">
                 <div
@@ -4174,7 +4095,7 @@ export function DraggablePanel({
                   onPointerCancel={handleHeaderPointerUp}
                 >
                   <div className="gsdf-header-emblem flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-white/10 bg-white/[0.05] text-zinc-200">
-                    <Settings size={16} />
+                    <SlidersHorizontal size={16} />
                   </div>
                   <div className="min-w-0">
                     <div className="truncate text-[14px] font-semibold text-white">LumaLift</div>
@@ -4182,16 +4103,17 @@ export function DraggablePanel({
                   </div>
                 </div>
               </div>
-              <div className="gsdf-header-toolbar flex shrink-0 items-center gap-1.5" data-no-drag>
-                <TextScaleControls
-                  value={panelTextScale}
-                  messages={messages}
-                  onDecrease={() => setPanelTextScale((current) => getPanelTextScaleStep(current, -1))}
-                  onIncrease={() => setPanelTextScale((current) => getPanelTextScaleStep(current, 1))}
-                />
-                <LanguageSelector locale={locale} messages={messages} onLocaleChange={onLocaleChange} />
-              </div>
               <div className="gsdf-window-actions ml-auto flex shrink-0 items-center justify-end gap-2" data-no-drag>
+                <PanelUtilityMenu
+                  locale={locale}
+                  messages={messages}
+                  panelTheme={panelTheme}
+                  panelTextScale={panelTextScale}
+                  onLocaleChange={onLocaleChange}
+                  onPanelThemeChange={() => setPanelTheme((theme) => (theme === 'light' ? 'dark' : 'light'))}
+                  onTextScaleDecrease={() => setPanelTextScale((current) => getPanelTextScaleStep(current, -1))}
+                  onTextScaleIncrease={() => setPanelTextScale((current) => getPanelTextScaleStep(current, 1))}
+                />
                 <button
                   type="button"
                   title={messages.panel.toggleSidePanel}
@@ -4201,15 +4123,6 @@ export function DraggablePanel({
                   className="gsdf-icon-button flex h-8 w-8 items-center justify-center rounded-md border border-white/10 bg-[#0b0d10] text-zinc-400 transition-colors hover:bg-white/[0.06] hover:text-zinc-100"
                 >
                   {sidePanelOpen ? <PanelRightClose size={14} /> : <PanelRightOpen size={14} />}
-                </button>
-                <button
-                  type="button"
-                  title={panelTheme === 'light' ? messages.panel.switchToDark : messages.panel.switchToLight}
-                  aria-label={panelTheme === 'light' ? messages.panel.switchToDark : messages.panel.switchToLight}
-                  onClick={() => setPanelTheme((theme) => (theme === 'light' ? 'dark' : 'light'))}
-                  className="gsdf-icon-button flex h-8 w-8 items-center justify-center rounded-md border border-white/10 bg-[#0b0d10] text-zinc-400 transition-colors hover:bg-white/[0.06] hover:text-zinc-100"
-                >
-                  {panelTheme === 'light' ? <Moon size={14} /> : <Sun size={14} />}
                 </button>
                 <button
                   type="button"
@@ -4256,30 +4169,19 @@ export function DraggablePanel({
                   messages={messages}
                   className="gsdf-header-metrics gsdf-header-status-strip"
                 />
+                <button
+                  onClick={resetToDefault}
+                  className="gsdf-icon-button gsdf-status-reset flex h-8 w-8 items-center justify-center rounded-md border border-white/10 bg-[#0b0d10] text-zinc-500 transition-colors hover:bg-white/[0.06] hover:text-zinc-100"
+                  title={messages.panel.resetTitle}
+                  data-no-drag
+                  type="button"
+                >
+                  <RotateCcw size={14} />
+                </button>
               </div>
               <div className="gsdf-header-navigation-row">
                 <div className="gsdf-nav-row flex min-w-0 flex-wrap items-center justify-between gap-2">
                   <PanelTabSwitch value={activeTab} onChange={setActiveTab} panelTheme={panelTheme} messages={messages} />
-                </div>
-                <div className="gsdf-header-action-stack">
-                  <button
-                    type="button"
-                    onClick={applyOptimizedLevels}
-                    title={messages.panel.optimizePresetTitle}
-                    className="gsdf-quick-action flex h-10 min-w-[96px] items-center justify-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-[11px] font-semibold text-zinc-200 transition-colors hover:text-zinc-50"
-                  >
-                    <CheckCircle2 size={13} />
-                    <span>{messages.panel.optimizePreset}</span>
-                  </button>
-                  <button
-                    onClick={resetToDefault}
-                    className="gsdf-icon-button gsdf-status-reset flex h-8 w-8 items-center justify-center rounded-md border border-white/10 bg-[#0b0d10] text-zinc-500 transition-colors hover:bg-white/[0.06] hover:text-zinc-100"
-                    title={messages.panel.resetTitle}
-                    data-no-drag
-                    type="button"
-                  >
-                    <RotateCcw size={14} />
-                  </button>
                 </div>
               </div>
             </div>
@@ -4298,10 +4200,21 @@ export function DraggablePanel({
                 {renderAdvancedPanel()}
               </div>
               <div hidden={activeTab !== 'optimization'} aria-hidden={activeTab !== 'optimization'}>
-                <Hard8JndOptimizationPanel settings={settings} setSettings={setSettings} messages={messages} />
-              </div>
-              <div hidden={activeTab !== 'diagnostic'} aria-hidden={activeTab !== 'diagnostic'}>
-                {renderDiagnosticPlaceholder()}
+                <div className="gsdf-levels-workspace">
+                  <div className="gsdf-levels-command-bar">
+                    <span>{messages.panel.optimizePresetTitle}</span>
+                    <button
+                      type="button"
+                      onClick={applyOptimizedLevels}
+                      title={messages.panel.optimizePresetTitle}
+                      className="gsdf-quick-action"
+                    >
+                      <CheckCircle2 size={13} />
+                      <span>{messages.panel.optimizePreset}</span>
+                    </button>
+                  </div>
+                  <Hard8JndOptimizationPanel settings={settings} setSettings={setSettings} messages={messages} />
+                </div>
               </div>
             </div>
             {sidePanelOpen && (

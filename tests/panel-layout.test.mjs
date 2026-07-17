@@ -19,20 +19,18 @@ const i18nLocalesSource = readFileSync(new URL('../src/i18n/locales.ts', import.
 const designSource = readFileSync(new URL('../DESIGN.md', import.meta.url), 'utf8');
 const designZhTwSource = readFileSync(new URL('../DESIGN.zh-tw.md', import.meta.url), 'utf8');
 
-test('control panel uses Basic Advanced Levels Diagnostic tabs instead of A B C modes', () => {
-  assert.match(panelSource, /type PanelTab = 'basic' \| 'advanced' \| 'optimization' \| 'diagnostic'/);
-  assert.match(panelSource, /\(\['basic', 'advanced', 'optimization', 'diagnostic'\] as PanelTab\[\]\)/);
+test('control panel uses a three-step Tune Finish Levels workflow', () => {
+  assert.match(panelSource, /type PanelTab = 'basic' \| 'advanced' \| 'optimization'/);
+  assert.match(panelSource, /\(\['basic', 'advanced', 'optimization'\] as PanelTab\[\]\)/);
   assert.match(panelSource, /messages\.panel\.optimizationTab/);
   assert.match(panelSource, /messages\.panel\.switchToOptimization/);
-  assert.match(panelSource, /messages\.panel\.diagnosticTab/);
-  assert.match(panelSource, /messages\.panel\.switchToDiagnostic/);
-  assert.match(panelSource, /renderDiagnosticPlaceholder/);
-  assert.match(panelSource, /DiagnosticCameraProbe settings=\{settings\} setSettings=\{setSettings\} messages=\{messages\}/);
   assert.match(panelSource, /hidden=\{activeTab !== 'basic'\}/);
   assert.match(panelSource, /hidden=\{activeTab !== 'advanced'\}/);
   assert.match(panelSource, /hidden=\{activeTab !== 'optimization'\}/);
-  assert.match(panelSource, /hidden=\{activeTab !== 'diagnostic'\}/);
   assert.match(panelSource, /<Hard8JndOptimizationPanel settings=\{settings\} setSettings=\{setSettings\} messages=\{messages\} \/>/);
+  assert.match(panelSource, /function PanelUtilityMenu/);
+  assert.match(panelSource, /messages\.panel\.panelUtilities/);
+  assert.match(panelSource, /gsdf-levels-command-bar/);
   assert.match(panelSource, /role="tablist"/);
   assert.match(panelSource, /role="tab"/);
   assert.match(panelSource, /aria-selected=\{selected\}/);
@@ -46,6 +44,7 @@ test('control panel uses Basic Advanced Levels Diagnostic tabs instead of A B C 
   assert.doesNotMatch(panelSource, /centerMode/);
   assert.doesNotMatch(panelSource, /GSDF_PANEL_MODE_CHANGED/);
   assert.doesNotMatch(panelSource, /layoutModeA|layoutModeB|layoutModeC/);
+  assert.doesNotMatch(panelSource, /DiagnosticCameraProbe|GSDF_TARGET_PICK_REQUEST|MousePointer2|renderTargetPickResult/);
 });
 
 test('reference pattern and curve open from the right side panel', () => {
@@ -53,11 +52,6 @@ test('reference pattern and curve open from the right side panel', () => {
     panelSource.indexOf('const renderBasicPanel = () =>'),
     panelSource.indexOf('const renderAdvancedPanel = () =>'),
   );
-  const diagnosticPanelBlock = panelSource.slice(
-    panelSource.indexOf('const renderDiagnosticPlaceholder = () =>'),
-    panelSource.indexOf('const handleHeaderPointerDown'),
-  );
-
   assert.match(panelSource, /type SidePanelMode = 'pattern' \| 'linearity' \| 'bidirectional' \| 'chart'/);
   assert.match(panelSource, /sidePanelOpen/);
   assert.match(panelSource, /sidePanelMode/);
@@ -84,6 +78,8 @@ test('reference pattern and curve open from the right side panel', () => {
   assert.match(panelSource, /PANEL_DEFAULT_WIDTH = 420/);
   assert.match(panelSource, /PANEL_DEFAULT_HEIGHT = 780/);
   assert.match(panelSource, /PANEL_SIDE_PANEL_WIDTH = 820/);
+  assert.match(panelSource, /window\.addEventListener\('resize', syncStandalonePanelSize\)/);
+  assert.match(panelSource, /window\.removeEventListener\('resize', syncStandalonePanelSize\)/);
   assert.match(panelSource, /SIDE_PANEL_RATIO_DEFAULT = 0\.48/);
   assert.match(panelSource, /SIDE_PANEL_RATIO_MIN = 0\.34/);
   assert.match(panelSource, /SIDE_PANEL_RATIO_MAX = 0\.68/);
@@ -97,13 +93,6 @@ test('reference pattern and curve open from the right side panel', () => {
   assert.match(panelSource, /className="border-b border-white\/10 p-3"/);
   assert.doesNotMatch(basicPanelBlock, /referenceSummaryTitle|referenceSummaryBody/);
   assert.doesNotMatch(basicPanelBlock, /openSidePanel\('pattern'\)|openSidePanel\('chart'\)/);
-  assert.doesNotMatch(diagnosticPanelBlock, /openSidePanel\('pattern'\)|openSidePanel\('chart'\)/);
-  assert.match(diagnosticPanelBlock, /DiagnosticCameraProbe settings=\{settings\} setSettings=\{setSettings\} messages=\{messages\}/);
-  assert.match(diagnosticPanelBlock, /messages\.panel\.referencePanel/);
-  assert.match(diagnosticPanelBlock, /setSidePanelMode\('linearity'\)/);
-  assert.match(diagnosticPanelBlock, /messages\.panel\.curvePanel/);
-  assert.equal((diagnosticPanelBlock.match(/setSidePanelMode\('pattern'\)/g) ?? []).length, 1);
-  assert.doesNotMatch(diagnosticPanelBlock, /Chevron|chevron|collapseCalibration|expandCalibration/);
   assert.doesNotMatch(panelSource, /legacy-linearity|legacy-rgb|legacyColorLinearity|Legacy RGB/);
   assert.equal((panelSource.match(/openSidePanel\('pattern'\)|openSidePanel\('chart'\)/g) ?? []).length, 0);
 });
@@ -319,7 +308,7 @@ test('panel keeps project-owned GSDF pattern and chart logic', () => {
   assert.match(panelSource, /import\('\.\/GSDFChart'\)/);
 });
 
-test('optimize action applies the route-matched hard 8-bit level budget and opens its tab', () => {
+test('Levels owns its route-matched hard 8-bit optimization action', () => {
   const optimizeBlock = panelSource.slice(
     panelSource.indexOf('const applyOptimizedLevels = () =>'),
     panelSource.indexOf('const setLmaxWithLinkedDefaults ='),
@@ -341,6 +330,8 @@ test('optimize action applies the route-matched hard 8-bit level budget and open
   assert.match(hard8OptimizationPanelSource, /hard8JndOptimizationEnabled: true/);
   assert.match(hard8OptimizationPanelSource, /hard8JndOptimizationEnabled: false/);
   assert.match(hard8OptimizationPanelSource, /hard8OptimizationApply/);
+  assert.match(panelSource, /<div className="gsdf-levels-command-bar">[\s\S]*onClick=\{applyOptimizedLevels\}/);
+  assert.doesNotMatch(panelSource, /gsdf-header-action-stack/);
   assert.match(i18nMessagesSource, /optimizePreset: 'Optimize levels'/);
   assert.match(i18nLocalesSource, /optimizePreset: '最佳階數'/);
 });
@@ -356,7 +347,7 @@ test('basic and advanced tools expose the revised correction controls', () => {
   );
   const advancedPanelBlock = panelSource.slice(
     panelSource.indexOf('const renderAdvancedPanel = () =>'),
-    panelSource.indexOf('const renderDiagnosticPlaceholder = () =>'),
+    panelSource.indexOf('const handleHeaderPointerDown'),
   );
   const statusModeStripBlock = panelSource.slice(
     panelSource.indexOf('function StatusModeStrip'),
@@ -431,7 +422,7 @@ test('basic and advanced tools expose the revised correction controls', () => {
   assert.doesNotMatch(panelSource, /onResetDefault/);
   assert.match(panelSource, /gsdf-header-active-row/);
   assert.match(panelSource, /gsdf-header-navigation-row/);
-  assert.match(panelSource, /gsdf-header-action-stack/);
+  assert.match(panelSource, /PanelUtilityMenu/);
   assert.match(advancedPanelBlock, /gsdf-advanced-group--route/);
   assert.match(advancedPanelBlock, /FormulaModePills/);
   assert.match(advancedPanelBlock, /GsdfPipelinePills/);
@@ -530,11 +521,12 @@ test('visual language keeps the precision-panel styling hooks', () => {
   assert.match(cssSource, /\.gsdf-header-toolbar/);
   assert.match(cssSource, /\.gsdf-header-controls/);
   assert.match(cssSource, /\.gsdf-header-active-row/);
-  assert.match(cssSource, /grid-template-columns: minmax\(168px, 208px\) minmax\(0, 1fr\)/);
+  assert.match(cssSource, /grid-template-columns: minmax\(132px, 158px\) minmax\(0, 1fr\) 34px/);
   assert.match(cssSource, /align-items: start/);
   assert.match(cssSource, /\.gsdf-header-navigation-row/);
-  assert.match(cssSource, /grid-template-columns: minmax\(0, 1fr\) minmax\(116px, max-content\)/);
-  assert.match(cssSource, /\.gsdf-header-action-stack/);
+  assert.match(cssSource, /\.gsdf-panel-shell \.gsdf-header-navigation-row \{\s*grid-template-columns: minmax\(0, 1fr\);/);
+  assert.match(cssSource, /\.gsdf-utility-menu__popover/);
+  assert.match(cssSource, /\.gsdf-levels-command-bar/);
   assert.match(cssSource, /\.gsdf-nav-row \.gsdf-tab-switch/);
   assert.match(cssSource, /\.gsdf-panel-header/);
   assert.match(cssSource, /\[data-panel-drag-handle\]/);
@@ -547,7 +539,7 @@ test('visual language keeps the precision-panel styling hooks', () => {
   assert.match(cssSource, /\.gsdf-route-control-row/);
   assert.match(cssSource, /background: transparent !important/);
   assert.match(cssSource, /@container \(min-width: 700px\)/);
-  assert.match(cssSource, /\.gsdf-panel-shell \.gsdf-header-active-row \{\s*align-items: stretch;\s*grid-template-columns: minmax\(224px, 240px\) minmax\(0, 1fr\);/);
+  assert.match(cssSource, /@container \(min-width: 700px\) \{\s*\.gsdf-panel-shell \.gsdf-header-active-row \{\s*grid-template-columns: minmax\(156px, 182px\) minmax\(0, 1fr\) 34px;/);
   assert.match(cssSource, /\.gsdf-panel-shell \.gsdf-power-cluster \{\s*gap: 8px;\s*overflow: visible;/);
   assert.match(cssSource, /\.gsdf-panel-shell \.gsdf-power-status \{\s*min-width: 108px;/);
   assert.match(cssSource, /\.gsdf-panel-shell \.gsdf-status-caption \{\s*min-height: 42px;/);
@@ -639,8 +631,9 @@ test('visual language keeps the precision-panel styling hooks', () => {
   assert.match(cssSource, /padding: 2px !important/);
   assert.match(cssSource, /\.gsdf-panel-shell \.gsdf-chart-toolbar \{\s*margin: 2px 10px 1px 2px;/);
   assert.match(cssSource, /\.gsdf-side-panel-grid/);
-  assert.match(cssSource, /--gsdf-primary-pane-fr/);
-  assert.match(cssSource, /--gsdf-reference-pane-fr/);
+  assert.match(cssSource, /--gsdf-reference-pane-ratio/);
+  assert.match(cssSource, /minmax\(0, 1fr\)/);
+  assert.match(cssSource, /calc\(\(100% - var\(--gsdf-side-panel-divider-width, 10px\)\) \* var\(--gsdf-reference-pane-ratio, 0\.48\)\)/);
   assert.match(cssSource, /\.gsdf-side-panel-divider/);
   assert.match(cssSource, /cursor: col-resize/);
   assert.match(cssSource, /\.gsdf-reference-panel/);
@@ -691,15 +684,17 @@ test('English UI strings do not contain CJK characters', () => {
   assert.doesNotMatch(i18nMessagesSource, /calibratedSimulation/);
 });
 
-test('design docs describe the Levels tab, camera diagnostics, and side panel rather than obsolete A B C modes', () => {
-  assert.match(designSource, /Basic, Advanced, Levels, and Diagnostic tabs/);
-  assert.match(designSource, /Diagnostic web-camera luminance probe/);
+test('design docs describe the three-step workflow and standalone diagnostics boundary', () => {
+  assert.match(designSource, /Tune, Finish, and Levels workflow/);
+  assert.match(designSource, /does not expose camera luminance estimation or element picking/);
+  assert.match(designSource, /standalone route as a rough visual meter/);
   assert.match(designSource, /rough estimates/);
   assert.match(designSource, /upper-right side-panel control/);
   assert.match(designSource, /side-panel open\/closed states/);
   assert.match(designSource, /dedicated Levels tab may explicitly apply/);
-  assert.match(designZhTwSource, /基本、進階、階數、診斷頁籤/);
-  assert.match(designZhTwSource, /Web 相機亮度偵測/);
+  assert.match(designZhTwSource, /調校、細修、階數流程/);
+  assert.match(designZhTwSource, /刻意不提供相機亮度估算與元素選取/);
+  assert.match(designZhTwSource, /只保留在獨立路由/);
   assert.match(designZhTwSource, /粗略估計/);
   assert.match(designZhTwSource, /右上角側邊欄控制/);
   assert.match(designZhTwSource, /側邊欄開啟\/關閉狀態/);
