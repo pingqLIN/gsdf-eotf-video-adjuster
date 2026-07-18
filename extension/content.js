@@ -43,8 +43,8 @@ const GAMMA_CORRECTION_MIN = -100;
 const GAMMA_CORRECTION_MAX = 100;
 const TONE_LEVEL_COUNT = 256;
 const BLACK_CLIP_TONE_MIN = 0;
-const BLACK_CLIP_TONE_MAX = 16;
-const WHITE_CLIP_TONE_MIN = 240;
+const BLACK_CLIP_TONE_MAX = TONE_LEVEL_COUNT - 1;
+const WHITE_CLIP_TONE_MIN = 1;
 const WHITE_CLIP_TONE_MAX = 256;
 const SATURATION_MIN = 50;
 const SATURATION_MAX = 150;
@@ -807,7 +807,7 @@ function deriveToneProfile(settings = currentSettings) {
   const normalized = normalizeSettings(settings);
   const blackPoint = normalized.blackPoint / TONE_LEVEL_COUNT;
   const whitePoint = normalized.whitePoint / TONE_LEVEL_COUNT;
-  const usableRange = Math.max(0.05, whitePoint - blackPoint);
+  const usableRange = Math.max(1 / TONE_LEVEL_COUNT, whitePoint - blackPoint);
   const levelSlope = 1 / usableRange;
   const levelIntercept = -blackPoint / usableRange;
   const temperatureRatio = normalized.temperature / TEMPERATURE_MAX_K;
@@ -1862,6 +1862,15 @@ function toggleUI() {
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'toggle_ui') {
     toggleUI();
+    sendResponse({ status: 'ok' });
+    return;
+  }
+
+  if (request.action === 'apply_settings') {
+    currentSettings = normalizeSettings(request.payload);
+    injectSVGFilter();
+    startVideoObservers();
+    updateVideoFilters();
     sendResponse({ status: 'ok' });
   }
 });

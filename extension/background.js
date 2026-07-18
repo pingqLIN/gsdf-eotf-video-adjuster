@@ -140,5 +140,12 @@ async function togglePanel(tab) {
 }
 
 chrome.action.onClicked.addListener((tab) => {
+  if (tab?.id && chrome.sidePanel?.open) {
+    chrome.sidePanel.open({ tabId: tab.id }).catch(() => {
+      togglePanel(tab).catch(() => {});
+    });
+    return;
+  }
+
   togglePanel(tab).catch(() => {});
 });

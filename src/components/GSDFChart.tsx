@@ -58,7 +58,7 @@ export function GSDFChart({
     const table = buildActiveTransferTableValues(settings);
     const blackPoint = settings.blackPoint / TONE_LEVEL_COUNT;
     const whitePoint = settings.whitePoint / TONE_LEVEL_COUNT;
-    const usableRange = Math.max(0.05, whitePoint - blackPoint);
+    const usableRange = Math.max(1 / TONE_LEVEL_COUNT, whitePoint - blackPoint);
     const applyOutputLevels = (value: number) => {
       if (!includeLevels) {
         return value;

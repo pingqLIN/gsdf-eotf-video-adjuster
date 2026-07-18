@@ -10,10 +10,11 @@ The first-screen priority is operation:
 
 - enable or bypass the EOTF/GSDF effect
 - adjust target luminance, gamma compensation, and filter amount
-- move through the Tune, Finish, and Levels workflow without losing context
-- preview and explicitly apply a hard 8-bit JND level redistribution from the Levels tab without resetting unrelated image settings
-- open the project-owned continuous frequency resolution reference and live curve only through the upper-right side-panel control
-- keep the compact hard 8-bit JND comparison inside that reference side panel so it remains visible beside the render area without covering the inspected content
+- follow one visible signal path in execution order: detail shaping, perceptual transfer, levels, color, then dither
+- preview and explicitly apply a hard 8-bit JND level redistribution from a reversible diagnostic branch without resetting unrelated image settings
+- open the extension from the browser's native side panel by default, with the injected floating panel retained only as a compatibility fallback
+- keep a pinned reference strip above the only scrolling region and switch it directly between the live output curve and the compact hard 8-bit JND comparison
+- place the complete Dither controls inside the terminal quantization stage instead of routing them through a separate reference pane
 
 The redesigned main panel intentionally does not expose camera luminance estimation or element picking. The web-camera luminance probe remains available only through its standalone route as a rough visual meter, and the extension retains target-picker compatibility outside the primary control surface.
 
@@ -25,7 +26,7 @@ Use Stitch for:
 
 - typography density and numeric-readout hierarchy
 - recessed wells, fine borders, and top-lit bevels
-- compact icon buttons and segmented controls
+- compact icon buttons and shared slider/stepper control skeletons
 - dark instrument-panel contrast rhythm
 - spacing cadence for labels, sliders, and status rows
 
@@ -41,14 +42,14 @@ The current project implementation remains authoritative for the GSDF-QC pattern
 
 ## Visual Language
 
-The panel uses an instrument-control surface aesthetic:
+The panel uses the **Signal Path Console** visual system. The left-hand signal spine and numbered stages expose processing order without a Basic/Advanced card wall:
 
-- dark obsidian chassis rather than decorative glass
+- neutral, high-contrast dark and light chrome rather than decorative glass
 - 4px spacing base with compact but readable grouping
-- 6px controls and 8px shell corners, avoiding pill-shaped controls except status indicators
-- inset control wells for sliders, previews, and grouped controls
-- subtle top highlights and low-contrast dividers instead of heavy shadows
-- restrained silver active states, green only for active/system confirmation, cyan only for analytical data
+- 4px controls and 8px shell corners, avoiding pill-shaped controls except status indicators
+- 2px signal-path lines, 1px functional separators, and three clearly separated surface levels
+- no whole-section opacity reduction when the effect is bypassed; settings remain readable as a live preview
+- restrained neutral surfaces, with low-chroma cyan reserved for focus, signal flow, and actionable states
 
 Typography uses two roles:
 
@@ -61,7 +62,7 @@ Letter spacing should stay modest for interactive controls. Wide tracking is res
 
 Icon-only buttons must remain square, stable, and discoverable through `title` or `aria-label`.
 
-Segmented controls must read as one physical control, not unrelated buttons. Active segments use a metallic high-contrast fill; inactive segments remain recessed.
+The primary workflow uses only two aligned control skeletons. Continuous values use a slider; stepped values and ordered target choices use a minus/current/plus stepper. Formula, pipeline, and gamut therefore change the current target in the same structure used by numeric steppers instead of introducing a separate segmented-button style.
 
 Sliders must feel like physical faders:
 
@@ -70,9 +71,23 @@ Sliders must feel like physical faders:
 - clear min/max labels where useful
 - fixed value column to avoid layout jitter
 
+Black and white output levels share one 0–256 axis. Their handles sit on the left and right ends of the same rail, cannot cross, and keep both endpoint values plus the remaining tone count visible.
+
+The endpoint controls may use the full axis: black can reach 255 and white can reach 1. The only invariant is a one-code minimum separation, so the handles stop when they meet and the maximum combined trim is 255 codes.
+
+Fine and medium sharpening intentionally run before the selected GSDF/CSDF transfer. This lets the transfer, output Levels, and color stages constrain the sharpened result before terminal dithering. Moving sharpening after the transfer would make its local contrast more direct, but would also reintroduce overshoot and halo after perceptual remapping; it is not the default signal order.
+
+Filter amount is the mix control for the complete transfer block, not an isolated effect beside it. A shared bracket and junction must visually enclose target luminance, gamma compensation, formula, pipeline, and gamut before terminating at Filter amount.
+
+The fixed header has one authoritative activation surface. When enabled, the full `ACTIVE` control receives the green status background; a second route/status block must not repeat the same ON state on its right.
+
+The entire non-scrolling top area is one compact instrument head. Brand, utilities, activation, reset, three inspection launchers, reference switch, and the selected reference share one continuous surface instead of appearing as separate header and chart cards. The `ACTIVE` control shares its row with equal GSDF, CSDF, and continuous-gradient launch keys; these replace the former route-summary text and open the existing full inspection surfaces in separate browser popup windows without changing the side-panel workflow.
+
+The fixed instrument head uses a viewport-responsive height. Its selected curve view must use a complete flex-height chain down to the chart viewport, allowing the existing `ResizeObserver` to resize the plotted chart to all remaining space instead of fixing it at 150px.
+
 The full GSDF-QC view must stay content-accurate. Visual polish can refine framing, labels, and control chrome, but the pattern structure remains project-owned.
 
-The compact hard 8-bit JND side-panel comparison is diagnostic. The dedicated Levels tab may explicitly apply the constrained redistribution, but it must remain visibly reversible and must not reset Lmax, Gamma, gamut, route, or unrelated image controls. Both surfaces must show retained non-zero-step uniformity and the all-input-step result including merged intervals; a lower retained-step standard deviation must never be presented without its merge count.
+The compact hard 8-bit JND pinned comparison is diagnostic. The main signal path exposes JND optimization as a visually attached diagnostic branch rather than a serial processing stage. It may explicitly apply the constrained redistribution, but it must remain visibly reversible and must not reset Lmax, Gamma, gamut, route, or unrelated image controls. Both surfaces must show retained non-zero-step uniformity and the all-input-step result including merged intervals; a lower retained-step standard deviation must never be presented without its merge count.
 
 ## Quality Checks
 
@@ -80,7 +95,7 @@ Before shipping a UI change:
 
 - run the TypeScript/build checks for the extension
 - verify the rendered panel in a browser, not just by reading code
-- check Tune, Finish, Levels, and the side-panel open/closed states where the change affects panel structure
+- check every Signal Path Console stage, the JND diagnostic branch, the pinned curve/JND switch, and the native side-panel layout where the change affects panel structure
 - when changing the standalone camera luminance probe, keep camera data local and label results as rough estimates rather than colorimeter, DICOM, or CSDF validation
 - confirm text does not collide with controls at compact width
 - confirm dark and light themes keep visible button boundaries

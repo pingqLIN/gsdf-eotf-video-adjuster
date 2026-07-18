@@ -3,20 +3,22 @@ import { motion, useDragControls } from 'motion/react';
 import {
   Activity,
   BarChart3,
+  Blend,
   CheckCircle2,
   CircleOff,
   Gauge,
+  GitBranch,
   Grid3X3,
   Languages,
   Maximize2,
   Minus,
   Moon,
   PanelRightClose,
-  PanelRightOpen,
   Palette,
   Plus,
   Power,
   RotateCcw,
+  Route,
   Settings,
   SlidersHorizontal,
   Sun,
@@ -62,23 +64,118 @@ import { buildHard8JndOptimizationModel } from '../color/hard8JndOptimization';
 
 const GSDFChart = React.lazy(() => import('./GSDFChart').then((module) => ({ default: module.GSDFChart })));
 
-type PanelTab = 'basic' | 'advanced' | 'optimization';
 type PanelTheme = 'dark' | 'light';
 type SidePanelMode = 'pattern' | 'linearity' | 'bidirectional' | 'chart';
 type InspectionMode = SidePanelMode | null;
+type PinnedReferenceMode = 'curve' | 'jnd';
 type ResizeHandle = 'e' | 's' | 'se';
 type InspectionScaleMode = 'actual' | 'cover' | 'fit';
 type CsdfFigureMode = 'split' | 'plain';
+
+type SignalStageCopy = {
+  previewOnly: string;
+  baseline: string;
+  baselineNote: string;
+  detail: string;
+  detailNote: string;
+  transfer: string;
+  transferNote: string;
+  levels: string;
+  levelsNote: string;
+  color: string;
+  colorNote: string;
+  dither: string;
+  ditherNote: string;
+  diagnostic: string;
+  diagnosticNote: string;
+  openDither: string;
+  remainingTones: string;
+};
+
+const SIGNAL_STAGE_COPY: Record<SupportedLocale, SignalStageCopy> = {
+  en: {
+    previewOnly: 'Preview only · effect bypassed',
+    baseline: 'Display baseline',
+    baselineNote: 'Reference inputs used by the perceptual transfer',
+    detail: 'Detail shaping',
+    detailNote: 'First operation in the image path',
+    transfer: 'Perceptual transfer',
+    transferNote: 'Baseline, formula, gamut, then result mix',
+    levels: 'Output levels',
+    levelsNote: 'Black and white bounds after transfer',
+    color: 'Color finishing',
+    colorNote: 'Temperature, saturation / grayscale, then hue',
+    dither: 'Terminal dither',
+    ditherNote: 'Final quantization stage in the reference workspace',
+    diagnostic: 'JND diagnostic branch',
+    diagnosticNote: 'Analyzes the current path without becoming a serial stage',
+    openDither: 'Open Dither Beta controls',
+    remainingTones: 'remaining tones',
+  },
+  'zh-TW': {
+    previewOnly: '僅預覽 · 效果目前旁路',
+    baseline: '顯示基準',
+    baselineNote: '提供感知轉換使用的參考輸入',
+    detail: '細節整形',
+    detailNote: '影像鏈中最先執行的操作',
+    transfer: '感知轉換',
+    transferNote: '基準、公式、色域，再混合轉換結果',
+    levels: '輸出 Levels',
+    levelsNote: 'Transfer 之後的黑白邊界',
+    color: '後級色彩',
+    colorNote: '色溫、飽和／灰階，最後 Hue',
+    dither: '終端 Dither',
+    ditherNote: '參考工作區中的最終量化階段',
+    diagnostic: 'JND 診斷分支',
+    diagnosticNote: '分析目前路徑，但不是額外的序列處理步驟',
+    openDither: '開啟 Dither Beta 控制',
+    remainingTones: '剩餘 tone',
+  },
+  'zh-CN': {
+    previewOnly: '仅预览 · 效果当前旁路',
+    baseline: '显示基准',
+    baselineNote: '提供感知转换使用的参考输入',
+    detail: '细节整形',
+    detailNote: '图像链中最先执行的操作',
+    transfer: '感知转换',
+    transferNote: '基准、公式、色域，再混合转换结果',
+    levels: '输出 Levels',
+    levelsNote: 'Transfer 之后的黑白边界',
+    color: '后级色彩',
+    colorNote: '色温、饱和／灰阶，最后 Hue',
+    dither: '终端 Dither',
+    ditherNote: '参考工作区中的最终量化阶段',
+    diagnostic: 'JND 诊断分支',
+    diagnosticNote: '分析当前路径，但不是额外的串行处理步骤',
+    openDither: '打开 Dither Beta 控制',
+    remainingTones: '剩余 tone',
+  },
+  ja: {
+    previewOnly: 'プレビューのみ · エフェクトはバイパス中',
+    baseline: '表示基準',
+    baselineNote: '知覚変換で使う基準入力',
+    detail: 'ディテール整形',
+    detailNote: '画像パスで最初に実行される処理',
+    transfer: '知覚変換',
+    transferNote: '基準、方式、色域、結果ミックスの順',
+    levels: '出力レベル',
+    levelsNote: '変換後の黒点と白点',
+    color: 'カラー仕上げ',
+    colorNote: '色温度、彩度／グレースケール、Hue の順',
+    dither: '最終 Dither',
+    ditherNote: '参照ワークスペース内の最終量子化段階',
+    diagnostic: 'JND 診断ブランチ',
+    diagnosticNote: '現在のパスを解析する非直列ステップ',
+    openDither: 'Dither Beta コントロールを開く',
+    remainingTones: '残り tone',
+  },
+};
 
 const PANEL_THEME_STORAGE_KEY = 'gsdf_panel_theme';
 const PANEL_TEXT_SCALE_STORAGE_KEY = 'gsdf_panel_text_scale';
 const PANEL_TEXT_SCALE_STEPS = [0.9, 1, 1.1, 1.2] as const;
 const BUTTON_AUTO_REPEAT_DELAY_MS = 1500;
 const BUTTON_AUTO_REPEAT_INTERVAL_MS = 120;
-const SIDE_PANEL_RATIO_DEFAULT = 0.48;
-const SIDE_PANEL_RATIO_MIN = 0.34;
-const SIDE_PANEL_RATIO_MAX = 0.68;
-const SIDE_PANEL_DIVIDER_WIDTH = 10;
 const INSPECTION_MIN_WIDTH = 560;
 const INSPECTION_MIN_HEIGHT = 420;
 const INSPECTION_DEFAULT_WIDTH = 960;
@@ -108,7 +205,6 @@ const INSPECTION_ZOOM_MIN = 0.5;
 const INSPECTION_ZOOM_MAX = 4;
 const PANEL_DEFAULT_WIDTH = 420;
 const PANEL_DEFAULT_HEIGHT = 780;
-const PANEL_SIDE_PANEL_WIDTH = 820;
 const PANEL_MIN_HEIGHT = 560;
 const PANEL_MIN_WIDTH = 420;
 const PANEL_VIEWPORT_MARGIN = 16;
@@ -125,6 +221,9 @@ interface DraggablePanelProps {
   messages: Messages;
   onLocaleChange: (locale: SupportedLocale) => void;
   extensionMode?: boolean;
+  sidebarMode?: boolean;
+  initialInspectionMode?: SidePanelMode;
+  inspectionWindow?: boolean;
   onExtensionDrag?: (deltaX: number, deltaY: number) => void;
   onExtensionResize?: (deltaWidth: number, deltaHeight: number) => void;
   onExtensionClose?: () => void;
@@ -181,12 +280,14 @@ interface CompactAdjustControlProps {
   onChange: (value: number) => void;
 }
 
-interface SegmentedControlProps<T extends string> {
+interface ChoiceStepperControlProps<T extends string> {
   icon?: React.ReactNode;
   label: string;
+  title?: string;
   value: T;
   options: Array<{ value: T; label: string; title: string }>;
   disabled?: boolean;
+  className?: string;
   resetTitle?: string;
   onReset?: () => void;
   onChange: (value: T) => void;
@@ -320,106 +421,6 @@ function snapSliderValueToMarks(value: number, snapValues?: number[], threshold 
   return closestValue;
 }
 
-function ModePill({
-  children,
-  tone = 'neutral',
-  title,
-}: {
-  children: React.ReactNode;
-  tone?: 'neutral' | 'active' | 'amber';
-  title?: string;
-}) {
-  const toneClass =
-    tone === 'active'
-      ? 'border-white/15 bg-white/[0.08] text-zinc-100'
-      : tone === 'amber'
-        ? 'border-stone-300/20 bg-stone-300/10 text-stone-200'
-        : 'border-white/10 bg-white/[0.04] text-zinc-300';
-
-  return (
-    <span title={title} data-tone={tone} className={`gsdf-mode-pill inline-flex h-7 min-w-0 items-center justify-center gap-1 rounded-[3px] border px-2.5 text-[10px] font-semibold ${toneClass}`}>
-      {children}
-    </span>
-  );
-}
-
-function FormulaModePills({
-  value,
-  onChange,
-  messages,
-}: {
-  value: AppSettings['transferFormula'];
-  onChange: (value: AppSettings['transferFormula']) => void;
-  messages: Messages;
-}) {
-  const options: Array<{ value: AppSettings['transferFormula']; label: string; title: string }> = [
-    { value: 'gsdf', label: 'GSDF', title: messages.panel.gsdfFormulaTitle },
-    { value: 'csdf', label: 'CSDF', title: messages.panel.csdfFormulaTitle },
-  ];
-
-  return (
-    <div className="gsdf-formula-pill-set inline-flex h-7 shrink-0 overflow-hidden rounded-[3px] border border-white/10 bg-white/[0.03]">
-      {options.map((option) => (
-        <button
-          key={option.value}
-          type="button"
-          title={option.title}
-          aria-pressed={value === option.value}
-          onClick={() => onChange(option.value)}
-          className={`px-2.5 text-[10px] font-semibold transition-colors ${
-            value === option.value
-              ? 'bg-zinc-100 text-[#111418]'
-              : 'text-zinc-400 hover:bg-white/[0.06] hover:text-zinc-100'
-          }`}
-          data-no-drag
-        >
-          {option.label}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function GsdfPipelinePills({
-  value,
-  onChange,
-  messages,
-}: {
-  value: AppSettings['gsdfPipeline'];
-  onChange: (value: AppSettings['gsdfPipeline']) => void;
-  messages: Messages;
-}) {
-  const options: Array<{ value: AppSettings['gsdfPipeline']; label: string; title: string }> = [
-    { value: 'ycbcr', label: 'YCbCr', title: messages.panel.gsdfPipelineYcbcrTitle },
-    { value: 'rgb', label: 'RGB', title: messages.panel.gsdfPipelineRgbTitle },
-  ];
-
-  return (
-    <div
-      title={messages.panel.gsdfPipelineTitle}
-      className="gsdf-pipeline-pill-set inline-flex h-7 shrink-0 overflow-hidden rounded-[3px] border border-white/10 bg-white/[0.03]"
-    >
-      {options.map((option) => (
-        <button
-          key={option.value}
-          type="button"
-          title={option.title}
-          aria-pressed={value === option.value}
-          onClick={() => onChange(option.value)}
-          className={`px-2.5 text-[10px] font-semibold transition-colors ${
-            value === option.value
-              ? 'bg-zinc-100 text-[#111418]'
-              : 'text-zinc-400 hover:bg-white/[0.06] hover:text-zinc-100'
-          }`}
-          data-no-drag
-        >
-          {option.label}
-        </button>
-      ))}
-    </div>
-  );
-}
-
 function useAutoRepeatButton(action: () => void, disabled = false) {
   const actionRef = React.useRef(action);
   const timeoutRef = React.useRef<number | null>(null);
@@ -508,48 +509,65 @@ function useAutoRepeatButton(action: () => void, disabled = false) {
   };
 }
 
-function SegmentedControl<T extends string>({
+function ChoiceStepperControl<T extends string>({
   icon,
   label,
+  title,
   value,
   options,
   disabled = false,
+  className,
   resetTitle,
   onReset,
   onChange,
-}: SegmentedControlProps<T>) {
+}: ChoiceStepperControlProps<T>) {
+  const currentIndex = Math.max(0, options.findIndex((option) => option.value === value));
+  const currentOption = options[currentIndex] ?? options[0];
+  const atStart = currentIndex <= 0;
+  const atEnd = currentIndex >= options.length - 1;
+
   return (
-    <div className={`gsdf-control-block min-w-0 space-y-2.5 transition-opacity ${disabled ? 'opacity-45 pointer-events-none' : 'opacity-100'}`}>
-      <div className="gsdf-control-headline">
-        <label className="gsdf-control-label flex min-w-0 items-center gap-2 text-[11px] font-semibold text-zinc-300">
+    <div
+      className={`gsdf-compact-adjust-control gsdf-numeric-control gsdf-numeric-control--stepper gsdf-choice-stepper-control transition-opacity ${disabled ? 'pointer-events-none opacity-45' : 'opacity-100'} ${className ?? ''}`}
+      title={title ?? currentOption?.title}
+      aria-disabled={disabled}
+    >
+      <div className="gsdf-compact-adjust-label">
+        <span className="gsdf-control-label flex min-w-0 items-center gap-2 text-[11px] font-semibold text-zinc-300">
           <span className="gsdf-control-icon flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-white/[0.05] text-zinc-200">
             {icon ?? <SlidersHorizontal size={14} />}
           </span>
-          <span className="truncate">{label}</span>
-        </label>
+          <span className="min-w-0">
+            <span className="block truncate">{label}</span>
+            <span className="gsdf-compact-adjust-meta block">{currentIndex + 1} / {options.length}</span>
+          </span>
+        </span>
+      </div>
+      <div className="gsdf-compact-adjust-actions" data-no-drag>
+        <div className="gsdf-compact-stepper gsdf-choice-stepper">
+          <button
+            type="button"
+            aria-label={`${label} previous`}
+            disabled={disabled || atStart}
+            onClick={() => onChange(options[currentIndex - 1]?.value ?? value)}
+          >
+            <Minus size={12} />
+          </button>
+          <output className="gsdf-choice-stepper-value" aria-live="polite">
+            {currentOption?.label ?? value}
+          </output>
+          <button
+            type="button"
+            aria-label={`${label} next`}
+            disabled={disabled || atEnd}
+            onClick={() => onChange(options[currentIndex + 1]?.value ?? value)}
+          >
+            <Plus size={12} />
+          </button>
+        </div>
         {onReset && resetTitle && (
           <ControlResetButton title={resetTitle} onReset={onReset} disabled={disabled} />
         )}
-      </div>
-      <div className="gsdf-segmented-control grid grid-cols-3 gap-1 rounded-md border border-white/10 bg-[#080b0f] p-1">
-        {options.map((option) => (
-          <button
-            key={option.value}
-            type="button"
-            title={option.title}
-            disabled={disabled}
-            aria-disabled={disabled}
-            aria-pressed={value === option.value}
-            onClick={() => onChange(option.value)}
-            className={`gsdf-segment-button h-9 rounded text-[12px] font-semibold transition-colors ${
-              value === option.value
-                ? 'bg-zinc-100 text-[#0f1419] shadow-[0_10px_28px_rgba(0,0,0,0.28)]'
-                : 'text-zinc-400 hover:bg-white/[0.06] hover:text-zinc-100 disabled:hover:bg-transparent disabled:hover:text-zinc-400'
-            }`}
-          >
-            {option.label}
-          </button>
-        ))}
       </div>
     </div>
   );
@@ -645,7 +663,7 @@ function SliderControl({
   const headlineResetNode = resetPlacement === 'headline' ? resetNode : null;
 
   return (
-    <div className={`gsdf-control-block min-w-0 space-y-2.5 transition-opacity ${disabled ? 'opacity-45 pointer-events-none' : 'opacity-100'} ${className ?? ''}`}>
+    <div className={`gsdf-control-block gsdf-numeric-control gsdf-numeric-control--slider min-w-0 space-y-2.5 transition-opacity ${disabled ? 'opacity-45 pointer-events-none' : 'opacity-100'} ${className ?? ''}`}>
       {rangePlacement === 'first' && rangeLineNode}
       <div className="gsdf-control-headline">
         <div className="gsdf-control-leading flex min-w-0 items-center gap-2 overflow-hidden">
@@ -756,7 +774,7 @@ function CompactAdjustControl({
   );
 
   return (
-    <div className={`gsdf-compact-adjust-control transition-opacity ${disabled ? 'pointer-events-none opacity-45' : 'opacity-100'} ${className ?? ''}`} title={title}>
+    <div className={`gsdf-compact-adjust-control gsdf-numeric-control gsdf-numeric-control--stepper transition-opacity ${disabled ? 'pointer-events-none opacity-45' : 'opacity-100'} ${className ?? ''}`} title={title}>
       <div className="gsdf-compact-adjust-label">
         <span className="gsdf-control-icon flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-white/[0.05] text-zinc-200">
           {icon}
@@ -766,11 +784,10 @@ function CompactAdjustControl({
             <span className="truncate text-[11px] font-semibold text-zinc-300">{label}</span>
             {headerAddon}
           </div>
-          <div className="gsdf-compact-adjust-meta">{min}..{max}{metaText ? ` · ${metaText}` : ''}</div>
+          <div className="gsdf-compact-adjust-meta">{valueText} · {min}..{max}{metaText ? ` · ${metaText}` : ''}</div>
         </div>
       </div>
       <div className="gsdf-compact-adjust-actions" data-no-drag>
-        <span className="gsdf-compact-adjust-value">{valueText}</span>
         <div className="gsdf-compact-stepper">
           <button
             type="button"
@@ -788,6 +805,8 @@ function CompactAdjustControl({
             value={normalizedValue}
             disabled={disabled}
             aria-label={label}
+            aria-valuetext={valueText}
+            title={valueText}
             onChange={(event) => {
               if (event.target.value === '') {
                 return;
@@ -807,6 +826,97 @@ function CompactAdjustControl({
         {onReset && resetTitle && (
           <ControlResetButton title={resetTitle} onReset={onReset} disabled={disabled} />
         )}
+      </div>
+    </div>
+  );
+}
+
+function DualLevelAxisControl({
+  blackLabel,
+  whiteLabel,
+  remainingLabel,
+  blackValue,
+  whiteValue,
+  resetTitle,
+  onBlackReset,
+  onWhiteReset,
+  onBlackChange,
+  onWhiteChange,
+}: {
+  blackLabel: string;
+  whiteLabel: string;
+  remainingLabel: string;
+  blackValue: number;
+  whiteValue: number;
+  resetTitle: string;
+  onBlackReset: () => void;
+  onWhiteReset: () => void;
+  onBlackChange: (value: number) => void;
+  onWhiteChange: (value: number) => void;
+}) {
+  const axisMax = TONE_LEVEL_COUNT;
+  const remainingToneCount = Math.max(0, whiteValue - blackValue);
+  const blackPosition = (blackValue / axisMax) * 100;
+  const whitePosition = (whiteValue / axisMax) * 100;
+
+  return (
+    <div className="gsdf-level-axis gsdf-numeric-control gsdf-numeric-control--slider">
+      <div className="gsdf-level-axis__readouts">
+        <div className="gsdf-level-axis__endpoint is-black">
+          <span className="gsdf-level-axis__label">{blackLabel}</span>
+          <span className="gsdf-level-axis__value">{blackValue}</span>
+          <ControlResetButton title={`${resetTitle} · ${blackLabel}`} onReset={onBlackReset} />
+        </div>
+        <output className="gsdf-level-axis__budget" aria-live="polite">
+          <strong>{remainingToneCount}</strong>
+          <span>{remainingLabel}</span>
+        </output>
+        <div className="gsdf-level-axis__endpoint is-white">
+          <ControlResetButton title={`${resetTitle} · ${whiteLabel}`} onReset={onWhiteReset} />
+          <span className="gsdf-level-axis__value">{whiteValue}</span>
+          <span className="gsdf-level-axis__label">{whiteLabel}</span>
+        </div>
+      </div>
+      <div className="gsdf-level-axis__track" data-no-drag>
+        <span className="gsdf-level-axis__rail" aria-hidden="true" />
+        <span
+          className="gsdf-level-axis__active"
+          style={{ left: `${blackPosition}%`, right: `${100 - whitePosition}%` }}
+          aria-hidden="true"
+        />
+        <input
+          type="range"
+          min={0}
+          max={axisMax}
+          step={1}
+          value={blackValue}
+          aria-label={blackLabel}
+          aria-valuemin={BLACK_CLIP_TONE_MIN}
+          aria-valuemax={BLACK_CLIP_TONE_MAX}
+          onChange={(event) => {
+            const value = Math.min(BLACK_CLIP_TONE_MAX, whiteValue - 1, Number(event.target.value));
+            onBlackChange(Math.max(BLACK_CLIP_TONE_MIN, value));
+          }}
+          className="gsdf-level-axis__input is-black"
+        />
+        <input
+          type="range"
+          min={0}
+          max={axisMax}
+          step={1}
+          value={whiteValue}
+          aria-label={whiteLabel}
+          aria-valuemin={WHITE_CLIP_TONE_MIN}
+          aria-valuemax={WHITE_CLIP_TONE_MAX}
+          onChange={(event) => {
+            const value = Math.max(WHITE_CLIP_TONE_MIN, blackValue + 1, Number(event.target.value));
+            onWhiteChange(Math.min(WHITE_CLIP_TONE_MAX, value));
+          }}
+          className="gsdf-level-axis__input is-white"
+        />
+      </div>
+      <div className="gsdf-level-axis__ticks" aria-hidden="true">
+        {[0, 64, 128, 192, axisMax].map((tick) => <span key={tick}>{tick}</span>)}
       </div>
     </div>
   );
@@ -862,10 +972,6 @@ function isViewportPanBlockedTarget(target: EventTarget | null): boolean {
 
 function clampValue(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
-}
-
-function clampSidePanelRatio(value: number): number {
-  return Number(clampValue(value, SIDE_PANEL_RATIO_MIN, SIDE_PANEL_RATIO_MAX).toFixed(3));
 }
 
 function getStepPrecision(step: number): number {
@@ -1174,7 +1280,7 @@ function ReferenceDitherToggle({
 
   return (
     <div
-      className={`rounded-md border border-white/10 bg-black/20 text-zinc-300 ${compact ? 'px-3 py-2 text-[11px]' : 'mt-3 px-3 py-2.5 text-[12px]'}`}
+      className={`gsdf-terminal-dither-control rounded-md border border-white/10 bg-black/20 text-zinc-300 ${compact ? 'px-3 py-2 text-[11px]' : 'mt-3 px-3 py-2.5 text-[12px]'}`}
       data-no-drag
     >
       <label
@@ -1344,15 +1450,15 @@ function getInspectionScaleModeLabel(mode: InspectionScaleMode, messages: Messag
   return messages.panel.viewportScaleFit;
 }
 
-function getDefaultPanelSize(sidePanelOpen = false) {
+function getDefaultPanelSize() {
   return {
-    width: sidePanelOpen ? PANEL_SIDE_PANEL_WIDTH : PANEL_DEFAULT_WIDTH,
+    width: PANEL_DEFAULT_WIDTH,
     height: PANEL_DEFAULT_HEIGHT,
   };
 }
 
-function clampStandalonePanelSize(size: { width: number; height: number }, sidePanelOpen = false) {
-  const targetWidth = sidePanelOpen ? PANEL_SIDE_PANEL_WIDTH : PANEL_DEFAULT_WIDTH;
+function clampStandalonePanelSize(size: { width: number; height: number }) {
+  const targetWidth = PANEL_DEFAULT_WIDTH;
   const maxWidth = typeof window === 'undefined'
     ? targetWidth
     : Math.max(PANEL_MIN_WIDTH, window.innerWidth - PANEL_VIEWPORT_MARGIN);
@@ -1460,150 +1566,35 @@ function EffectSwitch({
   );
 }
 
-function PanelTabSwitch({
-  value,
-  onChange,
-  panelTheme,
-  messages,
+function SignalStage({
+  index,
+  title,
+  note,
+  children,
+  branch = false,
+  terminal = false,
 }: {
-  value: PanelTab;
-  onChange: (value: PanelTab) => void;
-  panelTheme: PanelTheme;
-  messages: Messages;
+  index: string;
+  title: string;
+  note: string;
+  children: React.ReactNode;
+  branch?: boolean;
+  terminal?: boolean;
 }) {
   return (
-    <div
-      role="tablist"
-      aria-label={messages.panel.panelTabs}
-      className="gsdf-tab-switch relative grid h-8 min-w-[220px] max-w-[292px] flex-1 grid-cols-3 rounded-md border border-white/10 bg-[#080b0f] p-1"
-      data-no-drag
+    <section
+      className={`gsdf-signal-stage ${branch ? 'is-branch' : ''} ${terminal ? 'is-terminal' : ''}`}
+      aria-labelledby={`gsdf-stage-${index}`}
     >
-      <span
-        className={`pointer-events-none absolute top-1 bottom-1 left-1 w-[calc(33.333%-4px)] rounded bg-zinc-100 shadow transition-transform ${
-          value === 'advanced'
-            ? 'translate-x-[calc(100%+4px)]'
-            : value === 'optimization'
-              ? 'translate-x-[calc(200%+8px)]'
-              : 'translate-x-0'
-        }`}
-      />
-      {(['basic', 'advanced', 'optimization'] as PanelTab[]).map((tab) => {
-        const selected = value === tab;
-        const title = tab === 'basic'
-          ? messages.panel.switchToBasic
-          : tab === 'advanced'
-            ? messages.panel.switchToAdvanced
-            : messages.panel.switchToOptimization;
-        const label = tab === 'basic'
-          ? messages.panel.basicTab
-          : tab === 'advanced'
-            ? messages.panel.advancedTab
-            : messages.panel.optimizationTab;
-        return (
-          <button
-            key={tab}
-            type="button"
-            role="tab"
-            aria-selected={selected}
-            title={title}
-            onClick={() => onChange(tab)}
-            style={selected ? { color: panelTheme === 'light' ? '#f8fafc' : '#111418' } : undefined}
-            className={`relative z-10 rounded text-[11px] font-semibold transition-colors ${
-              selected ? '' : 'text-zinc-400 hover:text-zinc-100'
-            }`}
-          >
-            {label}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-function StatusModeStrip({
-  settings,
-  messages,
-  className,
-}: {
-  settings: AppSettings;
-  messages: Messages;
-  className?: string;
-}) {
-  const routeLabel = settings.transferFormula === 'csdf'
-    ? messages.panel.csdfRoute
-    : messages.panel.gsdfRoute;
-
-  return (
-    <div
-      data-state={settings.enabled ? 'on' : 'off'}
-      aria-label={messages.panel.correctionRoute}
-      className={`gsdf-status-mode-strip flex min-w-0 items-center ${className ?? ''}`}
-    >
-      <div className="gsdf-status-caption min-w-0">
-        <span className="gsdf-status-caption-kicker">{messages.panel.correctionRoute}</span>
-        <span className="gsdf-status-caption-route">{routeLabel}</span>
-      </div>
-    </div>
-  );
-}
-
-function LuminanceDeck({
-  settings,
-  onLmaxSliderChange,
-  onResetLmax,
-  messages,
-}: {
-  settings: AppSettings;
-  onLmaxSliderChange: (value: number) => void;
-  onResetLmax: () => void;
-  messages: Messages;
-}) {
-  const luminanceMarks = LUMINANCE_REFERENCE_MARKS.map((mark) => ({
-    value: luminanceToSliderValue(mark),
-    label: String(mark),
-    tone: mark === DEFAULT_TARGET_LUMINANCE_NITS ? 'major' as const : 'default' as const,
-  }));
-  const luminanceSnapValues = luminanceMarks.map((mark) => mark.value);
-  const handleLmaxSliderChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    onLmaxSliderChange(snapSliderValueToMarks(parseInt(event.target.value, 10), luminanceSnapValues));
-  };
-
-  return (
-    <section className="gsdf-luminance-deck gsdf-control-block space-y-3 rounded-md border border-white/10 bg-[#0a0e13] p-4 shadow-inner">
-      <div
-        title={messages.panel.lmaxTitle}
-        className="gsdf-lmax-readout flex flex-wrap items-baseline gap-x-2 gap-y-1"
-      >
-        <span className="gsdf-lmax-value font-mono text-[30px] leading-none text-zinc-50 tabular-nums">{formatLuminance(settings.lmax)}</span>
-        <span className="font-mono text-[11px] uppercase tracking-normal text-zinc-500">nits</span>
-        <span className="text-[11px] font-semibold text-zinc-300">{messages.panel.lmaxLabel}</span>
-        <span className="text-[9px] font-semibold text-zinc-500">{messages.panel.lmaxNote}</span>
-      </div>
-      <div className="gsdf-lmax-range-row space-y-1.5">
-        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
-          <div className="relative">
-            <input
-              type="range"
-              min="0"
-              max={LUMINANCE_SLIDER_MAX}
-              step="1"
-              value={luminanceToSliderValue(settings.lmax)}
-              onChange={handleLmaxSliderChange}
-              className="gsdf-range w-full"
-            />
-            <RangeMarks
-              min={0}
-              max={LUMINANCE_SLIDER_MAX}
-              marks={luminanceMarks}
-            />
-          </div>
-          <ControlResetButton title={messages.panel.resetTitle} onReset={onResetLmax} />
-        </div>
-        <div className="grid grid-cols-2 items-center px-1 font-mono text-[10px] text-zinc-500">
-          <span>{LUMINANCE_MIN_NITS} nits</span>
-          <span className="text-right">{LUMINANCE_MAX_NITS} nits</span>
-        </div>
-      </div>
+      <header className="gsdf-signal-stage__header">
+        <span className="gsdf-signal-stage__index" aria-hidden="true">{index}</span>
+        <span className="gsdf-signal-stage__node" aria-hidden="true" />
+        <span className="gsdf-signal-stage__heading">
+          <strong id={`gsdf-stage-${index}`}>{title}</strong>
+          <small>{note}</small>
+        </span>
+      </header>
+      <div className="gsdf-signal-stage__body">{children}</div>
     </section>
   );
 }
@@ -3404,6 +3395,9 @@ export function DraggablePanel({
   messages,
   onLocaleChange,
   extensionMode = false,
+  sidebarMode = false,
+  initialInspectionMode,
+  inspectionWindow = false,
   onExtensionDrag,
   onExtensionResize,
   onExtensionClose,
@@ -3411,12 +3405,8 @@ export function DraggablePanel({
   const dragControls = useDragControls();
   const dragStartRef = React.useRef<{ pointerId: number; x: number; y: number } | null>(null);
   const resizeStartRef = React.useRef<{ pointerId: number; x: number; y: number; handle: ResizeHandle } | null>(null);
-  const sidePanelDividerDragRef = React.useRef<{ pointerId: number; startX: number; startRatio: number; width: number } | null>(null);
-  const [activeTab, setActiveTab] = React.useState<PanelTab>('basic');
-  const [sidePanelOpen, setSidePanelOpen] = React.useState(false);
-  const [sidePanelRatio, setSidePanelRatio] = React.useState(SIDE_PANEL_RATIO_DEFAULT);
-  const [sidePanelMode, setSidePanelMode] = React.useState<SidePanelMode>('pattern');
-  const [inspectionMode, setInspectionMode] = React.useState<InspectionMode>(null);
+  const [inspectionMode, setInspectionMode] = React.useState<InspectionMode>(() => initialInspectionMode ?? null);
+  const [pinnedReferenceMode, setPinnedReferenceMode] = React.useState<PinnedReferenceMode>('curve');
   const [figureControls, setFigureControls] = React.useState<CsdfFigureControls>(DEFAULT_CSDF_FIGURE_CONTROLS);
   const [panelClosed, setPanelClosed] = React.useState(false);
   const [standaloneInspectionSize, setStandaloneInspectionSize] = React.useState(() => getDefaultInspectionSize());
@@ -3426,7 +3416,7 @@ export function DraggablePanel({
     return savedTheme === 'light' ? 'light' : 'dark';
   });
   const [panelTextScale, setPanelTextScale] = React.useState(getInitialPanelTextScale);
-  useExpandedOverlayViewport(inspectionMode !== null || sidePanelOpen);
+  useExpandedOverlayViewport(inspectionMode !== null);
 
   React.useEffect(() => {
     if (typeof window === 'undefined') {
@@ -3437,12 +3427,30 @@ export function DraggablePanel({
   }, [panelTextScale]);
 
   const openInspectionMode = (mode: SidePanelMode) => {
-    setSidePanelMode(mode);
     setInspectionMode(mode);
   };
 
+  const openInspectionWindow = (mode: Exclude<SidePanelMode, 'chart'>) => {
+    window.localStorage.setItem('gsdf_extension_settings', JSON.stringify(settings));
+
+    const inspectionUrl = new URL(window.location.href);
+    inspectionUrl.search = '';
+    inspectionUrl.searchParams.set('mode', 'inspection');
+    inspectionUrl.searchParams.set('inspection', mode);
+
+    const width = Math.min(1200, Math.max(960, window.screen.availWidth - 96));
+    const height = Math.min(900, Math.max(720, window.screen.availHeight - 96));
+    const left = Math.max(0, Math.round((window.screen.availWidth - width) / 2));
+    const top = Math.max(0, Math.round((window.screen.availHeight - height) / 2));
+    const popup = window.open(
+      inspectionUrl.toString(),
+      `gsdf-${mode}-inspection`,
+      `popup=yes,width=${width},height=${height},left=${left},top=${top}`,
+    );
+    popup?.focus();
+  };
+
   const setInspectionReferenceMode = (mode: SidePanelMode) => {
-    setSidePanelMode(mode);
     setInspectionMode(mode);
   };
 
@@ -3470,7 +3478,6 @@ export function DraggablePanel({
       hard8JndOptimizationEnabled: true,
       hard8JndLevelCount: model.recommendedLevelCount,
     }));
-    setActiveTab('optimization');
   };
 
   const setLmaxWithLinkedDefaults = (nextLmax: number) => {
@@ -3586,15 +3593,15 @@ export function DraggablePanel({
 
     const syncStandalonePanelSize = () => {
       setStandalonePanelSize((current) => clampStandalonePanelSize({
-        width: sidePanelOpen ? Math.max(current.width, PANEL_SIDE_PANEL_WIDTH) : Math.min(current.width, PANEL_DEFAULT_WIDTH),
+        width: Math.min(current.width, PANEL_DEFAULT_WIDTH),
         height: current.height,
-      }, sidePanelOpen));
+      }));
     };
 
     syncStandalonePanelSize();
     window.addEventListener('resize', syncStandalonePanelSize);
     return () => window.removeEventListener('resize', syncStandalonePanelSize);
-  }, [extensionMode, inspectionMode, sidePanelOpen]);
+  }, [extensionMode, inspectionMode]);
 
   React.useEffect(() => {
     if (!extensionMode || inspectionMode) {
@@ -3602,20 +3609,20 @@ export function DraggablePanel({
     }
 
     postPanelLayoutRequest(
-      sidePanelOpen ? PANEL_SIDE_PANEL_WIDTH : PANEL_DEFAULT_WIDTH,
+      PANEL_DEFAULT_WIDTH,
       PANEL_DEFAULT_HEIGHT,
     );
-  }, [extensionMode, inspectionMode, sidePanelOpen]);
+  }, [extensionMode, inspectionMode]);
 
   const renderCurvePanel = (className = '', title = messages.panel.curvePanel) => (
     <section className={`gsdf-control-block gsdf-control-group gsdf-control-group--curve gsdf-basic-curve-block ${className}`}>
       <div className="gsdf-chart-frame min-h-0 rounded-md border border-white/10 bg-[#080b0f] p-2">
-        <React.Suspense fallback={<div className="h-[150px]" />}>
+        <React.Suspense fallback={<div className="h-full min-h-[100px]" />}>
           <GSDFChart
             settings={settings}
             panelTheme={panelTheme}
             messages={messages}
-            className="h-[150px]"
+            className="h-full min-h-0"
             toolbarLeading={(
               <div className="gsdf-chart-title-lockup">
                 <span className="gsdf-control-icon flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-white/[0.05] text-zinc-200">
@@ -3641,7 +3648,43 @@ export function DraggablePanel({
     </section>
   );
 
-  const renderBasicPanel = () => {
+  const renderPinnedReference = () => (
+    <section className="gsdf-pinned-reference" aria-label={messages.panel.pinnedReference}>
+      <div className="gsdf-pinned-reference__switch" role="group" aria-label={messages.panel.pinnedReference}>
+        <button
+          type="button"
+          aria-pressed={pinnedReferenceMode === 'curve'}
+          className={pinnedReferenceMode === 'curve' ? 'is-active' : ''}
+          onClick={() => setPinnedReferenceMode('curve')}
+        >
+          <BarChart3 size={13} />
+          <span>{messages.panel.outputPreview}</span>
+        </button>
+        <button
+          type="button"
+          aria-pressed={pinnedReferenceMode === 'jnd'}
+          className={pinnedReferenceMode === 'jnd' ? 'is-active' : ''}
+          onClick={() => setPinnedReferenceMode('jnd')}
+        >
+          <Activity size={13} />
+          <span>{messages.panel.hard8ReferenceTitle}</span>
+        </button>
+      </div>
+      <div className="gsdf-pinned-reference__body">
+        {pinnedReferenceMode === 'curve'
+          ? renderCurvePanel('gsdf-pinned-reference__curve', messages.panel.outputPreview)
+          : <Hard8JndReference settings={settings} messages={messages} />}
+      </div>
+    </section>
+  );
+
+  const renderSignalPipeline = () => {
+    const luminanceMarks = LUMINANCE_REFERENCE_MARKS.map((mark) => ({
+      value: luminanceToSliderValue(mark),
+      label: String(mark),
+      tone: mark === DEFAULT_TARGET_LUMINANCE_NITS ? 'major' as const : 'default' as const,
+    }));
+    const luminanceSnapValues = luminanceMarks.map((mark) => mark.value);
     const gammaScaleMarks = GAMMA_REFERENCE_MARKS
       .map((option) => ({
         value: gammaTargetToAlignedSliderValue(option, settings.displayGamma),
@@ -3649,249 +3692,269 @@ export function DraggablePanel({
         tone: option === settings.displayGamma ? 'major' as const : 'default' as const,
       }));
     const gammaSnapValues = gammaScaleMarks.map((mark) => mark.value);
+    const signalCopy = SIGNAL_STAGE_COPY[locale];
 
     return (
-      <div className="gsdf-panel-section-stack">
-        <div className={`gsdf-control-group gsdf-control-group--primary gsdf-basic-tuning-stack transition-opacity ${settings.enabled ? 'opacity-100' : 'opacity-75'}`}>
-          <LuminanceDeck
-            settings={settings}
-            onLmaxSliderChange={handleLmaxSliderChange}
-            onResetLmax={() => setLmaxWithLinkedDefaults(DEFAULT_TARGET_LUMINANCE_NITS)}
-            messages={messages}
-          />
-          <SliderControl
-            icon={<Activity size={14} />}
-            label={messages.panel.gammaLabel}
-            title={messages.panel.gammaTitle}
-            valueText={`${gammaCorrection > 0 ? '+' : ''}${gammaCorrection} · γ ${settings.gammaTarget.toFixed(1)}`}
-            valueVariant="label"
-            valuePlacement="trailing"
-            min={0}
-            max={LUMINANCE_SLIDER_MAX}
-            value={gammaCorrectionToAlignedSliderValue(gammaCorrection)}
-            className="gsdf-gamma-control"
-            rangeRowClassName="gsdf-gamma-range-row"
-            calibratedRange
-            rangePlacement="first"
-            resetPlacement="range"
-            marks={gammaScaleMarks}
-            snapValues={gammaSnapValues}
-            resetTitle={messages.panel.resetTitle}
-            onReset={() => {
-              setNumericSetting('gammaTarget', settings.displayGamma);
-            }}
-            headerAddon={(
-              <DisplayGammaSelect
-                value={settings.displayGamma}
-                onChange={(value) => setDisplayGamma(value)}
-                label={messages.panel.displayGamma}
-                note={messages.panel.displayGammaInverseHint}
-                title={messages.panel.displayGammaTitle}
-              />
-            )}
-            onChange={(value) => setGammaCorrection(alignedSliderValueToGammaCorrection(value))}
-          />
-        </div>
+      <div className="gsdf-signal-pipeline" data-enabled={settings.enabled ? 'true' : 'false'}>
+        {!settings.enabled && (
+          <div className="gsdf-signal-preview-state" role="status">{signalCopy.previewOnly}</div>
+        )}
 
-        {renderCurvePanel('', messages.panel.outputPreview)}
-
-        <CompactAdjustControl
-          icon={<Gauge size={14} />}
-          label={messages.panel.filterLabel}
-          title={messages.panel.filterTitle}
-          valueText={`${settings.strength}%`}
-          min={0}
-          max={100}
-          step={5}
-          value={settings.strength}
-          className="gsdf-filter-stepper-control"
-          metaText="GSDF mix"
-          resetTitle={messages.panel.resetTitle}
-          onReset={() => setNumericSetting('strength', DEFAULT_APP_SETTINGS.strength)}
-          onChange={(value) => setNumericSetting('strength', value)}
-        />
-      </div>
-    );
-  };
-
-  const renderAdvancedPanel = () => {
-    const remainingToneCount = Math.max(0, settings.whitePoint - settings.blackPoint);
-
-    return (
-    <div className="gsdf-advanced-grid">
-      <div className="gsdf-control-group gsdf-advanced-group gsdf-advanced-group--route">
-        <div className="gsdf-route-control-block">
-          <div className="gsdf-route-control-headline">
-            <span className="gsdf-control-icon flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-white/[0.05] text-zinc-200">
-              <Activity size={14} />
-            </span>
-            <span className="truncate">{messages.panel.correctionRoute}</span>
+        <SignalStage index="01" title={signalCopy.detail} note={signalCopy.detailNote}>
+          <div className="gsdf-signal-control-stack">
+            <CompactAdjustControl
+              icon={<SlidersHorizontal size={14} />}
+              label={messages.panel.fineDetailSharpening}
+              valueText={`${settings.fineSharpness}%`}
+              min={0}
+              max={50}
+              step={1}
+              value={settings.fineSharpness}
+              resetTitle={messages.panel.resetTitle}
+              onReset={() => setNumericSetting('fineSharpness', DEFAULT_APP_SETTINGS.fineSharpness)}
+              onChange={(value) => setNumericSetting('fineSharpness', value)}
+            />
+            <CompactAdjustControl
+              icon={<SlidersHorizontal size={14} />}
+              label={messages.panel.mediumDetailSharpening}
+              valueText={`${settings.mediumSharpness}%`}
+              min={0}
+              max={40}
+              step={1}
+              value={settings.mediumSharpness}
+              resetTitle={messages.panel.resetTitle}
+              onReset={() => setNumericSetting('mediumSharpness', DEFAULT_APP_SETTINGS.mediumSharpness)}
+              onChange={(value) => setNumericSetting('mediumSharpness', value)}
+            />
           </div>
-          <div className="gsdf-route-control-stack">
-            <div className="gsdf-route-control-row">
-              <span>{messages.panel.routeFormula}</span>
-              <FormulaModePills
-                value={settings.transferFormula}
-                onChange={setTransferFormula}
-                messages={messages}
-              />
-            </div>
-            {settings.transferFormula === 'gsdf' && (
-              <div className="gsdf-route-control-row">
-                <span>{messages.panel.gsdfPipelineTitle}</span>
-                <GsdfPipelinePills
-                  value={settings.gsdfPipeline}
-                  onChange={setGsdfPipeline}
-                  messages={messages}
+        </SignalStage>
+
+        <SignalStage index="02" title={signalCopy.transfer} note={signalCopy.transferNote}>
+          <div className="gsdf-filter-scope">
+            <div className="gsdf-filter-scope__effects">
+              <div className="gsdf-signal-substage">
+                <div className="gsdf-signal-substage__label">{signalCopy.baseline}</div>
+                <div className="gsdf-signal-substage__note">{signalCopy.baselineNote}</div>
+                <SliderControl
+              icon={<Sun size={14} />}
+              label={messages.panel.lmaxLabel}
+              title={messages.panel.lmaxTitle}
+              valueText={`${formatLuminance(settings.lmax)} nits`}
+              valueVariant="label"
+              min={0}
+              max={LUMINANCE_SLIDER_MAX}
+              value={luminanceToSliderValue(settings.lmax)}
+              calibratedRange
+              marks={luminanceMarks}
+              snapValues={luminanceSnapValues}
+              resetTitle={messages.panel.resetTitle}
+              onReset={() => setLmaxWithLinkedDefaults(DEFAULT_TARGET_LUMINANCE_NITS)}
+              onChange={handleLmaxSliderChange}
+            />
+                <SliderControl
+              icon={<Activity size={14} />}
+              label={messages.panel.gammaLabel}
+              title={messages.panel.gammaTitle}
+              valueText={`${gammaCorrection > 0 ? '+' : ''}${gammaCorrection} · γ ${settings.gammaTarget.toFixed(1)}`}
+              valueVariant="label"
+              valuePlacement="trailing"
+              min={0}
+              max={LUMINANCE_SLIDER_MAX}
+              value={gammaCorrectionToAlignedSliderValue(gammaCorrection)}
+              className="gsdf-gamma-control"
+              rangeRowClassName="gsdf-gamma-range-row"
+              calibratedRange
+              marks={gammaScaleMarks}
+              snapValues={gammaSnapValues}
+              resetTitle={messages.panel.resetTitle}
+              onReset={() => {
+                setNumericSetting('gammaTarget', settings.displayGamma);
+              }}
+              headerAddon={(
+                <DisplayGammaSelect
+                  value={settings.displayGamma}
+                  onChange={(value) => setDisplayGamma(value)}
+                  label={messages.panel.displayGamma}
+                  note={messages.panel.displayGammaInverseHint}
+                  title={messages.panel.displayGammaTitle}
+                />
+              )}
+              onChange={(value) => setGammaCorrection(alignedSliderValueToGammaCorrection(value))}
                 />
               </div>
-            )}
-          </div>
-        </div>
-      </div>
 
-      <div className="gsdf-control-group gsdf-advanced-group gsdf-advanced-group--display">
-        <SegmentedControl
-          disabled={!settings.enabled}
-          icon={<BarChart3 size={14} />}
-          label={messages.panel.displayGamut}
-          value={settings.displayGamut}
-          options={[
-            { value: 'srgb', label: 'sRGB', title: messages.panel.srgbGamutTitle },
-            { value: 'display-p3', label: 'Display P3', title: messages.panel.displayP3GamutTitle },
-            { value: 'adobe-rgb', label: 'Adobe RGB', title: messages.panel.adobeRgbGamutTitle },
-          ]}
-          resetTitle={messages.panel.resetTitle}
-          onReset={() => setDisplayGamut(DEFAULT_APP_SETTINGS.displayGamut)}
-          onChange={(value) => setDisplayGamut(value)}
-        />
-      </div>
-
-      <div className="gsdf-control-group gsdf-advanced-group gsdf-advanced-group--tone">
-        <div className={`gsdf-tone-pair grid grid-cols-2 gap-3 transition-opacity ${settings.enabled ? 'opacity-100' : 'opacity-45 pointer-events-none'}`}>
-          <CompactAdjustControl
-            icon={<SlidersHorizontal size={14} />}
-            label={messages.panel.blackPoint}
-            title={messages.panel.clipTonesTitle}
-            valueText={`${remainingToneCount}/${TONE_LEVEL_COUNT}`}
-            min={BLACK_CLIP_TONE_MIN}
-            max={BLACK_CLIP_TONE_MAX}
-            step={1}
-            value={settings.blackPoint}
+              <ChoiceStepperControl
+            icon={<Route size={14} />}
+            label={messages.panel.routeFormula}
+            value={settings.transferFormula}
+            options={[
+              { value: 'gsdf', label: 'GSDF', title: messages.panel.gsdfFormulaTitle },
+              { value: 'csdf', label: 'CSDF', title: messages.panel.csdfFormulaTitle },
+            ]}
             resetTitle={messages.panel.resetTitle}
-            onReset={() => setNumericSetting('blackPoint', getRecommendedImageDefaults(settings.lmax).blackPoint)}
-            onChange={(value) => setNumericSetting('blackPoint', value)}
-          />
-          <CompactAdjustControl
-            icon={<Sun size={14} />}
-            label={messages.panel.whitePoint}
-            title={messages.panel.clipTonesTitle}
-            valueText={`${remainingToneCount}/${TONE_LEVEL_COUNT}`}
-            min={WHITE_CLIP_TONE_MIN}
-            max={WHITE_CLIP_TONE_MAX}
-            step={1}
-            value={settings.whitePoint}
-            resetTitle={messages.panel.resetTitle}
-            onReset={() => setNumericSetting('whitePoint', getRecommendedImageDefaults(settings.lmax).whitePoint)}
-            onChange={(value) => setNumericSetting('whitePoint', value)}
-          />
-        </div>
-      </div>
-
-      <div className="gsdf-control-group gsdf-advanced-group gsdf-advanced-group--detail">
-        <CompactAdjustControl
-          disabled={!settings.enabled}
-          icon={<SlidersHorizontal size={14} />}
-          label={messages.panel.fineDetailSharpening}
-          valueText={`${settings.fineSharpness}%`}
-          min={0}
-          max={50}
-          step={1}
-          value={settings.fineSharpness}
-          resetTitle={messages.panel.resetTitle}
-          onReset={() => setNumericSetting('fineSharpness', DEFAULT_APP_SETTINGS.fineSharpness)}
-          onChange={(value) => setNumericSetting('fineSharpness', value)}
-        />
-
-        <CompactAdjustControl
-          disabled={!settings.enabled}
-          icon={<SlidersHorizontal size={14} />}
-          label={messages.panel.mediumDetailSharpening}
-          valueText={`${settings.mediumSharpness}%`}
-          min={0}
-          max={40}
-          step={1}
-          value={settings.mediumSharpness}
-          resetTitle={messages.panel.resetTitle}
-          onReset={() => setNumericSetting('mediumSharpness', DEFAULT_APP_SETTINGS.mediumSharpness)}
-          onChange={(value) => setNumericSetting('mediumSharpness', value)}
-        />
-      </div>
-
-      <div className="gsdf-control-group gsdf-advanced-group gsdf-advanced-group--color">
-        <CompactAdjustControl
-          disabled={!settings.enabled}
-          icon={<Thermometer size={14} />}
-          label={messages.panel.temperatureShift}
-          valueText={settings.temperature === 0 ? '0K' : settings.temperature > 0 ? `+${settings.temperature}K` : `${settings.temperature}K`}
-          min={TEMPERATURE_MIN_K}
-          max={TEMPERATURE_MAX_K}
-          step={50}
-          value={settings.temperature}
-          resetTitle={messages.panel.resetTitle}
-          onReset={() => setNumericSetting('temperature', DEFAULT_APP_SETTINGS.temperature)}
-          onChange={(value) => setNumericSetting('temperature', value)}
-        />
-
-        <CompactAdjustControl
-          disabled={!settings.enabled}
-          icon={<Palette size={14} />}
-          label={messages.panel.saturation}
-          valueText={`${settings.saturation}%`}
-          min={SATURATION_MIN}
-          max={SATURATION_MAX}
-          step={5}
-          value={settings.saturation}
-          resetTitle={messages.panel.resetTitle}
-          onReset={() => {
-            setNumericSetting('saturation', getRecommendedImageDefaults(settings.lmax).saturation);
-            setGrayscale(DEFAULT_APP_SETTINGS.grayscale);
-          }}
-          headerAddon={(
-            <label
-              title={messages.panel.grayscaleTitle}
-              className="gsdf-inline-checkbox flex shrink-0 cursor-pointer items-center gap-1.5 text-[10px] font-semibold text-zinc-400"
-            >
-              <span>{messages.panel.grayscale}</span>
-              <input
-                type="checkbox"
-                checked={settings.grayscale}
-                disabled={!settings.enabled}
-                onChange={(event) => setGrayscale(event.target.checked)}
-                aria-label={messages.panel.grayscale}
-                className="gsdf-checkbox h-4 w-4 shrink-0"
+            onReset={() => setTransferFormula(DEFAULT_APP_SETTINGS.transferFormula)}
+            onChange={setTransferFormula}
               />
-            </label>
-          )}
-          onChange={(value) => setNumericSetting('saturation', value)}
-        />
 
-        <CompactAdjustControl
-          disabled={!settings.enabled}
-          icon={<Activity size={14} />}
-          label={messages.panel.hue}
-          valueText={settings.hue === 0 ? '0' : settings.hue > 0 ? `+${settings.hue}` : String(settings.hue)}
-          min={-30}
-          max={30}
-          step={5}
-          value={settings.hue}
-          resetTitle={messages.panel.resetTitle}
-          onReset={() => setNumericSetting('hue', DEFAULT_APP_SETTINGS.hue)}
-          onChange={(value) => setNumericSetting('hue', value)}
-        />
+              <ChoiceStepperControl
+            icon={<GitBranch size={14} />}
+            label={messages.panel.gsdfPipelineTitle}
+            title={settings.transferFormula !== 'gsdf' ? messages.panel.gsdfFormulaTitle : messages.panel.gsdfPipelineTitle}
+            value={settings.gsdfPipeline}
+            options={[
+              { value: 'ycbcr', label: 'YCbCr', title: messages.panel.gsdfPipelineYcbcrTitle },
+              { value: 'rgb', label: 'RGB', title: messages.panel.gsdfPipelineRgbTitle },
+            ]}
+            disabled={settings.transferFormula !== 'gsdf'}
+            className="gsdf-signal-conditional"
+            resetTitle={messages.panel.resetTitle}
+            onReset={() => setGsdfPipeline(DEFAULT_APP_SETTINGS.gsdfPipeline)}
+            onChange={setGsdfPipeline}
+              />
+
+              <ChoiceStepperControl
+            icon={<BarChart3 size={14} />}
+            label={messages.panel.displayGamut}
+            value={settings.displayGamut}
+            options={[
+              { value: 'srgb', label: 'sRGB', title: messages.panel.srgbGamutTitle },
+              { value: 'display-p3', label: 'Display P3', title: messages.panel.displayP3GamutTitle },
+              { value: 'adobe-rgb', label: 'Adobe RGB', title: messages.panel.adobeRgbGamutTitle },
+            ]}
+            resetTitle={messages.panel.resetTitle}
+            onReset={() => setDisplayGamut(DEFAULT_APP_SETTINGS.displayGamut)}
+            onChange={(value) => setDisplayGamut(value)}
+              />
+            </div>
+
+            <div className="gsdf-filter-scope__mix">
+              <span className="gsdf-filter-scope__junction" aria-hidden="true" />
+              <CompactAdjustControl
+                icon={<Gauge size={14} />}
+                label={messages.panel.filterLabel}
+                title={messages.panel.filterTitle}
+                valueText={`${settings.strength}%`}
+                min={0}
+                max={100}
+                step={5}
+                value={settings.strength}
+                className="gsdf-filter-stepper-control"
+                metaText={`${settings.transferFormula.toUpperCase()} mix`}
+                resetTitle={messages.panel.resetTitle}
+                onReset={() => setNumericSetting('strength', DEFAULT_APP_SETTINGS.strength)}
+                onChange={(value) => setNumericSetting('strength', value)}
+              />
+            </div>
+          </div>
+        </SignalStage>
+
+        <SignalStage index="03" title={signalCopy.levels} note={signalCopy.levelsNote}>
+          <DualLevelAxisControl
+            blackLabel={messages.panel.blackPoint}
+            whiteLabel={messages.panel.whitePoint}
+            remainingLabel={`${signalCopy.remainingTones} / ${TONE_LEVEL_COUNT}`}
+            blackValue={settings.blackPoint}
+            whiteValue={settings.whitePoint}
+            resetTitle={messages.panel.resetTitle}
+            onBlackReset={() => setNumericSetting('blackPoint', getRecommendedImageDefaults(settings.lmax).blackPoint)}
+            onWhiteReset={() => setNumericSetting('whitePoint', getRecommendedImageDefaults(settings.lmax).whitePoint)}
+            onBlackChange={(value) => setNumericSetting('blackPoint', value)}
+            onWhiteChange={(value) => setNumericSetting('whitePoint', value)}
+          />
+        </SignalStage>
+
+        <SignalStage index="D" title={signalCopy.diagnostic} note={signalCopy.diagnosticNote} branch>
+          <details className="gsdf-signal-diagnostic">
+            <summary>
+              <span>{messages.panel.hard8OptimizationTitle}</span>
+              <span>{settings.hard8JndOptimizationEnabled ? messages.panel.hard8OptimizationApplied : messages.panel.hard8OptimizationPreview}</span>
+            </summary>
+            <div className="gsdf-levels-workspace">
+              <div className="gsdf-levels-command-bar">
+                <span>{messages.panel.optimizePresetTitle}</span>
+                <button
+                  type="button"
+                  onClick={applyOptimizedLevels}
+                  title={messages.panel.optimizePresetTitle}
+                  className="gsdf-quick-action"
+                >
+                  <CheckCircle2 size={13} />
+                  <span>{messages.panel.optimizePreset}</span>
+                </button>
+              </div>
+              <Hard8JndOptimizationPanel settings={settings} setSettings={setSettings} messages={messages} />
+            </div>
+          </details>
+        </SignalStage>
+
+        <SignalStage index="04" title={signalCopy.color} note={signalCopy.colorNote}>
+          <div className="gsdf-signal-control-stack">
+            <CompactAdjustControl
+              icon={<Thermometer size={14} />}
+              label={messages.panel.temperatureShift}
+              valueText={settings.temperature === 0 ? '0K' : settings.temperature > 0 ? `+${settings.temperature}K` : `${settings.temperature}K`}
+              min={TEMPERATURE_MIN_K}
+              max={TEMPERATURE_MAX_K}
+              step={50}
+              value={settings.temperature}
+              resetTitle={messages.panel.resetTitle}
+              onReset={() => setNumericSetting('temperature', DEFAULT_APP_SETTINGS.temperature)}
+              onChange={(value) => setNumericSetting('temperature', value)}
+            />
+            <CompactAdjustControl
+              icon={<Palette size={14} />}
+              label={messages.panel.saturation}
+              valueText={`${settings.saturation}%`}
+              min={SATURATION_MIN}
+              max={SATURATION_MAX}
+              step={5}
+              value={settings.saturation}
+              resetTitle={messages.panel.resetTitle}
+              onReset={() => {
+                setNumericSetting('saturation', getRecommendedImageDefaults(settings.lmax).saturation);
+                setGrayscale(DEFAULT_APP_SETTINGS.grayscale);
+              }}
+              headerAddon={(
+                <label
+                  title={messages.panel.grayscaleTitle}
+                  className="gsdf-inline-checkbox flex shrink-0 cursor-pointer items-center gap-1.5 text-[10px] font-semibold text-zinc-400"
+                >
+                  <span>{messages.panel.grayscale}</span>
+                  <input
+                    type="checkbox"
+                    checked={settings.grayscale}
+                    onChange={(event) => setGrayscale(event.target.checked)}
+                    aria-label={messages.panel.grayscale}
+                    className="gsdf-checkbox h-4 w-4 shrink-0"
+                  />
+                </label>
+              )}
+              onChange={(value) => setNumericSetting('saturation', value)}
+            />
+            <CompactAdjustControl
+              icon={<Activity size={14} />}
+              label={messages.panel.hue}
+              valueText={settings.hue === 0 ? '0' : settings.hue > 0 ? `+${settings.hue}` : String(settings.hue)}
+              min={-30}
+              max={30}
+              step={5}
+              value={settings.hue}
+              resetTitle={messages.panel.resetTitle}
+              onReset={() => setNumericSetting('hue', DEFAULT_APP_SETTINGS.hue)}
+              onChange={(value) => setNumericSetting('hue', value)}
+            />
+          </div>
+        </SignalStage>
+
+        <SignalStage index="05" title={signalCopy.dither} note={signalCopy.ditherNote} terminal>
+          <ReferenceDitherToggle
+            settings={settings}
+            setSettings={setSettings}
+            messages={messages}
+            compact
+          />
+        </SignalStage>
       </div>
-      {renderCurvePanel('gsdf-advanced-curve-block')}
-    </div>
     );
   };
 
@@ -3962,7 +4025,7 @@ export function DraggablePanel({
       setStandalonePanelSize((current) => clampStandalonePanelSize({
         width: current.width + deltaWidth,
         height: current.height + deltaHeight,
-      }, sidePanelOpen));
+      }));
       return;
     }
 
@@ -3974,42 +4037,6 @@ export function DraggablePanel({
       tryReleasePointerCapture(e.currentTarget, e.pointerId);
     }
     resizeStartRef.current = null;
-  };
-
-  const handleSidePanelDividerPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (e.button !== 0) {
-      return;
-    }
-
-    const grid = e.currentTarget.parentElement;
-    const gridWidth = Math.max(1, (grid?.getBoundingClientRect().width ?? 0) - SIDE_PANEL_DIVIDER_WIDTH);
-    e.stopPropagation();
-    e.preventDefault();
-    sidePanelDividerDragRef.current = {
-      pointerId: e.pointerId,
-      startX: e.clientX,
-      startRatio: sidePanelRatio,
-      width: gridWidth,
-    };
-    trySetPointerCapture(e.currentTarget, e.pointerId);
-  };
-
-  const handleSidePanelDividerPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    const currentDrag = sidePanelDividerDragRef.current;
-    if (!currentDrag || currentDrag.pointerId !== e.pointerId) {
-      return;
-    }
-
-    e.preventDefault();
-    const deltaX = e.clientX - currentDrag.startX;
-    setSidePanelRatio(clampSidePanelRatio(currentDrag.startRatio - deltaX / currentDrag.width));
-  };
-
-  const handleSidePanelDividerPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (sidePanelDividerDragRef.current?.pointerId === e.pointerId) {
-      tryReleasePointerCapture(e.currentTarget, e.pointerId);
-    }
-    sidePanelDividerDragRef.current = null;
   };
 
   const dragHandlers = {
@@ -4025,18 +4052,6 @@ export function DraggablePanel({
     onPointerCancel: handleResizePointerUp,
   });
   const resizeHandlers = getResizeHandlers('se');
-  const sidePanelDividerHandlers = {
-    onPointerDown: handleSidePanelDividerPointerDown,
-    onPointerMove: handleSidePanelDividerPointerMove,
-    onPointerUp: handleSidePanelDividerPointerUp,
-    onPointerCancel: handleSidePanelDividerPointerUp,
-    onLostPointerCapture: handleSidePanelDividerPointerUp,
-  };
-  const sidePanelGridStyle = sidePanelOpen
-    ? ({
-        '--gsdf-reference-pane-ratio': String(sidePanelRatio),
-      } as React.CSSProperties & Record<'--gsdf-reference-pane-ratio', string>)
-    : undefined;
   const panelSizeClass = inspectionMode
     ? `${extensionMode ? 'relative h-screen w-screen max-h-screen' : 'absolute h-[720px] max-h-[calc(100vh-16px)] w-[960px] max-w-[calc(100vw-16px)]'}`
     : extensionMode
@@ -4065,6 +4080,7 @@ export function DraggablePanel({
       initial={extensionMode ? false : { x: 24, y: 24 }}
       style={scaledPanelStyle}
       data-panel-theme={panelTheme}
+      data-surface-mode={sidebarMode ? 'sidebar' : extensionMode ? 'overlay' : 'standalone'}
       className={`${panelSizeClass} gsdf-panel gsdf-panel-shell theme-${panelTheme} top-0 left-0 z-50 flex flex-col overflow-hidden rounded-lg border border-white/10 bg-[#111418] font-sans text-zinc-200 shadow-2xl`}
     >
       {inspectionMode ? (
@@ -4075,7 +4091,13 @@ export function DraggablePanel({
           figureControls={figureControls}
           setFigureControls={setFigureControls}
           panelTheme={panelTheme}
-          onClose={() => setInspectionMode(null)}
+          onClose={() => {
+            if (inspectionWindow) {
+              window.close();
+              return;
+            }
+            setInspectionMode(null);
+          }}
           onModeChange={setInspectionReferenceMode}
           dragHandlers={dragHandlers}
           resizeHandlers={resizeHandlers}
@@ -4083,60 +4105,52 @@ export function DraggablePanel({
         />
       ) : (
         <>
-          <div className="gsdf-panel-header select-none space-y-2.5 border-b border-white/10 bg-[#181c21] px-4 py-2.5">
-            <div className="gsdf-panel-title-row flex items-center gap-3">
-              <div className="flex min-w-0 flex-1 items-center gap-3">
-                <div
-                  className="gsdf-panel-brand flex min-w-0 cursor-grab items-center gap-3 rounded-md pr-3 active:cursor-grabbing"
-                  data-panel-drag-handle
-                  onPointerDown={handleHeaderPointerDown}
-                  onPointerMove={handleHeaderPointerMove}
-                  onPointerUp={handleHeaderPointerUp}
-                  onPointerCancel={handleHeaderPointerUp}
-                >
-                  <div className="gsdf-header-emblem flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-white/10 bg-white/[0.05] text-zinc-200">
-                    <SlidersHorizontal size={16} />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="truncate text-[14px] font-semibold text-white">LumaLift</div>
-                    <div className="truncate font-mono text-[9px] tracking-normal text-zinc-500">GSDF EOTF Adjuster · {messages.panel.subtitle}</div>
+          <div className="gsdf-fixed-console">
+            <div className="gsdf-panel-header select-none border-b border-white/10 bg-[#181c21] px-4 py-2.5">
+              <div className="gsdf-panel-title-row flex items-center gap-3">
+                <div className="flex min-w-0 flex-1 items-center gap-3">
+                  <div
+                    className="gsdf-panel-brand flex min-w-0 cursor-grab items-center gap-3 rounded-md pr-3 active:cursor-grabbing"
+                    data-panel-drag-handle
+                    onPointerDown={handleHeaderPointerDown}
+                    onPointerMove={handleHeaderPointerMove}
+                    onPointerUp={handleHeaderPointerUp}
+                    onPointerCancel={handleHeaderPointerUp}
+                  >
+                    <div className="gsdf-header-emblem flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-white/10 bg-white/[0.05] text-zinc-200">
+                      <SlidersHorizontal size={16} />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="truncate text-[14px] font-semibold text-white">LumaLift</div>
+                      <div className="truncate font-mono text-[9px] tracking-normal text-zinc-500">GSDF EOTF Adjuster · {messages.panel.subtitle}</div>
+                    </div>
                   </div>
                 </div>
+                <div className="gsdf-window-actions ml-auto flex shrink-0 items-center justify-end gap-2" data-no-drag>
+                  <PanelUtilityMenu
+                    locale={locale}
+                    messages={messages}
+                    panelTheme={panelTheme}
+                    panelTextScale={panelTextScale}
+                    onLocaleChange={onLocaleChange}
+                    onPanelThemeChange={() => setPanelTheme((theme) => (theme === 'light' ? 'dark' : 'light'))}
+                    onTextScaleDecrease={() => setPanelTextScale((current) => getPanelTextScaleStep(current, -1))}
+                    onTextScaleIncrease={() => setPanelTextScale((current) => getPanelTextScaleStep(current, 1))}
+                  />
+                  {!sidebarMode && (
+                    <button
+                      type="button"
+                      title={messages.panel.closePanel}
+                      aria-label={messages.panel.closePanel}
+                      onClick={handlePanelClose}
+                      className="gsdf-icon-button flex h-8 w-8 items-center justify-center rounded-md border border-white/10 bg-[#0b0d10] text-zinc-400 transition-colors hover:bg-white/[0.06] hover:text-zinc-100"
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
               </div>
-              <div className="gsdf-window-actions ml-auto flex shrink-0 items-center justify-end gap-2" data-no-drag>
-                <PanelUtilityMenu
-                  locale={locale}
-                  messages={messages}
-                  panelTheme={panelTheme}
-                  panelTextScale={panelTextScale}
-                  onLocaleChange={onLocaleChange}
-                  onPanelThemeChange={() => setPanelTheme((theme) => (theme === 'light' ? 'dark' : 'light'))}
-                  onTextScaleDecrease={() => setPanelTextScale((current) => getPanelTextScaleStep(current, -1))}
-                  onTextScaleIncrease={() => setPanelTextScale((current) => getPanelTextScaleStep(current, 1))}
-                />
-                <button
-                  type="button"
-                  title={messages.panel.toggleSidePanel}
-                  aria-label={messages.panel.toggleSidePanel}
-                  aria-pressed={sidePanelOpen}
-                  onClick={() => setSidePanelOpen((value) => !value)}
-                  className="gsdf-icon-button flex h-8 w-8 items-center justify-center rounded-md border border-white/10 bg-[#0b0d10] text-zinc-400 transition-colors hover:bg-white/[0.06] hover:text-zinc-100"
-                >
-                  {sidePanelOpen ? <PanelRightClose size={14} /> : <PanelRightOpen size={14} />}
-                </button>
-                <button
-                  type="button"
-                  title={messages.panel.closePanel}
-                  aria-label={messages.panel.closePanel}
-                  onClick={handlePanelClose}
-                  className="gsdf-icon-button flex h-8 w-8 items-center justify-center rounded-md border border-white/10 bg-[#0b0d10] text-zinc-400 transition-colors hover:bg-white/[0.06] hover:text-zinc-100"
-                >
-                  <X size={14} />
-                </button>
-              </div>
-            </div>
-            <div className="gsdf-header-controls shrink-0" data-no-drag>
-              <div className="gsdf-header-active-row">
+              <div className="gsdf-header-console-row" data-no-drag>
                 <button
                   type="button"
                   onClick={toggleEnabled}
@@ -4164,11 +4178,38 @@ export function DraggablePanel({
                     </span>
                   </span>
                 </button>
-                <StatusModeStrip
-                  settings={settings}
-                  messages={messages}
-                  className="gsdf-header-metrics gsdf-header-status-strip"
-                />
+                <div className="gsdf-header-view-launcher" role="group" aria-label={messages.panel.panelTabs}>
+                  <button
+                    type="button"
+                    className="gsdf-header-view-button"
+                    onClick={() => openInspectionWindow('pattern')}
+                    title={messages.panel.openFullPattern}
+                    aria-label={messages.panel.openFullPattern}
+                  >
+                    <Grid3X3 aria-hidden="true" />
+                    <span>GSDF</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="gsdf-header-view-button"
+                    onClick={() => openInspectionWindow('linearity')}
+                    title={messages.panel.openFullColorLinearity}
+                    aria-label={messages.panel.openFullColorLinearity}
+                  >
+                    <Palette aria-hidden="true" />
+                    <span>CSDF</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="gsdf-header-view-button"
+                    onClick={() => openInspectionWindow('bidirectional')}
+                    title={messages.panel.openFullBidirectionalColor}
+                    aria-label={messages.panel.openFullBidirectionalColor}
+                  >
+                    <Blend aria-hidden="true" />
+                    <span>{messages.panel.bidirectionalColorPanel}</span>
+                  </button>
+                </div>
                 <button
                   onClick={resetToDefault}
                   className="gsdf-icon-button gsdf-status-reset flex h-8 w-8 items-center justify-center rounded-md border border-white/10 bg-[#0b0d10] text-zinc-500 transition-colors hover:bg-white/[0.06] hover:text-zinc-100"
@@ -4179,71 +4220,16 @@ export function DraggablePanel({
                   <RotateCcw size={14} />
                 </button>
               </div>
-              <div className="gsdf-header-navigation-row">
-                <div className="gsdf-nav-row flex min-w-0 flex-wrap items-center justify-between gap-2">
-                  <PanelTabSwitch value={activeTab} onChange={setActiveTab} panelTheme={panelTheme} messages={messages} />
-                </div>
-              </div>
             </div>
+            {renderPinnedReference()}
           </div>
 
-          <div
-            className={`gsdf-side-panel-grid min-h-0 flex-1 ${sidePanelOpen ? 'is-open' : ''}`}
-            style={sidePanelGridStyle}
-            data-side-panel-open={sidePanelOpen ? 'true' : 'false'}
-          >
-            <div className={`gsdf-primary-pane min-h-0 overflow-y-auto overflow-x-hidden p-4 ${sidePanelOpen ? 'max-[759px]:hidden' : ''}`}>
-              <div hidden={activeTab !== 'basic'} aria-hidden={activeTab !== 'basic'}>
-                {renderBasicPanel()}
-              </div>
-              <div hidden={activeTab !== 'advanced'} aria-hidden={activeTab !== 'advanced'}>
-                {renderAdvancedPanel()}
-              </div>
-              <div hidden={activeTab !== 'optimization'} aria-hidden={activeTab !== 'optimization'}>
-                <div className="gsdf-levels-workspace">
-                  <div className="gsdf-levels-command-bar">
-                    <span>{messages.panel.optimizePresetTitle}</span>
-                    <button
-                      type="button"
-                      onClick={applyOptimizedLevels}
-                      title={messages.panel.optimizePresetTitle}
-                      className="gsdf-quick-action"
-                    >
-                      <CheckCircle2 size={13} />
-                      <span>{messages.panel.optimizePreset}</span>
-                    </button>
-                  </div>
-                  <Hard8JndOptimizationPanel settings={settings} setSettings={setSettings} messages={messages} />
-                </div>
-              </div>
+          <div className="gsdf-primary-pane min-h-0 flex flex-1 flex-col overflow-hidden">
+            <div className="gsdf-signal-scroll min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
+              {renderSignalPipeline()}
             </div>
-            {sidePanelOpen && (
-              <div
-                className="gsdf-side-panel-divider"
-                role="separator"
-                aria-orientation="vertical"
-                aria-label={messages.panel.resizeSidePanelDivider}
-                title={messages.panel.resizeSidePanelDivider}
-                data-no-drag
-                {...sidePanelDividerHandlers}
-              />
-            )}
-            {sidePanelOpen && (
-              <ReferenceSidePanel
-                mode={sidePanelMode}
-                settings={settings}
-                setSettings={setSettings}
-                panelTheme={panelTheme}
-                figureControls={figureControls}
-                setFigureControls={setFigureControls}
-                messages={messages}
-                onModeChange={setSidePanelMode}
-                onOpenFull={openInspectionMode}
-                onClose={() => setSidePanelOpen(false)}
-              />
-            )}
           </div>
-          <PanelBorderResizeHandles getResizeHandlers={getResizeHandlers} messages={messages} />
+          {!sidebarMode && <PanelBorderResizeHandles getResizeHandlers={getResizeHandlers} messages={messages} />}
         </>
       )}
 

@@ -12,6 +12,22 @@ import { VideoBackground } from './components/VideoBackground';
 import { getInitialLocale, LANGUAGE_STORAGE_KEY, messagesByLocale, type SupportedLocale } from './i18n';
 import { DEFAULT_APP_SETTINGS, getRecommendedImageDefaults, normalizeAppSettings, type AppSettings } from './types';
 
+type ChromeTabsApi = {
+  query: (
+    queryInfo: { active: boolean; currentWindow: boolean },
+    callback: (tabs: Array<{ id?: number }>) => void,
+  ) => void;
+  sendMessage: (tabId: number, message: unknown) => Promise<unknown>;
+  onActivated?: {
+    addListener: (listener: () => void) => void;
+    removeListener: (listener: () => void) => void;
+  };
+  onUpdated?: {
+    addListener: (listener: (tabId: number, changeInfo: { status?: string }) => void) => void;
+    removeListener: (listener: (tabId: number, changeInfo: { status?: string }) => void) => void;
+  };
+};
+
 function normalizeSavedSettings(value: Partial<AppSettings>): AppSettings {
   const normalized = normalizeAppSettings(value);
   const legacyValue = value as Partial<AppSettings> & { colorModel?: string; sharpness?: number };
@@ -46,7 +62,19 @@ function normalizeSavedSettings(value: Partial<AppSettings>): AppSettings {
 }
 
 export default function App() {
-  const isExtension = window.location.search.includes('mode=extension');
+  const searchParams = new URLSearchParams(window.location.search);
+  const isInjectedExtension = searchParams.get('mode') === 'extension';
+  const isSidePanel = searchParams.get('mode') === 'sidepanel';
+  const inspectionModeParam = searchParams.get('inspection');
+  const initialInspectionMode = inspectionModeParam === 'pattern' ||
+    inspectionModeParam === 'linearity' ||
+    inspectionModeParam === 'bidirectional' ||
+    inspectionModeParam === 'chart'
+    ? inspectionModeParam
+    : undefined;
+  const isInspectionWindow = searchParams.get('mode') === 'inspection' && initialInspectionMode !== undefined;
+  const isExtension = isInjectedExtension || isSidePanel;
+  const isFullPanelSurface = isExtension || isInspectionWindow;
   const isCameraExposureTest = window.location.pathname === '/camera-exposure-test' ||
     window.location.search.includes('mode=camera-exposure-test');
   const isToneLossTest = window.location.pathname === '/tone-loss-test' ||
@@ -71,15 +99,63 @@ export default function App() {
   const toastTimerRef = useRef<number | null>(null);
   const messages = messagesByLocale[locale];
 
-  // Sync settings to the parent window (Chrome content script)
   useEffect(() => {
-    if (isExtension && window.parent && window.parent !== window) {
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key !== 'gsdf_extension_settings' || !event.newValue) {
+        return;
+      }
+
+      try {
+        const nextSettings = normalizeSavedSettings(JSON.parse(event.newValue) as Partial<AppSettings>);
+        lastSavedSettingsRef.current = JSON.stringify(nextSettings);
+        setSettings(nextSettings);
+      } catch {
+        console.error('Failed to synchronize settings from another window');
+      }
+    };
+
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
+
+  // Sync settings to either the injected iframe host or the active tab managed by the Chrome side panel.
+  useEffect(() => {
+    if (isInjectedExtension && window.parent && window.parent !== window) {
       window.parent.postMessage({
         type: 'GSDF_SETTINGS_CHANGED',
         payload: settings
       }, '*');
+      return;
     }
-  }, [settings, isExtension]);
+
+    const chromeApi = (globalThis as typeof globalThis & { chrome?: { tabs?: ChromeTabsApi } }).chrome;
+    if (isSidePanel && chromeApi?.tabs?.query) {
+      const syncActiveTab = () => chromeApi.tabs?.query({ active: true, currentWindow: true }, ([activeTab]) => {
+        if (activeTab?.id) {
+          chromeApi.tabs?.sendMessage(activeTab.id, {
+            action: 'apply_settings',
+            payload: settings,
+          }).catch(() => {});
+        }
+      });
+
+      const handleTabActivated = () => syncActiveTab();
+      const handleTabUpdated = (_tabId: number, changeInfo: { status?: string }) => {
+        if (changeInfo.status === 'complete') {
+          syncActiveTab();
+        }
+      };
+
+      syncActiveTab();
+      chromeApi.tabs.onActivated?.addListener(handleTabActivated);
+      chromeApi.tabs.onUpdated?.addListener(handleTabUpdated);
+
+      return () => {
+        chromeApi.tabs?.onActivated?.removeListener(handleTabActivated);
+        chromeApi.tabs?.onUpdated?.removeListener(handleTabUpdated);
+      };
+    }
+  }, [settings, isInjectedExtension, isSidePanel]);
 
   useEffect(() => {
     const serializedSettings = JSON.stringify(settings);
@@ -120,7 +196,7 @@ export default function App() {
   }, []);
 
   const handlePanelDrag = (deltaX: number, deltaY: number) => {
-    if (!isExtension || !window.parent || window.parent === window) {
+    if (!isInjectedExtension || !window.parent || window.parent === window) {
       return;
     }
 
@@ -135,7 +211,7 @@ export default function App() {
   };
 
   const handlePanelResize = (deltaWidth: number, deltaHeight: number) => {
-    if (!isExtension || !window.parent || window.parent === window) {
+    if (!isInjectedExtension || !window.parent || window.parent === window) {
       return;
     }
 
@@ -150,7 +226,7 @@ export default function App() {
   };
 
   const handlePanelClose = () => {
-    if (!isExtension || !window.parent || window.parent === window) {
+    if (!isInjectedExtension || !window.parent || window.parent === window) {
       return;
     }
 
@@ -172,8 +248,8 @@ export default function App() {
   }
 
   return (
-    <div className={`relative w-full h-screen overflow-hidden font-sans ${isExtension ? 'bg-transparent pointer-events-none' : 'bg-[#050505]'}`}>
-      {!isExtension && <VideoBackground settings={settings} />}
+    <div className={`relative w-full h-screen overflow-hidden font-sans ${isFullPanelSurface ? 'bg-transparent pointer-events-none' : 'bg-[#050505]'}`}>
+      {!isFullPanelSurface && <VideoBackground settings={settings} />}
       
       <div className="pointer-events-auto">
         <DraggablePanel 
@@ -182,7 +258,10 @@ export default function App() {
           locale={locale}
           messages={messages}
           onLocaleChange={handleLocaleChange}
-          extensionMode={isExtension}
+          extensionMode={isFullPanelSurface}
+          sidebarMode={isSidePanel}
+          initialInspectionMode={initialInspectionMode}
+          inspectionWindow={isInspectionWindow}
           onExtensionDrag={handlePanelDrag}
           onExtensionResize={handlePanelResize}
           onExtensionClose={handlePanelClose}

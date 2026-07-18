@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="620" viewBox="0 0 1280 620" role="img" aria-labelledby="title desc">
+  <title id="title">GSDF output sweep and fixed contrast sweep comparison</title>
+  <desc id="desc">A Traditional Chinese difference diagram comparing the GSDF output sweep and the fixed contrast sweep in the GSDF QC reference pattern.</desc>
+  <rect width="1280" height="620" fill="#071016"/>
+  <text x="64" y="64" fill="#f8fafc" font-family="Segoe UI, Noto Sans TC, Arial, sans-serif" font-size="30" font-weight="700">GSDF 輸出掃描 vs 固定對比掃描：相鄰兩欄一起看</text>
+  <text x="64" y="98" fill="#b8c7d4" font-family="Segoe UI, Noto Sans TC, Arial, sans-serif" font-size="16">兩欄都在 GSDF-QC 參考圖中央；左欄會跟著 active table，右欄故意保持固定比較基準。</text>
+  <g font-family="Segoe UI, Noto Sans TC, Arial, sans-serif">
+    <rect x="154" y="142" width="972" height="356" rx="18" fill="#101923" stroke="#334155" stroke-width="2"/>
+    <g transform="translate(268 184)">
+      <text x="0" y="0" fill="#e2e8f0" font-size="22" font-weight="700">GSDF 輸出掃描：會變動</text>
+      <rect x="36" y="38" width="150" height="232" fill="#0b1118" stroke="#22d3ee" stroke-width="2"/>
+      <g>
+        <rect x="36" y="38" width="150" height="26" fill="#050505"/><rect x="36" y="64" width="150" height="26" fill="#161616"/><rect x="36" y="90" width="150" height="26" fill="#333"/><rect x="36" y="116" width="150" height="26" fill="#555"/><rect x="36" y="142" width="150" height="26" fill="#777"/><rect x="36" y="168" width="150" height="26" fill="#9a9a9a"/><rect x="36" y="194" width="150" height="26" fill="#c6c6c6"/><rect x="36" y="220" width="150" height="26" fill="#e4e4e4"/>
+      </g>
+      <path d="M42 64 C78 52 116 86 182 58" stroke="#22d3ee" stroke-width="3" fill="none" opacity="0.8"/>
+      <path d="M42 142 C90 118 124 160 182 132" stroke="#22d3ee" stroke-width="3" fill="none" opacity="0.8"/>
+    </g>
+    <g transform="translate(716 184)">
+      <text x="0" y="0" fill="#e2e8f0" font-size="22" font-weight="700">固定對比掃描：固定參考</text>
+      <rect x="36" y="38" width="150" height="232" fill="#0b1118" stroke="#94a3b8" stroke-width="2"/>
+      <g>
+        <rect x="36" y="38" width="75" height="26" fill="#050505"/><rect x="111" y="38" width="75" height="26" fill="#0d0d0d"/>
+        <rect x="36" y="64" width="75" height="26" fill="#202020"/><rect x="111" y="64" width="75" height="26" fill="#222"/>
+        <rect x="36" y="90" width="75" height="26" fill="#3a3a3a"/><rect x="111" y="90" width="75" height="26" fill="#424242"/>
+        <rect x="36" y="116" width="75" height="26" fill="#5a5a5a"/><rect x="111" y="116" width="75" height="26" fill="#5c5c5c"/>
+        <rect x="36" y="142" width="75" height="26" fill="#7a7a7a"/><rect x="111" y="142" width="75" height="26" fill="#828282"/>
+        <rect x="36" y="168" width="75" height="26" fill="#9a9a9a"/><rect x="111" y="168" width="75" height="26" fill="#9c9c9c"/>
+        <rect x="36" y="194" width="75" height="26" fill="#c6c6c6"/><rect x="111" y="194" width="75" height="26" fill="#cecece"/>
+        <rect x="36" y="220" width="75" height="26" fill="#e4e4e4"/><rect x="111" y="220" width="75" height="26" fill="#e6e6e6"/>
+      </g>
+    </g>
+  </g>
+  <text x="154" y="548" fill="#cbd5e1" font-family="Segoe UI, Noto Sans TC, Arial, sans-serif" font-size="15">判讀：若左欄改善但右欄仍看不清楚，問題可能在顯示環境、縮放、亮度或瀏覽器渲染，而不只在 transfer table。</text>
+</svg>

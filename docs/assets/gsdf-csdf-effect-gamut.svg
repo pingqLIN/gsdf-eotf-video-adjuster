@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="620" viewBox="0 0 1280 620" role="img" aria-labelledby="title desc">
+  <title id="title">Display gamut comparison</title>
+  <desc id="desc">A Traditional Chinese difference diagram showing sRGB versus Display P3 gamut assumptions and their affected reference areas.</desc>
+  <rect width="1280" height="620" fill="#071016"/>
+  <text x="64" y="64" fill="#f8fafc" font-family="Segoe UI, Noto Sans TC, Arial, sans-serif" font-size="30" font-weight="700">顯示色域：改的是 gamut 假設，不是讀取實測 ICC</text>
+  <text x="64" y="98" fill="#b8c7d4" font-family="Segoe UI, Noto Sans TC, Arial, sans-serif" font-size="16">這個 segmented control 位於 Advanced 分頁；主要影響 GSDF YCbCr-style luma matrix 與色彩參考圖樣。</text>
+  <g font-family="Segoe UI, Noto Sans TC, Arial, sans-serif">
+    <g transform="translate(64 138)">
+      <rect width="548" height="414" rx="18" fill="#101923" stroke="#334155" stroke-width="2"/>
+      <text x="28" y="42" fill="#e2e8f0" font-size="22" font-weight="700">sRGB 假設</text>
+      <rect x="28" y="92" width="492" height="54" rx="10" fill="#0a1118" stroke="#263647"/>
+      <rect x="48" y="104" width="86" height="30" rx="8" fill="#e2e8f0"/><text x="78" y="124" fill="#0f172a" font-size="14" font-weight="700">sRGB</text>
+      <rect x="140" y="104" width="116" height="30" rx="8" fill="#111827" stroke="#334155"/><text x="164" y="124" fill="#94a3b8" font-size="14">Display P3</text>
+      <rect x="262" y="104" width="116" height="30" rx="8" fill="#111827" stroke="#334155"/><text x="285" y="124" fill="#94a3b8" font-size="14">Adobe RGB</text>
+      <rect x="60" y="188" width="420" height="132" rx="10" fill="#0b1118" stroke="#263647"/>
+      <circle cx="168" cy="254" r="46" fill="#ef4444" opacity="0.82"/><circle cx="256" cy="254" r="46" fill="#22c55e" opacity="0.82"/><circle cx="344" cy="254" r="46" fill="#38bdf8" opacity="0.82"/>
+      <path d="M110 324 L430 194" fill="none" stroke="#64748b" stroke-width="3"/>
+      <text x="48" y="384" fill="#cbd5e1" font-size="14">用較保守的色域與 luma 假設做參考。</text>
+    </g>
+    <g transform="translate(668 138)">
+      <rect width="548" height="414" rx="18" fill="#101923" stroke="#334155" stroke-width="2"/>
+      <text x="28" y="42" fill="#e2e8f0" font-size="22" font-weight="700">Display P3 假設</text>
+      <rect x="28" y="92" width="492" height="54" rx="10" fill="#0a1118" stroke="#263647"/>
+      <rect x="48" y="104" width="86" height="30" rx="8" fill="#111827" stroke="#334155"/><text x="78" y="124" fill="#94a3b8" font-size="14">sRGB</text>
+      <rect x="140" y="104" width="116" height="30" rx="8" fill="#22d3ee"/><text x="164" y="124" fill="#06202b" font-size="14" font-weight="700">Display P3</text>
+      <rect x="262" y="104" width="116" height="30" rx="8" fill="#111827" stroke="#334155"/><text x="285" y="124" fill="#94a3b8" font-size="14">Adobe RGB</text>
+      <rect x="60" y="188" width="420" height="132" rx="10" fill="#0b1118" stroke="#263647"/>
+      <circle cx="155" cy="254" r="56" fill="#f43f5e" opacity="0.9"/><circle cx="256" cy="254" r="56" fill="#22c55e" opacity="0.9"/><circle cx="357" cy="254" r="56" fill="#0ea5e9" opacity="0.9"/>
+      <path d="M110 324 C224 275 316 235 430 194" fill="none" stroke="#22d3ee" stroke-width="4"/>
+      <text x="48" y="384" fill="#cbd5e1" font-size="14">色彩參考圖與 YCbCr-style luma 權重會跟著改。</text>
+    </g>
+  </g>
+</svg>

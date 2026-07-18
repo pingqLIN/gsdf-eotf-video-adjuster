@@ -19,23 +19,26 @@ const i18nLocalesSource = readFileSync(new URL('../src/i18n/locales.ts', import.
 const designSource = readFileSync(new URL('../DESIGN.md', import.meta.url), 'utf8');
 const designZhTwSource = readFileSync(new URL('../DESIGN.zh-tw.md', import.meta.url), 'utf8');
 
-test('control panel uses a three-step Tune Finish Levels workflow', () => {
-  assert.match(panelSource, /type PanelTab = 'basic' \| 'advanced' \| 'optimization'/);
-  assert.match(panelSource, /\(\['basic', 'advanced', 'optimization'\] as PanelTab\[\]\)/);
-  assert.match(panelSource, /messages\.panel\.optimizationTab/);
-  assert.match(panelSource, /messages\.panel\.switchToOptimization/);
-  assert.match(panelSource, /hidden=\{activeTab !== 'basic'\}/);
-  assert.match(panelSource, /hidden=\{activeTab !== 'advanced'\}/);
-  assert.match(panelSource, /hidden=\{activeTab !== 'optimization'\}/);
+test('control panel exposes one ordered Signal Path Console workflow', () => {
+  assert.match(panelSource, /const SIGNAL_STAGE_COPY/);
+  assert.match(panelSource, /function SignalStage/);
+  assert.match(panelSource, /const renderSignalPipeline = \(\) =>/);
+  assert.match(panelSource, /<SignalStage index="01" title=\{signalCopy\.detail\}/);
+  assert.match(panelSource, /<SignalStage index="02" title=\{signalCopy\.transfer\}/);
+  assert.match(panelSource, /<SignalStage index="03" title=\{signalCopy\.levels\}/);
+  assert.match(panelSource, /<SignalStage index="D" title=\{signalCopy\.diagnostic\}/);
+  assert.match(panelSource, /<SignalStage index="04" title=\{signalCopy\.color\}/);
+  assert.match(panelSource, /<SignalStage index="05" title=\{signalCopy\.dither\}/);
   assert.match(panelSource, /<Hard8JndOptimizationPanel settings=\{settings\} setSettings=\{setSettings\} messages=\{messages\} \/>/);
   assert.match(panelSource, /function PanelUtilityMenu/);
   assert.match(panelSource, /messages\.panel\.panelUtilities/);
   assert.match(panelSource, /gsdf-levels-command-bar/);
-  assert.match(panelSource, /role="tablist"/);
-  assert.match(panelSource, /role="tab"/);
-  assert.match(panelSource, /aria-selected=\{selected\}/);
+  assert.match(panelSource, /gsdf-header-view-launcher/);
+  assert.match(panelSource, /renderSignalPipeline\(\)/);
   assert.match(panelSource, />LumaLift<\/div>/);
   assert.match(panelSource, /GSDF EOTF Adjuster · \{messages\.panel\.subtitle\}/);
+
+  assert.doesNotMatch(panelSource, /PanelTab|activeTab|renderBasicPanel|renderAdvancedPanel/);
 
   assert.doesNotMatch(panelSource, /PanelLayoutMode/);
   assert.doesNotMatch(panelSource, /PanelLayoutModeSwitch/);
@@ -47,21 +50,38 @@ test('control panel uses a three-step Tune Finish Levels workflow', () => {
   assert.doesNotMatch(panelSource, /DiagnosticCameraProbe|GSDF_TARGET_PICK_REQUEST|MousePointer2|renderTargetPickResult/);
 });
 
-test('reference pattern and curve open from the right side panel', () => {
-  const basicPanelBlock = panelSource.slice(
-    panelSource.indexOf('const renderBasicPanel = () =>'),
-    panelSource.indexOf('const renderAdvancedPanel = () =>'),
-  );
+test('live curve and hard 8-bit JND reference share one pinned reference strip', () => {
   assert.match(panelSource, /type SidePanelMode = 'pattern' \| 'linearity' \| 'bidirectional' \| 'chart'/);
-  assert.match(panelSource, /sidePanelOpen/);
-  assert.match(panelSource, /sidePanelMode/);
-  assert.match(panelSource, /ReferenceSidePanel/);
+  assert.match(panelSource, /type PinnedReferenceMode = 'curve' \| 'jnd'/);
+  assert.match(panelSource, /useState<PinnedReferenceMode>\('curve'\)/);
+  assert.match(panelSource, /const renderPinnedReference = \(\) =>/);
+  assert.match(panelSource, /className="gsdf-pinned-reference"/);
+  assert.match(panelSource, /className="gsdf-pinned-reference__switch"/);
+  assert.match(panelSource, /messages\.panel\.pinnedReference/);
+  assert.match(panelSource, /setPinnedReferenceMode\('curve'\)/);
+  assert.match(panelSource, /setPinnedReferenceMode\('jnd'\)/);
+  assert.match(panelSource, /pinnedReferenceMode === 'curve'/);
+  assert.match(panelSource, /renderCurvePanel\('gsdf-pinned-reference__curve'/);
   assert.match(panelSource, /<Hard8JndReference settings=\{settings\} messages=\{messages\} \/>/);
-  assert.match(panelSource, /PanelRightOpen/);
-  assert.match(panelSource, /PanelRightClose/);
-  assert.match(panelSource, /messages\.panel\.toggleSidePanel/);
-  assert.match(panelSource, /setSidePanelOpen\(\(value\) => !value\)/);
-  assert.match(panelSource, /onModeChange=\{setSidePanelMode\}/);
+  assert.match(panelSource, /className="gsdf-fixed-console"[\s\S]*className="gsdf-panel-header[\s\S]*\{renderPinnedReference\(\)\}/);
+  assert.match(panelSource, /className="gsdf-fixed-console"[\s\S]*\{renderPinnedReference\(\)\}[\s\S]*className="gsdf-primary-pane/);
+  assert.match(panelSource, /className="gsdf-header-console-row"[\s\S]*gsdf-power-cluster[\s\S]*gsdf-header-view-launcher[\s\S]*gsdf-status-reset/);
+  assert.match(panelSource, /gsdf-header-view-launcher[\s\S]*openInspectionWindow\('pattern'\)[\s\S]*openInspectionWindow\('linearity'\)[\s\S]*openInspectionWindow\('bidirectional'\)/);
+  assert.match(panelSource, /const openInspectionWindow = [\s\S]*localStorage\.setItem\('gsdf_extension_settings', JSON\.stringify\(settings\)\)[\s\S]*searchParams\.set\('mode', 'inspection'\)[\s\S]*window\.open\([\s\S]*popup=yes/);
+  assert.match(appSource, /const isInspectionWindow = searchParams\.get\('mode'\) === 'inspection'/);
+  assert.match(appSource, /initialInspectionMode=\{initialInspectionMode\}/);
+  assert.match(appSource, /inspectionWindow=\{isInspectionWindow\}/);
+  assert.match(appSource, /window\.addEventListener\('storage', handleStorage\)/);
+  assert.match(appSource, /event\.key !== 'gsdf_extension_settings'/);
+  assert.match(panelSource, /className="h-full min-h-0"/);
+  assert.doesNotMatch(panelSource, /className="h-\[150px\]"/);
+  assert.match(panelSource, /className="gsdf-signal-scroll min-h-0 flex-1 overflow-y-auto overflow-x-hidden"/);
+  assert.match(panelSource, /data-surface-mode=\{sidebarMode \? 'sidebar'/);
+  assert.match(panelSource, /!sidebarMode && \(\s*<button[\s\S]*messages\.panel\.closePanel/);
+  assert.doesNotMatch(panelSource, /sidePanelOpen|sidePanelRatio|setSidePanelOpen|setSidePanelMode/);
+  assert.doesNotMatch(panelSource, /PanelRightOpen/);
+  assert.doesNotMatch(panelSource, /className="gsdf-side-panel-divider"/);
+  assert.doesNotMatch(panelSource, /PANEL_SIDE_PANEL_WIDTH/);
   assert.match(panelSource, /FullDiagnosticPattern settings=\{settings\} messages=\{messages\}/);
   assert.match(panelSource, /ColorLinearityPattern settings=\{settings\} messages=\{messages\} figureControls=\{figureControls\}/);
   assert.match(panelSource, /CsdfFigureControlsPanel/);
@@ -71,30 +91,15 @@ test('reference pattern and curve open from the right side panel', () => {
   assert.match(panelSource, /messages\.panel\.bidirectionalColorPanel/);
   assert.match(panelSource, /<GSDFChart[\s\S]*settings=\{settings\}[\s\S]*panelTheme=\{panelTheme\}/);
   assert.match(panelSource, /function ReferenceModeSwitch/);
-  assert.match(panelSource, /grid-cols-4/);
-  assert.match(panelSource, /onOpenFull=\{openInspectionMode\}/);
   assert.match(panelSource, /GSDF_PATTERN_VIEW_CHANGED/);
-  assert.match(panelSource, /useExpandedOverlayViewport\(inspectionMode !== null \|\| sidePanelOpen\)/);
+  assert.match(panelSource, /useExpandedOverlayViewport\(inspectionMode !== null\)/);
   assert.match(panelSource, /PANEL_DEFAULT_WIDTH = 420/);
   assert.match(panelSource, /PANEL_DEFAULT_HEIGHT = 780/);
-  assert.match(panelSource, /PANEL_SIDE_PANEL_WIDTH = 820/);
   assert.match(panelSource, /window\.addEventListener\('resize', syncStandalonePanelSize\)/);
   assert.match(panelSource, /window\.removeEventListener\('resize', syncStandalonePanelSize\)/);
-  assert.match(panelSource, /SIDE_PANEL_RATIO_DEFAULT = 0\.48/);
-  assert.match(panelSource, /SIDE_PANEL_RATIO_MIN = 0\.34/);
-  assert.match(panelSource, /SIDE_PANEL_RATIO_MAX = 0\.68/);
-  assert.match(panelSource, /function clampSidePanelRatio/);
-  assert.match(panelSource, /sidePanelDividerDragRef/);
-  assert.match(panelSource, /setSidePanelRatio\(clampSidePanelRatio/);
-  assert.match(panelSource, /className="gsdf-side-panel-divider"/);
-  assert.match(panelSource, /aria-label=\{messages\.panel\.resizeSidePanelDivider\}/);
   assert.match(panelSource, /PANEL_MIN_HEIGHT = 560/);
   assert.match(panelSource, /PANEL_MIN_WIDTH = 420/);
-  assert.match(panelSource, /className="border-b border-white\/10 p-3"/);
-  assert.doesNotMatch(basicPanelBlock, /referenceSummaryTitle|referenceSummaryBody/);
-  assert.doesNotMatch(basicPanelBlock, /openSidePanel\('pattern'\)|openSidePanel\('chart'\)/);
   assert.doesNotMatch(panelSource, /legacy-linearity|legacy-rgb|legacyColorLinearity|Legacy RGB/);
-  assert.equal((panelSource.match(/openSidePanel\('pattern'\)|openSidePanel\('chart'\)/g) ?? []).length, 0);
 });
 
 test('panel keeps project-owned GSDF pattern and chart logic', () => {
@@ -194,7 +199,7 @@ test('panel keeps project-owned GSDF pattern and chart logic', () => {
   assert.match(panelSource, /function applyReferenceGsdfRgbToneTable/);
   assert.match(panelSource, /settings\.transferFormula/);
   assert.match(panelSource, /settings\.gsdfPipeline/);
-  assert.match(panelSource, /function GsdfPipelinePills/);
+  assert.match(panelSource, /function ChoiceStepperControl/);
   assert.match(chartSource, /const optimizedCurveLabel = settings\.transferFormula === 'csdf'/);
   assert.match(chartSource, /messages\.chart\.csdfOptimized/);
   assert.match(chartSource, /messages\.chart\.gsdfOptimized/);
@@ -308,7 +313,7 @@ test('panel keeps project-owned GSDF pattern and chart logic', () => {
   assert.match(panelSource, /import\('\.\/GSDFChart'\)/);
 });
 
-test('Levels owns its route-matched hard 8-bit optimization action', () => {
+test('the JND diagnostic branch owns its route-matched optimization action', () => {
   const optimizeBlock = panelSource.slice(
     panelSource.indexOf('const applyOptimizedLevels = () =>'),
     panelSource.indexOf('const setLmaxWithLinkedDefaults ='),
@@ -325,33 +330,31 @@ test('Levels owns its route-matched hard 8-bit optimization action', () => {
   assert.match(optimizeBlock, /buildHard8JndOptimizationModel\(settings, settings\.hard8JndLevelCount\)/);
   assert.match(optimizeBlock, /hard8JndOptimizationEnabled: true/);
   assert.match(optimizeBlock, /hard8JndLevelCount: model\.recommendedLevelCount/);
-  assert.match(optimizeBlock, /setActiveTab\('optimization'\)/);
+  assert.doesNotMatch(optimizeBlock, /setActiveTab/);
   assert.doesNotMatch(optimizeBlock, /lmax: 100|gammaTarget: DEFAULT_APP_SETTINGS|transferFormula: DEFAULT_APP_SETTINGS/);
   assert.match(hard8OptimizationPanelSource, /hard8JndOptimizationEnabled: true/);
   assert.match(hard8OptimizationPanelSource, /hard8JndOptimizationEnabled: false/);
   assert.match(hard8OptimizationPanelSource, /hard8OptimizationApply/);
+  assert.match(panelSource, /<SignalStage index="D"[\s\S]*branch>/);
+  assert.match(panelSource, /<details className="gsdf-signal-diagnostic">/);
   assert.match(panelSource, /<div className="gsdf-levels-command-bar">[\s\S]*onClick=\{applyOptimizedLevels\}/);
   assert.doesNotMatch(panelSource, /gsdf-header-action-stack/);
   assert.match(i18nMessagesSource, /optimizePreset: 'Optimize levels'/);
   assert.match(i18nLocalesSource, /optimizePreset: '最佳階數'/);
 });
 
-test('basic and advanced tools expose the revised correction controls', () => {
+test('ordered signal stages expose every correction control', () => {
   const curvePanelBlock = panelSource.slice(
     panelSource.indexOf('const renderCurvePanel ='),
-    panelSource.indexOf('const renderBasicPanel = () =>'),
+    panelSource.indexOf('const renderSignalPipeline = () =>'),
   );
-  const basicPanelBlock = panelSource.slice(
-    panelSource.indexOf('const renderBasicPanel = () =>'),
-    panelSource.indexOf('const renderAdvancedPanel = () =>'),
-  );
-  const advancedPanelBlock = panelSource.slice(
-    panelSource.indexOf('const renderAdvancedPanel = () =>'),
+  const pipelineBlock = panelSource.slice(
+    panelSource.indexOf('const renderSignalPipeline = () =>'),
     panelSource.indexOf('const handleHeaderPointerDown'),
   );
-  const statusModeStripBlock = panelSource.slice(
-    panelSource.indexOf('function StatusModeStrip'),
-    panelSource.indexOf('function LuminanceDeck'),
+  const headerConsoleBlock = panelSource.slice(
+    panelSource.indexOf('<div className="gsdf-header-console-row"'),
+    panelSource.indexOf('{renderPinnedReference()}'),
   );
 
   assert.match(panelSource, /function CheckboxControl/);
@@ -364,106 +367,93 @@ test('basic and advanced tools expose the revised correction controls', () => {
   assert.match(panelSource, /window\.setInterval\(\(\) => \{[\s\S]*BUTTON_AUTO_REPEAT_INTERVAL_MS/);
   assert.match(panelSource, /const decreaseHandlers = useAutoRepeatButton/);
   assert.match(panelSource, /const increaseHandlers = useAutoRepeatButton/);
-  assert.match(basicPanelBlock, /messages\.panel\.displayGamma/);
-  assert.match(basicPanelBlock, /messages\.panel\.displayGammaInverseHint/);
-  assert.match(basicPanelBlock, /messages\.panel\.displayGammaTitle/);
-  assert.match(basicPanelBlock, /headerAddon/);
-  assert.match(basicPanelBlock, /DisplayGammaSelect/);
-  assert.match(basicPanelBlock, /gammaScaleMarks/);
-  assert.match(basicPanelBlock, /GAMMA_REFERENCE_MARKS/);
-  assert.match(basicPanelBlock, /gammaTargetToAlignedSliderValue\(option, settings\.displayGamma\)/);
-  assert.match(basicPanelBlock, /marks=\{gammaScaleMarks\}/);
-  assert.match(basicPanelBlock, /gammaSnapValues/);
-  assert.match(basicPanelBlock, /snapValues=\{gammaSnapValues\}/);
+  assert.match(pipelineBlock, /messages\.panel\.displayGamma/);
+  assert.match(pipelineBlock, /messages\.panel\.displayGammaInverseHint/);
+  assert.match(pipelineBlock, /messages\.panel\.displayGammaTitle/);
+  assert.match(pipelineBlock, /DisplayGammaSelect/);
+  assert.match(pipelineBlock, /gammaScaleMarks/);
+  assert.match(pipelineBlock, /GAMMA_REFERENCE_MARKS/);
+  assert.match(pipelineBlock, /gammaTargetToAlignedSliderValue\(option, settings\.displayGamma\)/);
+  assert.match(pipelineBlock, /marks=\{gammaScaleMarks\}/);
+  assert.match(pipelineBlock, /snapValues=\{gammaSnapValues\}/);
   assert.match(panelSource, /LUMINANCE_REFERENCE_MARKS\.map/);
   assert.match(panelSource, /luminanceToSliderValue\(mark\)/);
   assert.match(panelSource, /luminanceSnapValues/);
-  assert.match(panelSource, /snapSliderValueToMarks\(parseInt\(event\.target\.value, 10\), luminanceSnapValues\)/);
+  assert.match(pipelineBlock, /snapValues=\{luminanceSnapValues\}/);
   assert.match(curvePanelBlock, /messages\.panel\.curvePanel/);
   assert.match(curvePanelBlock, /title = messages\.panel\.curvePanel/);
   assert.match(curvePanelBlock, /GSDFChart/);
   assert.match(curvePanelBlock, /toolbarLeading/);
   assert.match(curvePanelBlock, /toolbarAction/);
   assert.match(curvePanelBlock, /gsdf-chart-frame/);
-  assert.match(basicPanelBlock, /gsdf-panel-section-stack/);
-  assert.match(basicPanelBlock, /gsdf-control-group--primary/);
-  assert.match(basicPanelBlock, /gsdf-basic-tuning-stack/);
-  assert.match(basicPanelBlock, /LuminanceDeck/);
-  assert.match(basicPanelBlock, /renderCurvePanel\('', messages\.panel\.outputPreview\)/);
-  assert.ok(
-    basicPanelBlock.indexOf("renderCurvePanel('', messages.panel.outputPreview)") <
-      basicPanelBlock.indexOf('gsdf-filter-stepper-control'),
-    'Basic output preview should appear before the lower-priority filter stepper block',
-  );
-  assert.match(basicPanelBlock, /gammaCorrectionToAlignedSliderValue\(gammaCorrection\)/);
-  assert.match(basicPanelBlock, /setGammaCorrection\(alignedSliderValueToGammaCorrection\(value\)\)/);
-  assert.match(basicPanelBlock, /setDisplayGamma\(value\)/);
-  assert.match(basicPanelBlock, /setNumericSetting\('gammaTarget', settings\.displayGamma\)/);
-  assert.match(basicPanelBlock, /valuePlacement="trailing"/);
-  assert.match(basicPanelBlock, /rangePlacement="first"/);
-  assert.match(basicPanelBlock, /resetPlacement="range"/);
-  assert.doesNotMatch(basicPanelBlock, /minLabel="-100"/);
-  assert.doesNotMatch(basicPanelBlock, /maxLabel="\+100"/);
-  assert.match(basicPanelBlock, /rangeRowClassName="gsdf-gamma-range-row"/);
-  assert.match(basicPanelBlock, /calibratedRange/);
-  assert.match(basicPanelBlock, /onReset=\{\(\) => setNumericSetting\('strength', DEFAULT_APP_SETTINGS\.strength\)\}/);
-  assert.match(basicPanelBlock, /gsdf-gamma-control/);
-  assert.match(basicPanelBlock, /gsdf-filter-stepper-control/);
-  assert.match(basicPanelBlock, /CompactAdjustControl/);
-  assert.match(basicPanelBlock, /metaText="GSDF mix"/);
-  assert.match(basicPanelBlock, /displayGamma/);
-  assert.match(panelSource, /function StatusModeStrip/);
-  assert.match(panelSource, /gsdf-header-status-strip/);
-  assert.match(panelSource, /gsdf-status-caption/);
-  assert.match(statusModeStripBlock, /messages\.panel\.correctionRoute/);
-  assert.match(statusModeStripBlock, /messages\.panel\.gsdfRoute/);
-  assert.match(statusModeStripBlock, /messages\.panel\.csdfRoute/);
+  assert.match(pipelineBlock, /label=\{messages\.panel\.lmaxLabel\}[\s\S]*snapValues=\{luminanceSnapValues\}/);
+  assert.doesNotMatch(pipelineBlock, /renderCurvePanel\('gsdf-signal-curve-dock'/);
+  assert.match(pipelineBlock, /gammaCorrectionToAlignedSliderValue\(gammaCorrection\)/);
+  assert.match(pipelineBlock, /setGammaCorrection\(alignedSliderValueToGammaCorrection\(value\)\)/);
+  assert.match(pipelineBlock, /setDisplayGamma\(value\)/);
+  assert.match(pipelineBlock, /setNumericSetting\('gammaTarget', settings\.displayGamma\)/);
+  assert.match(pipelineBlock, /rangeRowClassName="gsdf-gamma-range-row"/);
+  assert.match(pipelineBlock, /calibratedRange/);
+  assert.match(pipelineBlock, /gsdf-gamma-control/);
+  assert.match(pipelineBlock, /gsdf-filter-stepper-control/);
+  assert.match(pipelineBlock, /metaText=\{`\$\{settings\.transferFormula\.toUpperCase\(\)\} mix`\}/);
+  assert.match(pipelineBlock, /className="gsdf-filter-scope"/);
+  assert.match(pipelineBlock, /className="gsdf-filter-scope__effects"[\s\S]*messages\.panel\.lmaxLabel[\s\S]*messages\.panel\.routeFormula[\s\S]*messages\.panel\.gsdfPipelineTitle[\s\S]*messages\.panel\.displayGamut[\s\S]*className="gsdf-filter-scope__mix"/);
+  assert.match(pipelineBlock, /className="gsdf-filter-scope__junction"/);
+  assert.match(pipelineBlock, /className="gsdf-filter-scope__mix"[\s\S]*messages\.panel\.filterLabel/);
+  assert.doesNotMatch(panelSource, /function StatusModeStrip|gsdf-header-status-strip/);
+  assert.doesNotMatch(headerConsoleBlock, /messages\.panel\.correctionRoute|gsdf-status-caption/);
+  assert.match(headerConsoleBlock, /aria-pressed=\{settings\.enabled\}/);
+  assert.match(headerConsoleBlock, /gsdf-header-view-launcher/);
+  assert.match(headerConsoleBlock, /openInspectionWindow\('pattern'\)/);
+  assert.match(headerConsoleBlock, /openInspectionWindow\('linearity'\)/);
+  assert.match(headerConsoleBlock, /openInspectionWindow\('bidirectional'\)/);
+  assert.doesNotMatch(headerConsoleBlock, /openInspectionMode\(/);
+  assert.doesNotMatch(headerConsoleBlock, /gsdf-signal-route-summary|flowSummary/);
   assert.match(panelSource, /data-state=\{settings\.enabled \? 'on' : 'off'\}/);
   assert.doesNotMatch(panelSource, /onResetDefault/);
-  assert.match(panelSource, /gsdf-header-active-row/);
-  assert.match(panelSource, /gsdf-header-navigation-row/);
+  assert.match(panelSource, /gsdf-header-console-row/);
+  assert.doesNotMatch(panelSource, /gsdf-header-active-row|gsdf-header-navigation-row/);
   assert.match(panelSource, /PanelUtilityMenu/);
-  assert.match(advancedPanelBlock, /gsdf-advanced-group--route/);
-  assert.match(advancedPanelBlock, /FormulaModePills/);
-  assert.match(advancedPanelBlock, /GsdfPipelinePills/);
-  assert.match(advancedPanelBlock, /onChange=\{setTransferFormula\}/);
-  assert.match(advancedPanelBlock, /onChange=\{setGsdfPipeline\}/);
-  assert.doesNotMatch(basicPanelBlock, /FormulaModePills|GsdfPipelinePills|gsdfPipeline/);
+  assert.match(panelSource, /function ChoiceStepperControl/);
+  assert.match(pipelineBlock, /<ChoiceStepperControl[\s\S]*label=\{messages\.panel\.routeFormula\}/);
+  assert.match(pipelineBlock, /<ChoiceStepperControl[\s\S]*label=\{messages\.panel\.gsdfPipelineTitle\}/);
+  assert.match(pipelineBlock, /<ChoiceStepperControl[\s\S]*label=\{messages\.panel\.displayGamut\}/);
+  assert.match(pipelineBlock, /onChange=\{setTransferFormula\}/);
+  assert.match(pipelineBlock, /disabled=\{settings\.transferFormula !== 'gsdf'\}/);
   assert.doesNotMatch(panelSource, /gsdf-status-formula-row/);
   assert.doesNotMatch(panelSource, /gsdf-status-metric-row/);
   assert.doesNotMatch(panelSource, /gsdf-status-inline-metrics/);
-  assert.doesNotMatch(statusModeStripBlock, /messages\.panel\.active|messages\.panel\.standby/);
-  assert.doesNotMatch(statusModeStripBlock, /settings\.gammaTarget|settings\.strength|settings\.displayGamut|settings\.gsdfPipeline/);
-  assert.doesNotMatch(statusModeStripBlock, /FormulaModePills|GsdfPipelinePills|ModePill/);
   assert.doesNotMatch(panelSource, /<ModePill title=\{messages\.panel\.gammaPillTitle\}/);
   assert.doesNotMatch(panelSource, /<ModePill title=\{messages\.panel\.filterPillTitle\}/);
   assert.match(panelSource, /gsdf-control-leading/);
   assert.match(panelSource, /gsdf-control-value-label/);
-  assert.match(advancedPanelBlock, /remainingToneCount/);
-  assert.match(advancedPanelBlock, /gsdf-advanced-grid/);
-  assert.match(advancedPanelBlock, /gsdf-advanced-group--display/);
-  assert.match(advancedPanelBlock, /gsdf-advanced-group--tone/);
-  assert.match(advancedPanelBlock, /gsdf-advanced-group--detail/);
-  assert.match(advancedPanelBlock, /gsdf-advanced-group--color/);
-  assert.match(advancedPanelBlock, /TONE_LEVEL_COUNT/);
-  assert.match(advancedPanelBlock, /BLACK_CLIP_TONE_MAX/);
-  assert.match(advancedPanelBlock, /WHITE_CLIP_TONE_MIN/);
-  assert.match(advancedPanelBlock, /messages\.panel\.fineDetailSharpening/);
-  assert.match(advancedPanelBlock, /messages\.panel\.mediumDetailSharpening/);
-  assert.match(advancedPanelBlock, /fineSharpness/);
-  assert.match(advancedPanelBlock, /mediumSharpness/);
-  assert.match(advancedPanelBlock, /TEMPERATURE_MIN_K/);
-  assert.match(advancedPanelBlock, /TEMPERATURE_MAX_K/);
-  assert.match(advancedPanelBlock, /SATURATION_MIN/);
-  assert.match(advancedPanelBlock, /SATURATION_MAX/);
-  assert.match(advancedPanelBlock, /messages\.panel\.grayscale/);
-  assert.match(advancedPanelBlock, /headerAddon/);
-  assert.match(advancedPanelBlock, /getRecommendedImageDefaults\(settings\.lmax\)\.saturation/);
-  assert.match(advancedPanelBlock, /CompactAdjustControl/);
-  assert.doesNotMatch(advancedPanelBlock, /SliderControl/);
-  assert.match(advancedPanelBlock, /valueText=\{`\$\{remainingToneCount\}\/\$\{TONE_LEVEL_COUNT\}`\}/);
-  assert.match(advancedPanelBlock, /step=\{50\}/);
-  assert.match(advancedPanelBlock, /renderCurvePanel\('gsdf-advanced-curve-block'\)/);
+  assert.match(panelSource, /function DualLevelAxisControl/);
+  assert.match(panelSource, /const remainingToneCount = Math\.max\(0, whiteValue - blackValue\)/);
+  assert.match(pipelineBlock, /<DualLevelAxisControl/);
+  assert.match(pipelineBlock, /remainingLabel=\{`\$\{signalCopy\.remainingTones\} \/ \$\{TONE_LEVEL_COUNT\}`\}/);
+  assert.match(pipelineBlock, /TONE_LEVEL_COUNT/);
+  assert.match(panelSource, /BLACK_CLIP_TONE_MAX/);
+  assert.match(panelSource, /WHITE_CLIP_TONE_MIN/);
+  assert.match(typesSource, /BLACK_CLIP_TONE_MAX = TONE_LEVEL_COUNT - 1/);
+  assert.match(typesSource, /WHITE_CLIP_TONE_MIN = 1/);
+  assert.match(panelSource, /Math\.min\(BLACK_CLIP_TONE_MAX, whiteValue - 1/);
+  assert.match(panelSource, /Math\.max\(WHITE_CLIP_TONE_MIN, blackValue \+ 1/);
+  assert.match(pipelineBlock, /messages\.panel\.fineDetailSharpening/);
+  assert.match(pipelineBlock, /messages\.panel\.mediumDetailSharpening/);
+  assert.match(pipelineBlock, /fineSharpness/);
+  assert.match(pipelineBlock, /mediumSharpness/);
+  assert.match(pipelineBlock, /TEMPERATURE_MIN_K/);
+  assert.match(pipelineBlock, /TEMPERATURE_MAX_K/);
+  assert.match(pipelineBlock, /SATURATION_MIN/);
+  assert.match(pipelineBlock, /SATURATION_MAX/);
+  assert.match(pipelineBlock, /messages\.panel\.grayscale/);
+  assert.match(pipelineBlock, /getRecommendedImageDefaults\(settings\.lmax\)\.saturation/);
+  assert.match(panelSource, /gsdf-level-axis__track/);
+  assert.match(pipelineBlock, /step=\{50\}/);
+  assert.match(pipelineBlock, /<SignalStage index="05"[\s\S]*<ReferenceDitherToggle/);
+  assert.match(pipelineBlock, /<ReferenceDitherToggle[\s\S]*compact/);
+  assert.doesNotMatch(pipelineBlock, /gsdf-signal-dither-link/);
 });
 
 test('controls preserve expected interaction and resize affordances', () => {
@@ -539,23 +529,21 @@ test('visual language keeps the precision-panel styling hooks', () => {
   assert.match(cssSource, /\.gsdf-route-control-row/);
   assert.match(cssSource, /background: transparent !important/);
   assert.match(cssSource, /@container \(min-width: 700px\)/);
-  assert.match(cssSource, /@container \(min-width: 700px\) \{\s*\.gsdf-panel-shell \.gsdf-header-active-row \{\s*grid-template-columns: minmax\(156px, 182px\) minmax\(0, 1fr\) 34px;/);
+  assert.match(cssSource, /\.gsdf-panel-shell \.gsdf-header-active-row \{\s*grid-template-columns: minmax\(0, 1fr\) 34px !important;/);
   assert.match(cssSource, /\.gsdf-panel-shell \.gsdf-power-cluster \{\s*gap: 8px;\s*overflow: visible;/);
   assert.match(cssSource, /\.gsdf-panel-shell \.gsdf-power-status \{\s*min-width: 108px;/);
   assert.match(cssSource, /\.gsdf-panel-shell \.gsdf-status-caption \{\s*min-height: 42px;/);
-  assert.match(cssSource, /\.gsdf-header-status-strip\[data-state="on"\] \.gsdf-status-caption/);
-  assert.match(cssSource, /\.gsdf-route-control-row \.gsdf-formula-pill-set button\[aria-pressed="true"\],\s*\.gsdf-route-control-row \.gsdf-pipeline-pill-set button\[aria-pressed="true"\]/);
-  assert.match(cssSource, /\.gsdf-panel\.theme-light \.gsdf-route-control-row \.gsdf-formula-pill-set button\[aria-pressed="true"\],\s*\.gsdf-panel\.theme-light \.gsdf-route-control-row \.gsdf-pipeline-pill-set button\[aria-pressed="true"\]/);
-  assert.doesNotMatch(cssSource, /\.gsdf-header-status-strip\[data-state="on"\] \.gsdf-status-mode-group \{/);
+  assert.match(cssSource, /\.gsdf-panel-shell \.gsdf-power-cluster\[aria-pressed="true"\] \{[\s\S]*background: linear-gradient\(90deg, rgba\(25, 50, 33, 0\.78\), rgba\(20, 39, 28, 0\.58\)\) !important/);
+  assert.match(cssSource, /\.gsdf-panel-shell \.gsdf-numeric-control--slider/);
+  assert.match(cssSource, /\.gsdf-panel-shell \.gsdf-numeric-control--stepper/);
   assert.doesNotMatch(cssSource, /gsdf-status-formula-row/);
   assert.doesNotMatch(cssSource, /gsdf-status-metric-row/);
   assert.doesNotMatch(cssSource, /gsdf-status-inline-metrics/);
-  assert.match(cssSource, /\.gsdf-panel\.theme-light \.gsdf-header-status-strip/);
-  assert.match(cssSource, /\.gsdf-header-status-strip/);
+  assert.match(cssSource, /\.gsdf-panel-shell\.theme-light \.gsdf-power-cluster\[aria-pressed="true"\] \{[\s\S]*background: linear-gradient\(90deg, #dcfce7, #f0fdf4\) !important/);
   assert.match(cssSource, /\.gsdf-panel-section-stack/);
   assert.match(cssSource, /\.gsdf-basic-tuning-stack/);
-  assert.match(cssSource, /\.gsdf-basic-tuning-stack \.gsdf-luminance-deck,\s*\.gsdf-basic-tuning-stack \.gsdf-gamma-control/);
-  assert.match(cssSource, /\.gsdf-luminance-deck/);
+  assert.match(cssSource, /\.gsdf-panel-shell \.gsdf-choice-stepper/);
+  assert.match(cssSource, /\.gsdf-choice-stepper-value/);
   assert.match(cssSource, /\.gsdf-basic-primary-grid/);
   assert.match(cssSource, /\.gsdf-advanced-grid/);
   assert.match(cssSource, /\.gsdf-advanced-group--tone \.gsdf-tone-pair/);
@@ -569,7 +557,11 @@ test('visual language keeps the precision-panel styling hooks', () => {
   assert.match(cssSource, /\.gsdf-range-mark--major/);
   assert.match(cssSource, /\.gsdf-basic-curve-block/);
   assert.match(cssSource, /\.gsdf-filter-stepper-control/);
-  assert.match(cssSource, /flex-direction: row-reverse/);
+  assert.match(cssSource, /\.gsdf-filter-scope \{/);
+  assert.match(cssSource, /\.gsdf-filter-scope__effects \{/);
+  assert.match(cssSource, /\.gsdf-filter-scope__mix \{/);
+  assert.match(cssSource, /\.gsdf-filter-scope__junction \{/);
+  assert.match(cssSource, /flex-direction: row/);
   assert.match(cssSource, /\.gsdf-chart-toolbar/);
   assert.match(cssSource, /\.gsdf-chart-legend/);
   assert.match(cssSource, /\.gsdf-chart-levels-check::after/);
@@ -609,8 +601,8 @@ test('visual language keeps the precision-panel styling hooks', () => {
   assert.match(cssSource, /\.gsdf-panel\.theme-light \.gsdf-display-scale-warning__body/);
   assert.match(cssSource, /\.gsdf-panel\.theme-light \.gsdf-display-scale-warning__metrics/);
   assert.match(cssSource, /\.gsdf-panel\.theme-light \.gsdf-display-scale-warning__close/);
-  assert.match(cssSource, /\.gsdf-formula-pill-set/);
-  assert.match(cssSource, /\.gsdf-pipeline-pill-set/);
+  assert.match(cssSource, /\.gsdf-choice-stepper-control/);
+  assert.match(cssSource, /\.gsdf-signal-conditional\[aria-disabled="true"\]/);
   assert.match(cssSource, /border-radius: 3px !important/);
   assert.match(cssSource, /border-radius: 8px !important/);
   assert.match(cssSource, /border-radius: 12px !important/);
@@ -625,17 +617,25 @@ test('visual language keeps the precision-panel styling hooks', () => {
   assert.match(cssSource, /\.gsdf-header-controls \.gsdf-effect-switch \{\s*position: relative;\s*width: 48px;\s*height: 30px;\s*overflow: hidden;/);
   assert.match(cssSource, /\.gsdf-header-controls \.gsdf-effect-switch > span:last-child \{\s*position: absolute !important;\s*top: 4px;\s*left: 4px;\s*width: 22px;\s*height: 22px;\s*translate: 0 !important;/);
   assert.match(cssSource, /\.gsdf-filter-stepper-control \.gsdf-compact-adjust-actions/);
-  assert.match(cssSource, /flex: 0 0 clamp\(196px, 42vw, 213px\)/);
-  assert.match(cssSource, /\.gsdf-panel-shell \.gsdf-filter-stepper-control \{\s*min-height: 58px;\s*padding: 4px 43px 4px 14px;/);
+  assert.match(cssSource, /\.gsdf-panel-shell \.gsdf-numeric-control--stepper \.gsdf-compact-adjust-actions/);
+  assert.match(cssSource, /grid-template-columns: minmax\(108px, 1fr\) auto/);
   assert.match(cssSource, /\.gsdf-chart-frame/);
   assert.match(cssSource, /padding: 2px !important/);
   assert.match(cssSource, /\.gsdf-panel-shell \.gsdf-chart-toolbar \{\s*margin: 2px 10px 1px 2px;/);
-  assert.match(cssSource, /\.gsdf-side-panel-grid/);
-  assert.match(cssSource, /--gsdf-reference-pane-ratio/);
-  assert.match(cssSource, /minmax\(0, 1fr\)/);
-  assert.match(cssSource, /calc\(\(100% - var\(--gsdf-side-panel-divider-width, 10px\)\) \* var\(--gsdf-reference-pane-ratio, 0\.48\)\)/);
-  assert.match(cssSource, /\.gsdf-side-panel-divider/);
-  assert.match(cssSource, /cursor: col-resize/);
+  assert.match(cssSource, /\.gsdf-pinned-reference/);
+  assert.match(cssSource, /\.gsdf-pinned-reference__switch/);
+  assert.match(cssSource, /\.gsdf-pinned-reference__curve/);
+  assert.match(cssSource, /\.gsdf-fixed-console \{[\s\S]*height: clamp\(270px, 44dvh, 388px\)/);
+  assert.match(cssSource, /\.gsdf-header-console-row \{[\s\S]*grid-template-columns: minmax\(132px, 154px\) minmax\(0, 1fr\) 34px/);
+  assert.match(cssSource, /\.gsdf-header-view-launcher \{[\s\S]*grid-template-columns: repeat\(3, minmax\(0, 1fr\)\)/);
+  assert.match(cssSource, /\.gsdf-header-view-button \{[\s\S]*min-height: 36px/);
+  assert.match(cssSource, /\.gsdf-fixed-console \.gsdf-pinned-reference__body \{[\s\S]*flex: 1 1 auto/);
+  assert.match(cssSource, /\.gsdf-fixed-console \.gsdf-pinned-reference__curve \.gsdf-chart-frame \{[\s\S]*height: auto;[\s\S]*flex: 1 1 auto/);
+  assert.match(cssSource, /\.gsdf-fixed-console \.gsdf-hard8-reference__metrics \{[\s\S]*grid-template-columns: repeat\(4, minmax\(0, 1fr\)\)/);
+  assert.match(cssSource, /@media \(max-height: 620px\) \{[\s\S]*height: clamp\(292px, 48dvh, 310px\)/);
+  assert.match(cssSource, /\.gsdf-signal-scroll/);
+  assert.match(cssSource, /\.gsdf-terminal-dither-control/);
+  assert.match(cssSource, /data-surface-mode="sidebar"/);
   assert.match(cssSource, /\.gsdf-reference-panel/);
   assert.match(cssSource, /\.gsdf-hard8-reference__chart/);
   assert.match(cssSource, /\.gsdf-hard8-reference__line--optimized/);
@@ -665,6 +665,18 @@ test('content panel drag is frame-throttled and keeps tab-bound iframe control',
   assert.doesNotMatch(contentSource, /chrome\.windows\.create/);
 });
 
+test('native side panel keeps settings synchronized with the active managed tab', () => {
+  assert.match(appSource, /searchParams\.get\('mode'\) === 'sidepanel'/);
+  assert.match(appSource, /chromeApi\.tabs\?\.query\(\{ active: true, currentWindow: true \}/);
+  assert.match(appSource, /action: 'apply_settings'/);
+  assert.match(appSource, /onActivated\?\.addListener/);
+  assert.match(appSource, /changeInfo\.status === 'complete'/);
+  assert.match(appSource, /sidebarMode=\{isSidePanel\}/);
+  assert.match(contentSource, /request\.action === 'apply_settings'/);
+  assert.match(contentSource, /currentSettings = normalizeSettings\(request\.payload\)/);
+  assert.match(contentSource, /injectSVGFilter\(\);[\s\S]*startVideoObservers\(\);[\s\S]*updateVideoFilters\(\)/);
+});
+
 test('English UI strings do not contain CJK characters', () => {
   const enBlock = i18nMessagesSource.slice(
     i18nMessagesSource.indexOf('export const enMessages = {'),
@@ -684,21 +696,25 @@ test('English UI strings do not contain CJK characters', () => {
   assert.doesNotMatch(i18nMessagesSource, /calibratedSimulation/);
 });
 
-test('design docs describe the three-step workflow and standalone diagnostics boundary', () => {
-  assert.match(designSource, /Tune, Finish, and Levels workflow/);
+test('design docs describe the signal path workflow and standalone diagnostics boundary', () => {
+  assert.match(designSource, /Signal Path Console/);
+  assert.match(designSource, /detail shaping, perceptual transfer, levels, color, then dither/);
   assert.match(designSource, /does not expose camera luminance estimation or element picking/);
   assert.match(designSource, /standalone route as a rough visual meter/);
   assert.match(designSource, /rough estimates/);
-  assert.match(designSource, /upper-right side-panel control/);
-  assert.match(designSource, /side-panel open\/closed states/);
-  assert.match(designSource, /dedicated Levels tab may explicitly apply/);
-  assert.match(designZhTwSource, /調校、細修、階數流程/);
+  assert.match(designSource, /browser's native side panel by default/);
+  assert.match(designSource, /pinned reference strip/);
+  assert.match(designSource, /complete Dither controls inside the terminal quantization stage/);
+  assert.match(designSource, /visually attached diagnostic branch/);
+  assert.match(designZhTwSource, /Signal Path Console/);
+  assert.match(designZhTwSource, /細節整形、感知轉換、Levels、色彩，最後 Dither/);
   assert.match(designZhTwSource, /刻意不提供相機亮度估算與元素選取/);
   assert.match(designZhTwSource, /只保留在獨立路由/);
   assert.match(designZhTwSource, /粗略估計/);
-  assert.match(designZhTwSource, /右上角側邊欄控制/);
-  assert.match(designZhTwSource, /側邊欄開啟\/關閉狀態/);
-  assert.match(designZhTwSource, /專用的階數頁籤可以明確套用/);
+  assert.match(designZhTwSource, /瀏覽器原生側邊欄開啟/);
+  assert.match(designZhTwSource, /固定參考帶/);
+  assert.match(designZhTwSource, /完整 Dither 控制直接放入終端量化階段/);
+  assert.match(designZhTwSource, /附掛的診斷分支/);
   assert.doesNotMatch(designSource, /A, B, and C|compact, split, and expanded work modes/);
   assert.doesNotMatch(designZhTwSource, /A、B、C|精簡、左右分欄、完整展開模式/);
 });

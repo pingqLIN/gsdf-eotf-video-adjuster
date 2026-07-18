@@ -72,29 +72,96 @@
 
 ## 控制項如何影響圖表
 
-| 控制項 | 位置與樣式 | 調整後最先看哪裡 | 常見判讀 |
-| --- | --- | --- | --- |
-| `目標顯示亮度（Lmax）` | Basic 上方大數字 + range slider | active remap 線、GSDF 輸出掃描、CSDF 視覺線性圖樣、CMY/RGB 連續漸層 | 數值提高或降低會改變整張 tone table 的分配；它不是螢幕實測亮度 |
-| `Gamma 補償` | Basic 中段 slider，右側有顯示 gamma select | active remap 線的中間調形狀 | 右移通常偏向提亮中低調；過量會讓陰影變浮 |
-| `Filter amount` | Basic 下方百分比 compact control | active remap 線與受調整圖樣的變化強度 | 0% 接近 baseline，100% 接近完整 table；中間值是混合 |
-| `公式切換 GSDF/CSDF` | Advanced 的 route pill control | 圖例文字、active remap 線、參考色彩圖樣 | GSDF 偏灰階/亮度導向；CSDF 偏色彩路徑 |
-| `顯示色域` | Advanced 的 sRGB / Display P3 / Adobe RGB segmented control | GSDF YCbCr pipeline 與色彩參考圖樣 | 改的是 gamut 假設，不等於讀取顯示器 ICC 實測資料 |
-| `黑點 / 白點控制` | Advanced 兩個並排 compact controls | 實際影片、黑/白位 checkbox 勾選後的曲線 | 用於後級 levels；太激進會造成裁切 |
-| `Dither Beta` | 參考側邊欄的 `漸層` 模式上方 | CMY/RGB 連續漸層與實際影片濾鏡輸出 | 用來檢查 banding；啟用後可能改善條帶，也可能讓細紋或 noise 更明顯 |
+這一段改成「一個控制項一張差異比較圖」的版面。每張圖都把控制項位置、左側狀態與右側狀態放在同一畫面，方便直接對照曲線或參考圖變化。
+
+### 目標顯示亮度（Lmax）
+
+![Lmax 低目標與高目標對 active remap 線的差異比較](assets/gsdf-csdf-effect-lmax.svg)
+
+| 對照點 | 說明 |
+| --- | --- |
+| 位置 | Basic 分頁上方的大型 `nits` 數字與水平 slider |
+| 最先看 | active remap 線、GSDF 輸出掃描、CSDF 視覺線性圖樣、CMY/RGB 連續漸層 |
+| 判讀 | Lmax 會改變整張 active transfer table 的分配；它是目標假設，不是螢幕實測值 |
+
+### Gamma 補償
+
+![Gamma 中性與中間調抬升的曲線差異比較](assets/gsdf-csdf-effect-gamma.svg)
+
+| 對照點 | 說明 |
+| --- | --- |
+| 位置 | Basic 分頁 Lmax 下方的 slider；右側同列有「顯示裝置使用」select |
+| 最先看 | active remap 線的中間調形狀 |
+| 判讀 | 往提亮方向移動時，中低調會更早抬起；若陰影變灰或霧面變平，先把補償降回中性 |
+
+### Filter amount
+
+![Filter amount 低比例與完整 remap 的曲線差異比較](assets/gsdf-csdf-effect-filter-amount.svg)
+
+| 對照點 | 說明 |
+| --- | --- |
+| 位置 | Basic 分頁輸出預覽圖表下方的百分比 compact control |
+| 最先看 | active remap 線與受調整圖樣的變化強度 |
+| 判讀 | 0% 接近 baseline，100% 接近完整 table；實務上先找最低足夠比例 |
+
+### 公式切換 GSDF/CSDF
+
+![GSDF 灰階路徑與 CSDF 色彩路徑差異比較](assets/gsdf-csdf-effect-route.svg)
+
+| 對照點 | 說明 |
+| --- | --- |
+| 位置 | Advanced 分頁「校正路徑」區塊裡的 `GSDF` / `CSDF` pill control |
+| 最先看 | 圖例文字、active remap 線、GSDF-QC 或色彩參考圖樣 |
+| 判讀 | GSDF 偏灰階 / 亮度導向；CSDF 偏彩色影片與色彩參考圖樣 |
+
+### 顯示色域
+
+![sRGB 與 Display P3 gamut 假設差異比較](assets/gsdf-csdf-effect-gamut.svg)
+
+| 對照點 | 說明 |
+| --- | --- |
+| 位置 | Advanced 分頁的 `sRGB` / `Display P3` / `Adobe RGB` segmented control |
+| 最先看 | GSDF YCbCr-style pipeline 與色彩參考圖樣 |
+| 判讀 | 改的是 gamut 假設與 luma matrix 依據，不等於讀取顯示器 ICC 實測資料 |
+
+### 黑點 / 白點控制
+
+![黑白位未納入與已納入曲線視圖的差異比較](assets/gsdf-csdf-effect-black-white.svg)
+
+| 對照點 | 說明 |
+| --- | --- |
+| 位置 | Advanced 分頁兩個並排 compact controls；曲線圖工具列右側另有 `黑/白位 checkbox` |
+| 最先看 | 實際影片，以及勾選黑/白位 checkbox 後的 active remap 線 |
+| 判讀 | 黑點 / 白點是後級 levels；勾選 checkbox 才會把後級裁切或拉伸畫進曲線圖 |
+
+### Dither Beta
+
+![Dither Beta off、Noise 與彩色 channel offset 差異比較](assets/gsdf-csdf-effect-dither-beta.svg)
+
+| 對照點 | 說明 |
+| --- | --- |
+| 位置 | 參考側邊欄的 `漸層` 模式上方，包含主開關、強度、`使用彩色`、`使用 Noise` |
+| 最先看 | CMY/RGB 連續漸層與實際影片濾鏡輸出 |
+| 判讀 | 用來檢查 banding；啟用後可能打散條帶，也可能讓細紋、noise 或彩色顆粒更明顯 |
 
 ## GSDF 與 CSDF 並列比較
 
 ![並列比較矩陣](assets/gsdf-csdf-comparison-matrix.svg)
+
+### GSDF route vs CSDF route
+
+![GSDF route 與 CSDF route 的面板狀態、曲線與參考圖樣對照](assets/gsdf-csdf-effect-route.svg)
 
 | 項目 | GSDF route | CSDF route |
 | --- | --- | --- |
 | 畫面位置 | Advanced 分頁 `公式切換 GSDF/CSDF` 中選 `GSDF` | Advanced 分頁同一個 pill control 中選 `CSDF` |
 | 圖例文字 | 曲線圖圖例顯示 `GSDF remap` | 曲線圖圖例顯示 `CSDF remap` |
 | 處理方向 | 灰階 / 亮度導向，適合先看 luminance 分配 | 色彩路徑導向，適合彩色影片或色彩參考圖樣 |
-| pipeline 選項 | 會額外顯示 `GSDF pipeline RGB/YCbCr` | 不顯示 GSDF pipeline；直接走 CSDF 色彩路徑 |
 | 技術邊界 | 借用 DICOM GSDF 的 JND / luminance 概念，但沒有執行顯示器量測 conformance | 借用 CSDF paper 的 color perceptual linearization 概念，但不是完整顯示器校正流程 |
 
-GSDF route 裡還有 RGB 與 YCbCr-style 兩種 pipeline。這兩者必須並列看，因為它們不是強弱差異，而是作用通道不同。
+### GSDF RGB pipeline vs YCbCr-style pipeline
+
+![GSDF RGB channel 與 YCbCr-style luma pipeline 差異比較](assets/gsdf-csdf-pipeline-comparison.svg)
 
 | 項目 | GSDF RGB pipeline | GSDF YCbCr-style pipeline |
 | --- | --- | --- |
@@ -120,21 +187,27 @@ GSDF route 裡還有 RGB 與 YCbCr-style 兩種 pipeline。這兩者必須並列
 | 固定參考 | 固定對比掃描 | 用固定 +2 或 +8 code value 差異保留對比基準 |
 | 固定參考 | GSDF-QC 的外框、標題、灰階 row 標籤、線對與左右垂直漸層 | 用來確認縮放、視覺解析與背景分布，不跟著 active table 改 |
 
-`GSDF 輸出掃描` 與 `固定對比掃描` 要一起看：
+### GSDF 輸出掃描 vs 固定對比掃描
+
+![GSDF 輸出掃描與固定對比掃描相鄰兩欄差異比較](assets/gsdf-csdf-sweep-comparison.svg)
 
 | 並列元素 | 位置 | 判讀方式 |
 | --- | --- | --- |
 | GSDF 輸出掃描 | GSDF-QC 參考圖中央偏左的窄直欄 | 若設定改變後掃描欄的低階或高階差異更可見，代表 remap 正在改變輸出間距 |
 | 固定對比掃描 | GSDF 輸出掃描右側的窄直欄 | 若固定掃描本來就看不清楚，可能是顯示器亮度、環境光、縮放或瀏覽器渲染造成，不應只怪 tone table |
 
-`CSDF 視覺線性圖樣` 與 `CMY/RGB 連續漸層` 也要並列看：
+### CSDF 視覺線性圖樣 vs CMY/RGB 連續漸層
+
+![CSDF 六列色彩圖樣與 CMY/RGB 連續漸層差異比較](assets/gsdf-csdf-color-gradient-comparison.svg)
 
 | 並列元素 | 位置 | 適合看什麼 |
 | --- | --- | --- |
 | CSDF 視覺線性圖樣 | 參考側邊欄 `CSDF 色彩` 模式；六列色彩方向 | 看不同 hue pair 的低對比區是否突然斷裂或偏色 |
 | CMY/RGB 連續漸層 | 參考側邊欄 `漸層` 模式；滿版單一連續色帶 | 看長距離漸層是否出現 banding、色帶或 dither 紋理 |
 
-`Dither Beta` 開關也要用 off / on 並列判讀：
+### Dither Beta off vs Noise vs 彩色 offset
+
+![Dither Beta 三種狀態在 CMY/RGB 連續漸層上的差異比較](assets/gsdf-csdf-effect-dither-beta.svg)
 
 | Dither Beta 狀態 | 視覺結果 | 判讀 |
 | --- | --- | --- |

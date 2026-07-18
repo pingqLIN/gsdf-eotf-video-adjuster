@@ -33,7 +33,7 @@ export function VideoBackground({ settings }: VideoBackgroundProps) {
   const gsdfInverseMatrix = React.useMemo(() => gsdfLumaChromaMatrices.inverse.map((value) => Number(value).toFixed(4)).join(' '), [gsdfLumaChromaMatrices]);
   const blackPoint = settings.blackPoint / TONE_LEVEL_COUNT;
   const whitePoint = settings.whitePoint / TONE_LEVEL_COUNT;
-  const usableRange = Math.max(0.05, whitePoint - blackPoint);
+  const usableRange = Math.max(1 / TONE_LEVEL_COUNT, whitePoint - blackPoint);
   const slope = 1 / usableRange;
   const intercept = -blackPoint / usableRange;
   const temperatureRatio = settings.temperature / TEMPERATURE_MAX_K;

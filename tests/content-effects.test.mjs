@@ -335,6 +335,9 @@ test('maps target luminance on a 10 to 500 nits logarithmic slider', () => {
   assert.equal(hooks.normalizeSettings({}).lmax, 100);
   assert.equal(hooks.normalizeSettings({}).blackPoint, 0);
   assert.equal(hooks.normalizeSettings({}).whitePoint, 256);
+  assert.equal(hooks.normalizeSettings({ blackPoint: 255, whitePoint: 256, temperature: 0 }).blackPoint, 255);
+  assert.equal(hooks.normalizeSettings({ blackPoint: 255, whitePoint: 256, temperature: 0 }).whitePoint, 256);
+  assert.equal(hooks.normalizeSettings({ blackPoint: 255, whitePoint: 1, temperature: 0 }).whitePoint, 256);
   assert.equal(hooks.normalizeSettings({}).sourceIsLinear, false);
   assert.equal(hooks.normalizeSettings({}).displayGamma, 2.2);
   assert.deepEqual(
@@ -618,6 +621,15 @@ test('transfer formula selects CSDF or the GSDF RGB and YCbCr managed filters', 
   const ditherFilter = hooks.buildManagedFilterChain('', ditherProfile);
   const inactiveDitherFilter = hooks.buildManagedFilterChain('', inactiveDitherProfile);
   const identityMid = Number((128 / 255).toFixed(5));
+  const oneCodeProfile = hooks.deriveToneProfile({
+    enabled: true,
+    blackPoint: 255,
+    whitePoint: 256,
+    fineSharpness: 20,
+    mediumSharpness: 12,
+    transferFormula: 'csdf'
+  });
+  const oneCodeFilter = hooks.buildManagedFilterChain('', oneCodeProfile);
 
   assert.match(gsdfYcbcrFilter, /url\("#gsdf-eotf-gsdf-ycbcr"\)/);
   assert.doesNotMatch(gsdfYcbcrFilter, /url\("#gsdf-eotf-gsdf-rgb"\)/);
@@ -628,6 +640,13 @@ test('transfer formula selects CSDF or the GSDF RGB and YCbCr managed filters', 
   assert.match(csdfFilter, /url\("#gsdf-eotf-csdf"\)/);
   assert.doesNotMatch(csdfFilter, /url\("#gsdf-eotf-gsdf-(?:rgb|ycbcr)"\)/);
   assert.doesNotMatch(csdfFilter, /url\("#gsdf-eotf-dither"\)/);
+  assert.equal(oneCodeProfile.levelSlope, 256);
+  assert.equal(oneCodeProfile.levelIntercept, -255);
+  assert.ok(
+    oneCodeFilter.indexOf('url("#gsdf-eotf-sharpen-fine")') < oneCodeFilter.indexOf('url("#gsdf-eotf-csdf")')
+      && oneCodeFilter.indexOf('url("#gsdf-eotf-sharpen-medium")') < oneCodeFilter.indexOf('url("#gsdf-eotf-csdf")'),
+    'both sharpening stages should remain before the perceptual transfer stage'
+  );
   assert.equal(ditherProfile.ditherFilterId, 'gsdf-eotf-dither');
   assert.equal(ditherProfile.ditherStrength, 5);
   assert.equal(ditherProfile.ditherColor, true);

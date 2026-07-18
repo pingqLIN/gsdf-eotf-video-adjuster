@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="620" viewBox="0 0 1280 620" role="img" aria-labelledby="title desc">
+  <title id="title">CSDF color pattern and CMY RGB gradient comparison</title>
+  <desc id="desc">A Traditional Chinese difference diagram comparing the CSDF six-row color linearity pattern and the CMY RGB continuous gradient.</desc>
+  <defs>
+    <linearGradient id="rampA" x1="0" x2="1" y1="0" y2="0"><stop offset="0" stop-color="#ff0000"/><stop offset="1" stop-color="#ffff00"/></linearGradient>
+    <linearGradient id="rampB" x1="0" x2="1" y1="0" y2="0"><stop offset="0" stop-color="#0000ff"/><stop offset="1" stop-color="#00ffff"/></linearGradient>
+    <linearGradient id="cmyrgb2" x1="0" x2="1" y1="0" y2="0"><stop offset="0" stop-color="#00ffff"/><stop offset="0.18" stop-color="#ff00ff"/><stop offset="0.36" stop-color="#ffff00"/><stop offset="0.55" stop-color="#ff0000"/><stop offset="0.74" stop-color="#00ff00"/><stop offset="1" stop-color="#0000ff"/></linearGradient>
+  </defs>
+  <rect width="1280" height="620" fill="#071016"/>
+  <text x="64" y="64" fill="#f8fafc" font-family="Segoe UI, Noto Sans TC, Arial, sans-serif" font-size="30" font-weight="700">CSDF 視覺線性圖樣 vs CMY/RGB 連續漸層</text>
+  <text x="64" y="98" fill="#b8c7d4" font-family="Segoe UI, Noto Sans TC, Arial, sans-serif" font-size="16">兩者都受 active table 影響，但檢查目的不同：一個看 hue pair，一個看長距離連續 banding。</text>
+  <g font-family="Segoe UI, Noto Sans TC, Arial, sans-serif">
+    <g transform="translate(64 138)">
+      <rect width="548" height="414" rx="18" fill="#101923" stroke="#22d3ee" stroke-width="2"/>
+      <text x="28" y="42" fill="#e2e8f0" font-size="22" font-weight="700">CSDF 視覺線性圖樣</text>
+      <text x="28" y="70" fill="#94a3b8" font-size="14">參考側邊欄「CSDF 色彩」模式</text>
+      <g transform="translate(48 104)">
+        <rect width="452" height="220" fill="#05070a" stroke="#263647"/>
+        <rect x="20" y="20" width="412" height="24" fill="url(#rampA)"/><rect x="20" y="56" width="412" height="24" fill="url(#rampB)"/>
+        <rect x="20" y="92" width="412" height="24" fill="#d946ef"/><rect x="20" y="128" width="412" height="24" fill="#22c55e"/>
+        <rect x="20" y="164" width="412" height="24" fill="#f97316"/><rect x="20" y="196" width="412" height="12" fill="#38bdf8"/>
+        <rect x="188" y="16" width="76" height="204" fill="rgba(0,0,0,0.35)" stroke="#f8fafc" stroke-opacity="0.35"/>
+      </g>
+      <text x="48" y="384" fill="#cbd5e1" font-size="14">看六組色彩方向中的低對比中心區是否斷裂。</text>
+    </g>
+    <g transform="translate(668 138)">
+      <rect width="548" height="414" rx="18" fill="#101923" stroke="#a78bfa" stroke-width="2"/>
+      <text x="28" y="42" fill="#e2e8f0" font-size="22" font-weight="700">CMY/RGB 連續漸層</text>
+      <text x="28" y="70" fill="#94a3b8" font-size="14">參考側邊欄「漸層」模式</text>
+      <rect x="48" y="132" width="452" height="142" fill="url(#cmyrgb2)" stroke="#263647"/>
+      <g fill="rgba(0,0,0,0.18)">
+        <rect x="130" y="132" width="16" height="142"/><rect x="232" y="132" width="16" height="142"/><rect x="334" y="132" width="16" height="142"/><rect x="436" y="132" width="16" height="142"/>
+      </g>
+      <text x="48" y="384" fill="#cbd5e1" font-size="14">看整條色帶是否出現 banding、跳階或 dither 紋理。</text>
+    </g>
+  </g>
+</svg>

@@ -15,3 +15,9 @@ test('manifest exposes extension UI assets to injected iframes', () => {
   assert.ok(resources.includes('ui/*'), 'extension iframe HTML should be web accessible');
   assert.ok(resources.includes('ui/assets/*'), 'extension iframe JS and CSS assets should be web accessible');
 });
+
+test('manifest opens the primary UI as a native Chrome side panel', () => {
+  assert.ok(manifest.permissions.includes('sidePanel'));
+  assert.equal(manifest.side_panel?.default_path, 'ui/index.html?mode=sidepanel');
+  assert.equal(manifest.action?.default_title, 'Open GSDF Side Panel');
+});

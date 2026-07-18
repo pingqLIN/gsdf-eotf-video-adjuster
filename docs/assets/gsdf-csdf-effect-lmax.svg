@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="620" viewBox="0 0 1280 620" role="img" aria-labelledby="title desc">
+  <title id="title">Lmax control comparison</title>
+  <desc id="desc">A Traditional Chinese difference diagram showing how the Lmax control changes the active remap chart.</desc>
+  <rect width="1280" height="620" fill="#071016"/>
+  <text x="64" y="64" fill="#f8fafc" font-family="Segoe UI, Noto Sans TC, Arial, sans-serif" font-size="30" font-weight="700">目標顯示亮度（Lmax）：同一曲線圖，目標峰值不同</text>
+  <text x="64" y="98" fill="#b8c7d4" font-family="Segoe UI, Noto Sans TC, Arial, sans-serif" font-size="16">左側把 Lmax 視為 80 nits，右側把 Lmax 視為 300 nits；這是目標假設，不是螢幕實測值。</text>
+  <g font-family="Segoe UI, Noto Sans TC, Arial, sans-serif">
+    <g transform="translate(64 138)">
+      <rect width="548" height="414" rx="18" fill="#101923" stroke="#334155" stroke-width="2"/>
+      <text x="28" y="42" fill="#e2e8f0" font-size="22" font-weight="700">低 Lmax 目標：80 nits</text>
+      <text x="28" y="70" fill="#94a3b8" font-size="14">Basic 上方大數字讀值與 slider 偏左</text>
+      <rect x="28" y="94" width="492" height="54" rx="10" fill="#0a1118" stroke="#263647"/>
+      <text x="48" y="128" fill="#f8fafc" font-size="25" font-family="Consolas, monospace">80</text>
+      <text x="96" y="128" fill="#94a3b8" font-size="13">nits</text>
+      <line x1="164" y1="122" x2="486" y2="122" stroke="#334155" stroke-width="8" stroke-linecap="round"/>
+      <line x1="164" y1="122" x2="245" y2="122" stroke="#22d3ee" stroke-width="8" stroke-linecap="round"/>
+      <circle cx="245" cy="122" r="12" fill="#e0f2fe"/>
+      <rect x="48" y="184" width="452" height="172" fill="#081017" stroke="#253142"/>
+      <g stroke="#172334" stroke-width="1">
+        <line x1="48" y1="227" x2="500" y2="227"/><line x1="48" y1="270" x2="500" y2="270"/><line x1="48" y1="313" x2="500" y2="313"/>
+        <line x1="161" y1="184" x2="161" y2="356"/><line x1="274" y1="184" x2="274" y2="356"/><line x1="387" y1="184" x2="387" y2="356"/>
+      </g>
+      <path d="M48 356 L500 184" fill="none" stroke="#64748b" stroke-width="3"/>
+      <path d="M48 356 C126 294 218 246 312 217 C386 194 448 183 500 177" fill="none" stroke="#22d3ee" stroke-width="5"/>
+      <text x="48" y="384" fill="#cbd5e1" font-size="14">暗部被較早抬起；先確認黑位是否變浮。</text>
+    </g>
+    <g transform="translate(668 138)">
+      <rect width="548" height="414" rx="18" fill="#101923" stroke="#334155" stroke-width="2"/>
+      <text x="28" y="42" fill="#e2e8f0" font-size="22" font-weight="700">高 Lmax 目標：300 nits</text>
+      <text x="28" y="70" fill="#94a3b8" font-size="14">同一個 control，slider 往右移</text>
+      <rect x="28" y="94" width="492" height="54" rx="10" fill="#0a1118" stroke="#263647"/>
+      <text x="48" y="128" fill="#f8fafc" font-size="25" font-family="Consolas, monospace">300</text>
+      <text x="112" y="128" fill="#94a3b8" font-size="13">nits</text>
+      <line x1="164" y1="122" x2="486" y2="122" stroke="#334155" stroke-width="8" stroke-linecap="round"/>
+      <line x1="164" y1="122" x2="396" y2="122" stroke="#22d3ee" stroke-width="8" stroke-linecap="round"/>
+      <circle cx="396" cy="122" r="12" fill="#e0f2fe"/>
+      <rect x="48" y="184" width="452" height="172" fill="#081017" stroke="#253142"/>
+      <g stroke="#172334" stroke-width="1">
+        <line x1="48" y1="227" x2="500" y2="227"/><line x1="48" y1="270" x2="500" y2="270"/><line x1="48" y1="313" x2="500" y2="313"/>
+        <line x1="161" y1="184" x2="161" y2="356"/><line x1="274" y1="184" x2="274" y2="356"/><line x1="387" y1="184" x2="387" y2="356"/>
+      </g>
+      <path d="M48 356 L500 184" fill="none" stroke="#64748b" stroke-width="3"/>
+      <path d="M48 356 C142 320 232 269 326 224 C398 190 458 168 500 154" fill="none" stroke="#22d3ee" stroke-width="5"/>
+      <text x="48" y="384" fill="#cbd5e1" font-size="14">整張 table 重新分配；不要把差異視為實測亮度。</text>
+    </g>
+  </g>
+</svg>

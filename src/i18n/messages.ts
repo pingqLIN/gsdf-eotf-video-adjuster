@@ -49,6 +49,7 @@ export const enMessages = {
     toggleSidePanel: 'Open reference side panel',
     closeSidePanel: 'Close reference side panel',
     sidePanelTitle: 'Reference side panel',
+    pinnedReference: 'Pinned reference',
     referencePanel: 'GSDF',
     colorLinearityPanel: 'CSDF color',
     bidirectionalColorPanel: 'Gradient',

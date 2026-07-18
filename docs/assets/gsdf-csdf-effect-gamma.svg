@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="620" viewBox="0 0 1280 620" role="img" aria-labelledby="title desc">
+  <title id="title">Gamma compensation comparison</title>
+  <desc id="desc">A Traditional Chinese difference diagram showing neutral gamma compensation versus lifted midtones.</desc>
+  <rect width="1280" height="620" fill="#071016"/>
+  <text x="64" y="64" fill="#f8fafc" font-family="Segoe UI, Noto Sans TC, Arial, sans-serif" font-size="30" font-weight="700">Gamma 補償：中心 0 與中間調抬升的差異</text>
+  <text x="64" y="98" fill="#b8c7d4" font-family="Segoe UI, Noto Sans TC, Arial, sans-serif" font-size="16">Gamma 補償位於 Basic 分頁 Lmax 下方；主要讓 active remap 線的中段改變。</text>
+  <g font-family="Segoe UI, Noto Sans TC, Arial, sans-serif">
+    <g transform="translate(64 138)">
+      <rect width="548" height="414" rx="18" fill="#101923" stroke="#334155" stroke-width="2"/>
+      <text x="28" y="42" fill="#e2e8f0" font-size="22" font-weight="700">0 · γ 2.2：中性</text>
+      <rect x="28" y="94" width="492" height="54" rx="10" fill="#0a1118" stroke="#263647"/>
+      <text x="48" y="128" fill="#f8fafc" font-size="16">Gamma 補償</text>
+      <line x1="188" y1="122" x2="486" y2="122" stroke="#334155" stroke-width="8" stroke-linecap="round"/>
+      <circle cx="337" cy="122" r="12" fill="#e2e8f0"/>
+      <rect x="48" y="184" width="452" height="172" fill="#081017" stroke="#253142"/>
+      <g stroke="#172334" stroke-width="1">
+        <line x1="48" y1="227" x2="500" y2="227"/><line x1="48" y1="270" x2="500" y2="270"/><line x1="48" y1="313" x2="500" y2="313"/>
+        <line x1="161" y1="184" x2="161" y2="356"/><line x1="274" y1="184" x2="274" y2="356"/><line x1="387" y1="184" x2="387" y2="356"/>
+      </g>
+      <path d="M48 356 L500 184" fill="none" stroke="#64748b" stroke-width="3"/>
+      <path d="M48 356 C142 306 228 260 326 223 C402 194 456 180 500 174" fill="none" stroke="#22d3ee" stroke-width="5"/>
+      <text x="48" y="384" fill="#cbd5e1" font-size="14">先用中性值觀察原本的 GSDF/CSDF remap。</text>
+    </g>
+    <g transform="translate(668 138)">
+      <rect width="548" height="414" rx="18" fill="#101923" stroke="#334155" stroke-width="2"/>
+      <text x="28" y="42" fill="#e2e8f0" font-size="22" font-weight="700">+35 · γ 1.4：中間調偏亮</text>
+      <rect x="28" y="94" width="492" height="54" rx="10" fill="#0a1118" stroke="#263647"/>
+      <text x="48" y="128" fill="#f8fafc" font-size="16">Gamma 補償</text>
+      <line x1="188" y1="122" x2="486" y2="122" stroke="#334155" stroke-width="8" stroke-linecap="round"/>
+      <line x1="337" y1="122" x2="420" y2="122" stroke="#22d3ee" stroke-width="8" stroke-linecap="round"/>
+      <circle cx="420" cy="122" r="12" fill="#e0f2fe"/>
+      <rect x="48" y="184" width="452" height="172" fill="#081017" stroke="#253142"/>
+      <g stroke="#172334" stroke-width="1">
+        <line x1="48" y1="227" x2="500" y2="227"/><line x1="48" y1="270" x2="500" y2="270"/><line x1="48" y1="313" x2="500" y2="313"/>
+        <line x1="161" y1="184" x2="161" y2="356"/><line x1="274" y1="184" x2="274" y2="356"/><line x1="387" y1="184" x2="387" y2="356"/>
+      </g>
+      <path d="M48 356 L500 184" fill="none" stroke="#64748b" stroke-width="3"/>
+      <path d="M48 356 C108 286 194 223 300 186 C385 157 452 154 500 156" fill="none" stroke="#22d3ee" stroke-width="5"/>
+      <text x="48" y="384" fill="#cbd5e1" font-size="14">中段被抬起；若陰影變灰，先把補償降回去。</text>
+    </g>
+  </g>
+</svg>

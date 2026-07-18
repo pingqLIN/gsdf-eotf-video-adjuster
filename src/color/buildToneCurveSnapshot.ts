@@ -120,8 +120,8 @@ export function normalizeToneCurveSettings(value: Partial<ToneCurveSettings> | n
   const gammaTarget = settings.gammaTarget === undefined || settings.gammaTarget === null
     ? displayGamma
     : normalizeGammaTarget(settings.gammaTarget);
-  const blackPoint = Math.round(clampNumber(settings.blackPoint, 0, 16, DEFAULT_TONE_CURVE_SETTINGS.blackPoint));
-  let whitePoint = Math.round(clampNumber(settings.whitePoint, 240, 256, DEFAULT_TONE_CURVE_SETTINGS.whitePoint));
+  const blackPoint = Math.round(clampNumber(settings.blackPoint, 0, 255, DEFAULT_TONE_CURVE_SETTINGS.blackPoint));
+  let whitePoint = Math.round(clampNumber(settings.whitePoint, 1, 256, DEFAULT_TONE_CURVE_SETTINGS.whitePoint));
 
   if (whitePoint <= blackPoint) {
     whitePoint = Math.min(256, blackPoint + 1);

@@ -9,6 +9,45 @@ function waitForMicrotasks() {
   return new Promise((resolve) => setTimeout(resolve, 0));
 }
 
+test('action click opens the native side panel before using the injected fallback', async () => {
+  let clickHandler = null;
+  const openCalls = [];
+  const chrome = {
+    action: {
+      onClicked: {
+        addListener(callback) {
+          clickHandler = callback;
+        }
+      }
+    },
+    sidePanel: {
+      open(options) {
+        openCalls.push(options);
+        return Promise.resolve();
+      }
+    },
+    runtime: { lastError: null },
+    tabs: {
+      sendMessage() {
+        throw new Error('injected fallback should not run when native side panel opens');
+      }
+    },
+    scripting: {
+      executeScript() {
+        throw new Error('injected fallback should not run when native side panel opens');
+      }
+    }
+  };
+  const context = vm.createContext({ chrome, console, setTimeout });
+
+  vm.runInContext(backgroundSource, context, { filename: 'extension/background.js' });
+  clickHandler({ id: 9, url: 'https://example.com/' });
+  await waitForMicrotasks();
+
+  assert.equal(openCalls.length, 1);
+  assert.equal(openCalls[0].tabId, 9);
+});
+
 test('action click falls back to direct content toggle when messaging remains unavailable', async () => {
   let clickHandler = null;
   const executedScripts = [];

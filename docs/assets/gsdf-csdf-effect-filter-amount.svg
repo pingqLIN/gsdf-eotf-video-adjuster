@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="620" viewBox="0 0 1280 620" role="img" aria-labelledby="title desc">
+  <title id="title">Filter amount comparison</title>
+  <desc id="desc">A Traditional Chinese difference diagram showing low versus full filter amount in the active remap chart.</desc>
+  <rect width="1280" height="620" fill="#071016"/>
+  <text x="64" y="64" fill="#f8fafc" font-family="Segoe UI, Noto Sans TC, Arial, sans-serif" font-size="30" font-weight="700">Filter amount：同一 table 混入比例不同</text>
+  <text x="64" y="98" fill="#b8c7d4" font-family="Segoe UI, Noto Sans TC, Arial, sans-serif" font-size="16">Filter amount 位於輸出預覽圖表下方；改的是強度比例，不是換一套圖表。</text>
+  <g font-family="Segoe UI, Noto Sans TC, Arial, sans-serif">
+    <g transform="translate(64 138)">
+      <rect width="548" height="414" rx="18" fill="#101923" stroke="#334155" stroke-width="2"/>
+      <text x="28" y="42" fill="#e2e8f0" font-size="22" font-weight="700">25%：靠近 baseline</text>
+      <rect x="28" y="94" width="492" height="54" rx="10" fill="#0a1118" stroke="#263647"/>
+      <text x="48" y="128" fill="#f8fafc" font-size="16">Filter amount</text>
+      <text x="430" y="128" fill="#22d3ee" font-size="20" font-family="Consolas, monospace">25%</text>
+      <rect x="48" y="184" width="452" height="172" fill="#081017" stroke="#253142"/>
+      <path d="M48 356 L500 184" fill="none" stroke="#64748b" stroke-width="3"/>
+      <path d="M48 356 C140 322 231 279 322 235 C394 201 452 184 500 176" fill="none" stroke="#22d3ee" stroke-width="5"/>
+      <text x="48" y="384" fill="#cbd5e1" font-size="14">曲線仍接近 Standard sRGB；適合先找最低足夠值。</text>
+    </g>
+    <g transform="translate(668 138)">
+      <rect width="548" height="414" rx="18" fill="#101923" stroke="#334155" stroke-width="2"/>
+      <text x="28" y="42" fill="#e2e8f0" font-size="22" font-weight="700">100%：完整 remap</text>
+      <rect x="28" y="94" width="492" height="54" rx="10" fill="#0a1118" stroke="#263647"/>
+      <text x="48" y="128" fill="#f8fafc" font-size="16">Filter amount</text>
+      <text x="420" y="128" fill="#22d3ee" font-size="20" font-family="Consolas, monospace">100%</text>
+      <rect x="48" y="184" width="452" height="172" fill="#081017" stroke="#253142"/>
+      <path d="M48 356 L500 184" fill="none" stroke="#64748b" stroke-width="3"/>
+      <path d="M48 356 C105 296 202 225 318 188 C398 163 456 158 500 158" fill="none" stroke="#22d3ee" stroke-width="5"/>
+      <text x="48" y="384" fill="#cbd5e1" font-size="14">差異最大；若畫面過度加工，先降低比例。</text>
+    </g>
+  </g>
+</svg>

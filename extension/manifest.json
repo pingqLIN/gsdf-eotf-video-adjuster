@@ -3,10 +3,13 @@
   "name": "GSDF EOTF Video Adjuster",
   "version": "1.0",
   "description": "Viewing aid that applies GSDF-inspired luminance remapping to browser video.",
-  "permissions": ["activeTab", "scripting"],
+  "permissions": ["activeTab", "scripting", "sidePanel"],
   "host_permissions": ["<all_urls>"],
   "action": {
-    "default_title": "Toggle GSDF Control Panel"
+    "default_title": "Open GSDF Side Panel"
+  },
+  "side_panel": {
+    "default_path": "ui/index.html?mode=sidepanel"
   },
   "background": {
     "service_worker": "background.js"
