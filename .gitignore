@@ -8,5 +8,6 @@ output/
 .vite/
 .DS_Store
 *.log
+*.bak
 .env*
 !.env.example
