@@ -301,6 +301,10 @@ npm run smoke:ext:env
 | [docs/project-lines.zh-tw.md](docs/project-lines.zh-tw.md) | 繁體中文專案線與歸檔地圖 |
 | [docs/gsdf-model.md](docs/gsdf-model.md) | GSDF 公式來源、瀏覽器近似與實作流程 |
 | [docs/gsdf-model.ZHTW.md](docs/gsdf-model.ZHTW.md) | 繁體中文 GSDF 模型說明 |
+| [docs/rendering-bit-depth-architecture.md](docs/rendering-bit-depth-architecture.md) | 已查核的瀏覽器渲染路徑、effective 8-bit component-transfer 邊界與 10-bit 研究選項 |
+| [docs/rendering-bit-depth-architecture.zh-tw.md](docs/rendering-bit-depth-architecture.zh-tw.md) | 繁體中文渲染與位深架構參考 |
+| [docs/10-bit-output-validation-protocol.md](docs/10-bit-output-validation-protocol.md) | 未來宣稱 10-bit-output 所需的證據 gates |
+| [docs/10-bit-output-validation-protocol.zh-tw.md](docs/10-bit-output-validation-protocol.zh-tw.md) | 繁體中文 10-bit 輸出驗證協議 |
 | [docs/gsdf-application-and-ui-review.md](docs/gsdf-application-and-ui-review.md) | 公式審查、UI 審查輸入、已實作修正與驗證紀錄 |
 | [docs/gsdf-application-and-ui-review.ZHTW.md](docs/gsdf-application-and-ui-review.ZHTW.md) | 繁體中文審查紀錄 |
 | [docs/test-patterns.md](docs/test-patterns.md) | 獨立階調流失測試圖 route 說明 |

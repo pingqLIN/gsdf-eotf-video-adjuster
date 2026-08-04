@@ -301,6 +301,10 @@ The smoke runner writes local evidence under `output/playwright/`.
 | [docs/project-lines.zh-tw.md](docs/project-lines.zh-tw.md) | Traditional Chinese project line and archive map |
 | [docs/gsdf-model.md](docs/gsdf-model.md) | GSDF formula source, browser approximation, and implementation pipeline |
 | [docs/gsdf-model.ZHTW.md](docs/gsdf-model.ZHTW.md) | Traditional Chinese GSDF model notes |
+| [docs/rendering-bit-depth-architecture.md](docs/rendering-bit-depth-architecture.md) | Checked browser render path, effective 8-bit component-transfer boundary, and 10-bit research options |
+| [docs/rendering-bit-depth-architecture.zh-tw.md](docs/rendering-bit-depth-architecture.zh-tw.md) | Traditional Chinese rendering and bit-depth architecture reference |
+| [docs/10-bit-output-validation-protocol.md](docs/10-bit-output-validation-protocol.md) | Evidence gates for a future 10-bit-output claim |
+| [docs/10-bit-output-validation-protocol.zh-tw.md](docs/10-bit-output-validation-protocol.zh-tw.md) | Traditional Chinese 10-bit output validation protocol |
 | [docs/gsdf-application-and-ui-review.md](docs/gsdf-application-and-ui-review.md) | Formula review, UI review inputs, implemented corrections, and verification notes |
 | [docs/gsdf-application-and-ui-review.ZHTW.md](docs/gsdf-application-and-ui-review.ZHTW.md) | Traditional Chinese review notes |
 | [docs/test-patterns.md](docs/test-patterns.md) | Standalone tone-loss test-pattern route notes |
